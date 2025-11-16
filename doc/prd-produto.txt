@@ -1,0 +1,284 @@
+# 📘 DOCUMENTO GERAL DO SISTEMA – EJR GESTÃO INTERNA
+### *(Consolidado das discussões e orientações)*
+
+---
+
+# 🟦 1. Visão Geral do Sistema
+O sistema é um ERP interno completo voltado à gestão operacional do negócio, abrangendo:
+
+- Gestão de produtos finais  
+- Gestão de componentes e peças  
+- Estrutura de produto (BOM)  
+- Produção (montagem)  
+- Compras  
+- Estoque  
+- Vendas  
+- Fornecedores  
+- P&D (desenvolvimento de produtos)  
+- Controle de acessos por papéis  
+- Operação técnica e manutenção  
+
+O objetivo é unificar todos os processos internos em um fluxo organizado, com regras claras e automações.
+
+---
+
+# 🟩 2. Estrutura do Sistema
+
+## 2.1 Produtos Finais
+Produtos finais são itens vendidos ao cliente.
+
+### Campos:
+- Nome  
+- Código  
+- Categoria  
+- Fornecedor principal (único)  
+- Preço de venda  
+- Custo (calculado automaticamente pela BOM)  
+- Foto  
+- Descrição  
+- Estoque  
+- Versão (ex.: v1.0, v1.1…)  
+- Status: Desenvolvimento / Produção / Ativo / Descontinuado  
+- **Lista de Componentes (BOM)**  
+
+### Regras:
+- Custo calculado pela soma dos componentes  
+- Estoque aumenta pela montagem (OP)  
+- Produto final não possui vários fornecedores  
+
+---
+
+## 2.2 Componentes / Peças
+Componentes são itens usados para montar produtos.
+
+### Campos:
+- Nome  
+- Código  
+- Categoria  
+- Estoque  
+- Estoque mínimo  
+- Descrição técnica  
+- Localização  
+- **Vários fornecedores**  
+- Lead time  
+- Lote mínimo  
+- Alternativas de componentes (opcional)  
+
+### Regras:
+- Um componente pode ter muitos fornecedores  
+- Fornecedor é escolhido na compra, não na BOM  
+
+---
+
+# 🟦 3. BOM – Lista de Componentes por Produto
+Ligação entre produto final e seus componentes.
+
+### Dados:
+- Componente  
+- Quantidade  
+- Percentual de perda  
+- Custo total calculado  
+
+### Regras:
+- Alterar custo do componente recalcula custo do produto  
+- Baixa de estoque ocorre na produção  
+- Componentes alternativos são possíveis  
+
+---
+
+# 🟫 4. Compras
+Integra fornecedores, componentes e estoque.
+
+### Funções:
+- Solicitação de compra  
+- Comparação automática entre fornecedores  
+- Pedido de compra (PC)  
+- Recebimento e conferência  
+- Atualização de estoque  
+- Atualização de custo do componente  
+
+### Regras:
+- Comprador cuida de preços  
+- Gerente ou Director aprova  
+- Custo do produto é recalculado automaticamente  
+
+---
+
+# 🟪 5. Estoque
+Controle completo de estoque de componentes e produtos finais.
+
+### Funções:
+- Entrada / Saída  
+- Ajustes  
+- Inventário  
+- Estoque mínimo  
+- Localização  
+- Estoque reservado para produção  
+- Alertas automáticos  
+
+---
+
+# 🟦 6. Produção / Montagem
+Integra BOM, estoque e produtos finais.
+
+### Funções:
+- Criar Ordem de Produção (OP)  
+- Baixa de componentes  
+- Gerar estoque de produto final  
+- Registrar perdas  
+- Reprocessamento  
+- Relatório de produção  
+
+### Regras:
+- OP consome componentes  
+- Se faltar componente, sistema alerta  
+
+---
+
+# 🟥 7. Vendas
+Fluxo comercial interno.
+
+### Funções:
+- Orçamento  
+- Pedido  
+- Venda  
+- Baixa de estoque do produto final  
+- Relatórios de vendas  
+
+### Regras:
+- Comercial não vê custos  
+- Tabela de preços por categoria de cliente  
+
+---
+
+# 🟩 8. P&D – Desenvolvimento de Produtos
+Criação e evolução de produtos internos.
+
+### Funções:
+- Criar produtos em desenvolvimento  
+- Criar BOM inicial  
+- Registrar protótipos  
+- Controle de versões  
+- Anexar documentos técnicos  
+- Aprovar produto para lançamento  
+
+### Regras:
+- P&D não vê custos  
+- Apenas Owner/Director fazem aprovação final  
+
+---
+
+# 🟨 9. Assistência Técnica / OS
+Controle de manutenção e uso técnico de peças.
+
+### Funções:
+- Registrar OS  
+- Baixa de componentes usados  
+- Registro de defeitos  
+- Histórico técnico  
+
+### Regras:
+- Técnico não vê preços  
+- Componentes usados saem do estoque  
+
+---
+
+# 🔐 10. Papéis e Permissões (RBAC)
+
+## OWNER
+- Acesso total a tudo  
+
+## DIRECTOR
+- Acesso quase total  
+- Aprovação de: OP, compras, BOM  
+- Vê custos e margens  
+
+## MANAGER
+- Acesso operacional forte  
+- Estoque, produção, compras  
+- Não vê custos completos  
+
+## COMPRADOR
+- Fornecedores  
+- Preços  
+- Pedidos de compra  
+- Recebimento  
+
+## PRODUÇÃO
+- OP  
+- Baixa de componentes  
+- Ver BOM  
+- Registrar perdas  
+
+## ESTOQUISTA
+- Entrada  
+- Saída  
+- Inventário  
+- Localização  
+
+## ASSISTÊNCIA TÉCNICA
+- OS  
+- Baixa de peças  
+- Histórico técnico  
+
+## VENDAS / COMERCIAL
+- Orçamento  
+- Pedido  
+- Vendas  
+- Ver estoque de produtos finais  
+
+## P&D
+- Produtos em desenvolvimento  
+- BOM inicial  
+- Versões  
+- Documentos técnicos  
+
+---
+
+# ⛓️ 11. Fluxo Integrado do Sistema
+
+1. P&D cria um produto  
+2. Define a BOM  
+3. Compras adquire componentes  
+4. Componentes entram no estoque  
+5. Produção cria uma OP  
+6. Sistema baixa componentes  
+7. Aumenta estoque do produto final  
+8. Comercial vende  
+9. Estoque é atualizado  
+10. Técnico usa componentes em OS (quando necessário)  
+
+---
+
+# 📊 12. Relatórios Essenciais
+- Comparação de fornecedores  
+- Histórico de preços  
+- Consumo de componentes  
+- Perdas de produção  
+- Necessidade de compras  
+- Valorização de estoque  
+- Margem por produto  
+- Performance de vendas  
+
+---
+
+# 🔥 13. Benefícios do Sistema
+- Ciclo completo e automatizado  
+- Controle preciso de custos  
+- Estoque confiável  
+- Produção integrada  
+- Compras inteligentes  
+- Permissões bem definidas  
+- Organização profissional  
+
+---
+
+# 🟪 14. Próximos Passos
+- Criar PRD técnico completo  
+- Criar wireframes das telas  
+- Criar ERD (modelagem de dados)  
+- Diagramas de fluxo de produção  
+- Regras de acesso por API  
+
+---
+

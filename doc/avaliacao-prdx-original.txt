@@ -1,0 +1,172 @@
+Perfeito — vou **comparar diretamente**:
+
+* **O que existe no arquivo ORIGINAL (original.txt)**
+  **vs.**
+* **O que NÃO existe no PRD (prd.md)**
+
+E vou te entregar **somente os itens que estão no original.txt e NÃO estão no PRD.**
+
+Isso é exatamente o que você pediu.
+
+---
+
+# ✅ **O QUE TEM NO *original.txt* E NÃO TEM NO PRD**
+
+Abaixo está a lista completa e organizada.
+
+---
+
+# 🔵 **1. Página Pública / Vitrine com IA**
+
+📌 **Não existe no PRD.**
+No original.txt há:
+
+* Página pública para clientes
+* Vitrine virtual com **IA** destacando produtos
+* Link compartilhável (WhatsApp etc.)
+* Área para anexar **arquivos de firmware, tutoriais**
+* Cliente consegue acessar esses arquivos
+
+📄 Referência: *original.txt* 
+
+O PRD **não possui nenhuma funcionalidade de vitrine pública**, nem IA para destaque.
+
+---
+
+# 🔵 **2. Área do Cliente (Sessão do Cliente)**
+
+📌 **Não existe no PRD.**
+
+No original:
+
+* Cada cliente tem usuário e senha
+* Cliente acessa seus arquivos
+* Cliente visualiza pedidos
+* Download de arquivos
+* Notificações personalizadas
+
+O PRD não menciona **login do cliente**, **portal do cliente** ou **dashboard do cliente**.
+
+---
+
+# 🔵 **3. Controle de Horário de Acesso dos Funcionários**
+
+📌 **Não existe no PRD.**
+
+Do original.txt:
+
+* Cadastro de padrões de horário (ex: comercial)
+* Restrições por horário
+* Sistema bloqueia acesso fora do horário permitido
+
+O PRD só fala de **controle de permissão e papel**, não de horários de acesso.
+
+---
+
+# 🔵 **4. Sistema de Ponto (Registro de Jornada)**
+
+📌 **Não existe no PRD.**
+
+Inclui:
+
+* Bater ponto (entrada e saída)
+* Captura da localização do dispositivo
+* Relatórios de ponto
+* Histórico de horas trabalhadas
+
+O PRD atual não tem **nenhum módulo de RH/jornada/ponto**.
+
+---
+
+# 🔵 **5. Manutenção de Produtos (Garantia / Pós-venda)**
+
+📌 **Não existe no PRD.**
+
+O original traz:
+
+* Registro de manutenções
+* Data, tipo (garantia / fora de garantia)
+* Custos de manutenção
+* Histórico organizado
+
+O PRD só menciona **ordens de serviço do técnico**, mas **não** traz manutenção de produto vendida e tratada como um módulo formal.
+
+---
+
+# 🔵 **6. Disponibilização de Arquivos por Produto**
+
+📌 **Não existe no PRD.**
+
+No original:
+
+* Upload de arquivos vinculados ao produto
+* Firmware
+* Tutoriais
+* Arquivos para clientes baixarem
+
+O PRD não prevê **arquivos anexos ao produto**, apenas foto.
+
+---
+
+# 🔵 **7. Notificações ao Cliente sobre Arquivos/Atualizações**
+
+📌 **Não existe no PRD.**
+
+O PRD prevê notificações internas (diretor, gerente, vendedor), mas **não notifica clientes** sobre nada.
+
+---
+
+# 🔵 **8. Filtros de Estoque/Vendas personalizados citados no original**
+
+📌 **O original fala de filtros específicos**
+Exemplo:
+
+* Filtrar por dia, semana, mês e ano (estoque, vendas e saídas) 
+
+O PRD tem filtros mais robustos em relatórios, mas **não especificamente esse conjunto de filtros operacionais simples** citados no original.
+
+---
+
+# 🔵 **9. Sistema específico de Manutenção listada como seção separada**
+
+Embora o PRD tenha “ordem de serviço”, o original lista:
+
+* “Seção de Manutenção de Produtos”
+* Histórico de intervenções no produto
+
+👉 **Esse módulo não existe formalmente no PRD.**
+
+---
+
+# 🔵 **10. Controles adicionais de divulgação externa**
+
+Do original:
+
+* Compartilhamento fácil da vitrine do produto (WhatsApp)
+* Página web pública conectada ao sistema
+
+O PRD nunca menciona **nada público**, tudo é interno.
+
+---
+
+# 🟥 **Resumo Final — o que só existe no original.txt e NÃO existe no PRD**
+
+1. Vitrine pública com IA
+2. Área de login do cliente
+3. Downloads de firmware e tutoriais
+4. Notificações para clientes
+5. Manutenção de produtos (garantia/pós-venda)
+6. Sistema de ponto (registro de jornada)
+7. Controle de horário de acesso
+8. Arquivos anexos ao produto
+9. Filtros simples por período em páginas operacionais
+10. Página pública compartilhável (WhatsApp)
+11. Parte de suporte técnico por arquivos ligados ao produto
+
+---
+
+# 👉 Quer que eu faça o contrário também?
+
+### **Listar o que existe no PRD e NÃO existe no original.txt?**
+
+Ou quer que eu **integre tudo** em um único PRD atualizado e unificado?

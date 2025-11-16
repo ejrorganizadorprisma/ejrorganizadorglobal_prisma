@@ -1,0 +1,221 @@
+import { CustomersRepository } from '../repositories/customers.repository';
+import { AppError } from '../utils/errors';
+import type { CreateCustomerDTO, UpdateCustomerDTO, CustomerType } from '@ejr/shared-types';
+
+export class CustomersService {
+  private repository: CustomersRepository;
+
+  constructor() {
+    this.repository = new CustomersRepository();
+  }
+
+  async findMany(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    type?: CustomerType;
+  }) {
+    const { page, limit, search, type } = params;
+
+    if (page < 1 || limit < 1 || limit > 100) {
+      throw new AppError('Parâmetros de paginação inválidos', 400);
+    }
+
+    const [customers, total] = await Promise.all([
+      this.repository.findMany({ page, limit, search, type }),
+      this.repository.count({ search, type }),
+    ]);
+
+    return {
+      data: customers,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findById(id: string) {
+    const customer = await this.repository.findById(id);
+
+    if (!customer) {
+      throw new AppError('Cliente não encontrado', 404);
+    }
+
+    return customer;
+  }
+
+  async findByDocument(document: string) {
+    const customer = await this.repository.findByDocument(document);
+
+    if (!customer) {
+      throw new AppError('Cliente não encontrado', 404);
+    }
+
+    return customer;
+  }
+
+  async create(data: CreateCustomerDTO) {
+    // Verificar se já existe cliente com o mesmo documento
+    const existingCustomer = await this.repository.findByDocument(data.document);
+    if (existingCustomer) {
+      throw new AppError('Já existe um cliente com este documento', 409);
+    }
+
+    // Validar documento (CPF ou CNPJ)
+    const cleanDocument = data.document.replace(/\D/g, '');
+
+    if (data.type === 'INDIVIDUAL') {
+      // CPF deve ter 11 dígitos
+      if (cleanDocument.length !== 11) {
+        throw new AppError('CPF inválido', 400);
+      }
+      if (!this.isValidCPF(cleanDocument)) {
+        throw new AppError('CPF inválido', 400);
+      }
+    } else {
+      // CNPJ deve ter 14 dígitos
+      if (cleanDocument.length !== 14) {
+        throw new AppError('CNPJ inválido', 400);
+      }
+      if (!this.isValidCNPJ(cleanDocument)) {
+        throw new AppError('CNPJ inválido', 400);
+      }
+    }
+
+    // Validar e-mail se fornecido
+    if (data.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.email)) {
+        throw new AppError('E-mail inválido', 400);
+      }
+    }
+
+    return this.repository.create({
+      ...data,
+      document: cleanDocument,
+    });
+  }
+
+  async update(id: string, data: UpdateCustomerDTO) {
+    // Verificar se cliente existe
+    const existingCustomer = await this.repository.findById(id);
+    if (!existingCustomer) {
+      throw new AppError('Cliente não encontrado', 404);
+    }
+
+    // Se documento foi alterado, verificar se já existe outro cliente com o novo documento
+    if (data.document) {
+      const cleanDocument = data.document.replace(/\D/g, '');
+
+      if (cleanDocument !== existingCustomer.document) {
+        const customerWithDocument = await this.repository.findByDocument(cleanDocument);
+        if (customerWithDocument) {
+          throw new AppError('Já existe um cliente com este documento', 409);
+        }
+      }
+
+      // Validar novo documento
+      const customerType = data.type ?? existingCustomer.type;
+      if (customerType === 'INDIVIDUAL') {
+        if (cleanDocument.length !== 11 || !this.isValidCPF(cleanDocument)) {
+          throw new AppError('CPF inválido', 400);
+        }
+      } else {
+        if (cleanDocument.length !== 14 || !this.isValidCNPJ(cleanDocument)) {
+          throw new AppError('CNPJ inválido', 400);
+        }
+      }
+
+      data.document = cleanDocument;
+    }
+
+    // Validar e-mail se fornecido
+    if (data.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.email)) {
+        throw new AppError('E-mail inválido', 400);
+      }
+    }
+
+    return this.repository.update(id, data);
+  }
+
+  async delete(id: string) {
+    // Verificar se cliente existe
+    const existingCustomer = await this.repository.findById(id);
+    if (!existingCustomer) {
+      throw new AppError('Cliente não encontrado', 404);
+    }
+
+    // Verificar se cliente tem orçamentos associados
+    if (existingCustomer.quotes && existingCustomer.quotes.length > 0) {
+      throw new AppError(
+        'Não é possível excluir cliente com orçamentos associados',
+        400
+      );
+    }
+
+    return this.repository.delete(id);
+  }
+
+  // Validação de CPF
+  private isValidCPF(cpf: string): boolean {
+    if (cpf.length !== 11) return false;
+
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+    // Validar primeiro dígito verificador
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += parseInt(cpf.charAt(i)) * (10 - i);
+    }
+    let digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(cpf.charAt(9))) return false;
+
+    // Validar segundo dígito verificador
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(cpf.charAt(i)) * (11 - i);
+    }
+    digit = 11 - (sum % 11);
+    if (digit >= 10) digit = 0;
+    if (digit !== parseInt(cpf.charAt(10))) return false;
+
+    return true;
+  }
+
+  // Validação de CNPJ
+  private isValidCNPJ(cnpj: string): boolean {
+    if (cnpj.length !== 14) return false;
+
+    // Verificar se todos os dígitos são iguais
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+
+    // Validar primeiro dígito verificador
+    let sum = 0;
+    let weight = 5;
+    for (let i = 0; i < 12; i++) {
+      sum += parseInt(cnpj.charAt(i)) * weight;
+      weight = weight === 2 ? 9 : weight - 1;
+    }
+    let digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    if (digit !== parseInt(cnpj.charAt(12))) return false;
+
+    // Validar segundo dígito verificador
+    sum = 0;
+    weight = 6;
+    for (let i = 0; i < 13; i++) {
+      sum += parseInt(cnpj.charAt(i)) * weight;
+      weight = weight === 2 ? 9 : weight - 1;
+    }
+    digit = sum % 11 < 2 ? 0 : 11 - (sum % 11);
+    if (digit !== parseInt(cnpj.charAt(13))) return false;
+
+    return true;
+  }
+}
