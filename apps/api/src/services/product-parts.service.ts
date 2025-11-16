@@ -16,7 +16,7 @@ export class ProductPartsService {
     // Verificar se produto existe
     const product = await this.productsRepository.findById(productId);
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     return this.repository.findByProductId(productId);
@@ -26,29 +26,29 @@ export class ProductPartsService {
     // Verificar se produto principal existe
     const product = await this.productsRepository.findById(productId);
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     // Verificar se peça existe
     const part = await this.productsRepository.findById(partData.partId);
     if (!part) {
-      throw new AppError('Peça não encontrada', 404);
+      throw new AppError('Peça não encontrada', 404, 'PART_NOT_FOUND');
     }
 
     // Não permitir adicionar produto como peça de si mesmo
     if (productId === partData.partId) {
-      throw new AppError('Um produto não pode ser peça de si mesmo', 400);
+      throw new AppError('Um produto não pode ser peça de si mesmo', 400, 'SELF_REFERENCE_NOT_ALLOWED');
     }
 
     // Verificar se peça já existe no produto
     const existingPart = await this.repository.findByProductAndPart(productId, partData.partId);
     if (existingPart) {
-      throw new AppError('Esta peça já está adicionada a este produto', 409);
+      throw new AppError('Esta peça já está adicionada a este produto', 409, 'DUPLICATE_PART');
     }
 
     // Validar quantidade
     if (partData.quantity <= 0) {
-      throw new AppError('Quantidade deve ser maior que zero', 400);
+      throw new AppError('Quantidade deve ser maior que zero', 400, 'INVALID_QUANTITY');
     }
 
     return this.repository.addPart(productId, partData);
@@ -58,12 +58,12 @@ export class ProductPartsService {
     // Verificar se relação existe
     const existingPart = await this.repository.findById(productPartId);
     if (!existingPart) {
-      throw new AppError('Peça não encontrada no produto', 404);
+      throw new AppError('Peça não encontrada no produto', 404, 'PRODUCT_PART_NOT_FOUND');
     }
 
     // Validar quantidade se fornecida
     if (partData.quantity !== undefined && partData.quantity <= 0) {
-      throw new AppError('Quantidade deve ser maior que zero', 400);
+      throw new AppError('Quantidade deve ser maior que zero', 400, 'INVALID_QUANTITY');
     }
 
     return this.repository.updatePart(productPartId, partData);
@@ -73,7 +73,7 @@ export class ProductPartsService {
     // Verificar se relação existe
     const existingPart = await this.repository.findById(productPartId);
     if (!existingPart) {
-      throw new AppError('Peça não encontrada no produto', 404);
+      throw new AppError('Peça não encontrada no produto', 404, 'PRODUCT_PART_NOT_FOUND');
     }
 
     return this.repository.removePart(productPartId);
@@ -83,7 +83,7 @@ export class ProductPartsService {
     // Verificar se produto existe
     const product = await this.productsRepository.findById(productId);
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     return this.repository.getBOM(productId);
@@ -93,12 +93,12 @@ export class ProductPartsService {
     // Verificar se produto existe
     const product = await this.productsRepository.findById(productId);
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     // Validar quantidade
     if (quantity <= 0) {
-      throw new AppError('Quantidade deve ser maior que zero', 400);
+      throw new AppError('Quantidade deve ser maior que zero', 400, 'INVALID_QUANTITY');
     }
 
     return this.repository.checkAvailability(productId, quantity);

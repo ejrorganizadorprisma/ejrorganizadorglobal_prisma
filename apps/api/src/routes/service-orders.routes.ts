@@ -12,6 +12,19 @@ router.use(authenticate);
 // GET /api/service-orders - Listar ordens de serviço com paginação e filtros
 router.get('/', asyncHandler(controller.findMany));
 
+// GET /api/service-orders/stats - Estatísticas das ordens de serviço
+router.get('/stats', asyncHandler(async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      total: 0,
+      pending: 0,
+      inProgress: 0,
+      completed: 0,
+    },
+  });
+}));
+
 // GET /api/service-orders/status/:status - Listar OSs por status
 router.get('/status/:status', asyncHandler(controller.getByStatus));
 

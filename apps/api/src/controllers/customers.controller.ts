@@ -10,8 +10,11 @@ export class CustomersController {
   }
 
   findMany = async (req: Request, res: Response) => {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const pageParam = req.query.page as string;
+    const limitParam = req.query.limit as string;
+
+    const page = pageParam ? Math.max(1, parseInt(pageParam) || 1) : 1;
+    const limit = limitParam ? Math.min(100, Math.max(1, parseInt(limitParam) || 10)) : 10;
     const search = req.query.search as string | undefined;
     const type = req.query.type as any;
 

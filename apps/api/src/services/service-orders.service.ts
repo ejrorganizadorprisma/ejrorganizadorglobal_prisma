@@ -27,7 +27,7 @@ export class ServiceOrdersService {
     const { page, limit, search, status, customerId, technicianId, isWarranty } = params;
 
     if (page < 1 || limit < 1 || limit > 100) {
-      throw new AppError('Parâmetros de paginação inválidos', 400);
+      throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
     const [serviceOrders, total] = await Promise.all([
@@ -50,7 +50,7 @@ export class ServiceOrdersService {
     const serviceOrder = await this.repository.findById(id);
 
     if (!serviceOrder) {
-      throw new AppError('Ordem de serviço não encontrada', 404);
+      throw new AppError('Ordem de serviço não encontrada', 404, 'SERVICE_ORDER_NOT_FOUND');
     }
 
     return serviceOrder;
@@ -59,18 +59,18 @@ export class ServiceOrdersService {
   async create(data: CreateServiceOrderDTO) {
     // Validar se cliente existe (verificação básica pelo ID)
     if (!data.customerId) {
-      throw new AppError('Cliente é obrigatório', 400);
+      throw new AppError('Cliente é obrigatório', 400, 'CUSTOMER_REQUIRED');
     }
 
     // Validar se produto existe
     const product = await this.productsRepository.findById(data.productId);
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     // Validar descrição do problema
     if (!data.issueDescription || data.issueDescription.trim().length === 0) {
-      throw new AppError('Descrição do problema é obrigatória', 400);
+      throw new AppError('Descrição do problema é obrigatória', 400, 'ISSUE_DESCRIPTION_REQUIRED');
     }
 
     // Validar data de entrega estimada se fornecida
@@ -80,7 +80,7 @@ export class ServiceOrdersService {
       today.setHours(0, 0, 0, 0);
 
       if (estimatedDate < today) {
-        throw new AppError('Data de entrega estimada não pode ser no passado', 400);
+        throw new AppError('Data de entrega estimada não pode ser no passado', 400, 'INVALID_ESTIMATED_DELIVERY');
       }
     }
 
@@ -91,17 +91,17 @@ export class ServiceOrdersService {
     // Verificar se ordem de serviço existe
     const existingOrder = await this.repository.findById(id);
     if (!existingOrder) {
-      throw new AppError('Ordem de serviço não encontrada', 404);
+      throw new AppError('Ordem de serviço não encontrada', 404, 'SERVICE_ORDER_NOT_FOUND');
     }
 
     // Não permitir editar OS completada ou cancelada
     if (existingOrder.status === 'COMPLETED' || existingOrder.status === 'CANCELLED') {
-      throw new AppError('Não é possível editar uma OS completada ou cancelada', 400);
+      throw new AppError('Não é possível editar uma OS completada ou cancelada', 400, 'SERVICE_ORDER_NOT_EDITABLE');
     }
 
     // Validar custo de mão de obra se fornecido
     if (data.laborCost !== undefined && data.laborCost < 0) {
-      throw new AppError('Custo de mão de obra não pode ser negativo', 400);
+      throw new AppError('Custo de mão de obra não pode ser negativo', 400, 'INVALID_LABOR_COST');
     }
 
     // Validar data de entrega estimada se fornecida
@@ -111,7 +111,7 @@ export class ServiceOrdersService {
       today.setHours(0, 0, 0, 0);
 
       if (estimatedDate < today) {
-        throw new AppError('Data de entrega estimada não pode ser no passado', 400);
+        throw new AppError('Data de entrega estimada não pode ser no passado', 400, 'INVALID_ESTIMATED_DELIVERY');
       }
     }
 
@@ -122,12 +122,12 @@ export class ServiceOrdersService {
     // Verificar se ordem de serviço existe
     const existingOrder = await this.repository.findById(id);
     if (!existingOrder) {
-      throw new AppError('Ordem de serviço não encontrada', 404);
+      throw new AppError('Ordem de serviço não encontrada', 404, 'SERVICE_ORDER_NOT_FOUND');
     }
 
     // Não permitir deletar OS completada
     if (existingOrder.status === 'COMPLETED') {
-      throw new AppError('Não é possível deletar uma OS completada', 400);
+      throw new AppError('Não é possível deletar uma OS completada', 400, 'SERVICE_ORDER_COMPLETED');
     }
 
     return this.repository.delete(id);
@@ -139,7 +139,7 @@ export class ServiceOrdersService {
 
   async getByCustomer(customerId: string) {
     if (!customerId) {
-      throw new AppError('ID do cliente é obrigatório', 400);
+      throw new AppError('ID do cliente é obrigatório', 400, 'CUSTOMER_ID_REQUIRED');
     }
 
     return this.repository.getByCustomer(customerId);
@@ -149,28 +149,28 @@ export class ServiceOrdersService {
     // Verificar se ordem de serviço existe
     const serviceOrder = await this.repository.findById(serviceOrderId);
     if (!serviceOrder) {
-      throw new AppError('Ordem de serviço não encontrada', 404);
+      throw new AppError('Ordem de serviço não encontrada', 404, 'SERVICE_ORDER_NOT_FOUND');
     }
 
     // Não permitir adicionar peças em OS completada ou cancelada
     if (serviceOrder.status === 'COMPLETED' || serviceOrder.status === 'CANCELLED') {
-      throw new AppError('Não é possível adicionar peças em uma OS completada ou cancelada', 400);
+      throw new AppError('Não é possível adicionar peças em uma OS completada ou cancelada', 400, 'SERVICE_ORDER_NOT_EDITABLE');
     }
 
     // Verificar se produto existe
     const product = await this.productsRepository.findById(partData.productId);
     if (!product) {
-      throw new AppError('Produto/peça não encontrado', 404);
+      throw new AppError('Produto/peça não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     // Validar quantidade
     if (partData.quantity <= 0) {
-      throw new AppError('Quantidade deve ser maior que zero', 400);
+      throw new AppError('Quantidade deve ser maior que zero', 400, 'INVALID_QUANTITY');
     }
 
     // Verificar estoque disponível
     if (product.currentStock < partData.quantity) {
-      throw new AppError(`Estoque insuficiente. Disponível: ${product.currentStock}`, 400);
+      throw new AppError(`Estoque insuficiente. Disponível: ${product.currentStock}`, 400, 'INSUFFICIENT_STOCK');
     }
 
     // Adicionar peça usando RPC (vai atualizar estoque e custos)
@@ -181,23 +181,23 @@ export class ServiceOrdersService {
     // Verificar se ordem de serviço existe
     const serviceOrder = await this.repository.findById(serviceOrderId);
     if (!serviceOrder) {
-      throw new AppError('Ordem de serviço não encontrada', 404);
+      throw new AppError('Ordem de serviço não encontrada', 404, 'SERVICE_ORDER_NOT_FOUND');
     }
 
     // Não permitir remover peças de OS completada ou cancelada
     if (serviceOrder.status === 'COMPLETED' || serviceOrder.status === 'CANCELLED') {
-      throw new AppError('Não é possível remover peças de uma OS completada ou cancelada', 400);
+      throw new AppError('Não é possível remover peças de uma OS completada ou cancelada', 400, 'SERVICE_ORDER_NOT_EDITABLE');
     }
 
     // Verificar se peça existe
     const part = await this.servicePartsRepository.findById(partId);
     if (!part) {
-      throw new AppError('Peça não encontrada na ordem de serviço', 404);
+      throw new AppError('Peça não encontrada na ordem de serviço', 404, 'SERVICE_PART_NOT_FOUND');
     }
 
     // Verificar se peça pertence à OS
     if (part.serviceOrderId !== serviceOrderId) {
-      throw new AppError('Peça não pertence a esta ordem de serviço', 400);
+      throw new AppError('Peça não pertence a esta ordem de serviço', 400, 'PART_MISMATCH');
     }
 
     return this.servicePartsRepository.remove(partId);
@@ -207,27 +207,27 @@ export class ServiceOrdersService {
     // Verificar se ordem de serviço existe
     const serviceOrder = await this.repository.findById(id);
     if (!serviceOrder) {
-      throw new AppError('Ordem de serviço não encontrada', 404);
+      throw new AppError('Ordem de serviço não encontrada', 404, 'SERVICE_ORDER_NOT_FOUND');
     }
 
     // Verificar se já está completada
     if (serviceOrder.status === 'COMPLETED') {
-      throw new AppError('Ordem de serviço já está completada', 400);
+      throw new AppError('Ordem de serviço já está completada', 400, 'SERVICE_ORDER_ALREADY_COMPLETED');
     }
 
     // Verificar se está cancelada
     if (serviceOrder.status === 'CANCELLED') {
-      throw new AppError('Não é possível completar uma OS cancelada', 400);
+      throw new AppError('Não é possível completar uma OS cancelada', 400, 'SERVICE_ORDER_CANCELLED');
     }
 
     // Validar descrição do serviço realizado
     if (!servicePerformed || servicePerformed.trim().length === 0) {
-      throw new AppError('Descrição do serviço realizado é obrigatória', 400);
+      throw new AppError('Descrição do serviço realizado é obrigatória', 400, 'SERVICE_PERFORMED_REQUIRED');
     }
 
     // Validar custo de mão de obra
     if (laborCost < 0) {
-      throw new AppError('Custo de mão de obra não pode ser negativo', 400);
+      throw new AppError('Custo de mão de obra não pode ser negativo', 400, 'INVALID_LABOR_COST');
     }
 
     // Completar usando RPC (vai atualizar status, data e custos)

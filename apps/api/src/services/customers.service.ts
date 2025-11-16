@@ -18,7 +18,7 @@ export class CustomersService {
     const { page, limit, search, type } = params;
 
     if (page < 1 || limit < 1 || limit > 100) {
-      throw new AppError('Parâmetros de paginação inválidos', 400);
+      throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
     const [customers, total] = await Promise.all([
@@ -41,7 +41,7 @@ export class CustomersService {
     const customer = await this.repository.findById(id);
 
     if (!customer) {
-      throw new AppError('Cliente não encontrado', 404);
+      throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
     }
 
     return customer;
@@ -51,7 +51,7 @@ export class CustomersService {
     const customer = await this.repository.findByDocument(document);
 
     if (!customer) {
-      throw new AppError('Cliente não encontrado', 404);
+      throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
     }
 
     return customer;
@@ -61,7 +61,7 @@ export class CustomersService {
     // Verificar se já existe cliente com o mesmo documento
     const existingCustomer = await this.repository.findByDocument(data.document);
     if (existingCustomer) {
-      throw new AppError('Já existe um cliente com este documento', 409);
+      throw new AppError('Já existe um cliente com este documento', 409, 'DUPLICATE_DOCUMENT');
     }
 
     // Validar documento (CPF ou CNPJ)
@@ -70,18 +70,18 @@ export class CustomersService {
     if (data.type === 'INDIVIDUAL') {
       // CPF deve ter 11 dígitos
       if (cleanDocument.length !== 11) {
-        throw new AppError('CPF inválido', 400);
+        throw new AppError('CPF inválido', 400, 'INVALID_CPF');
       }
       if (!this.isValidCPF(cleanDocument)) {
-        throw new AppError('CPF inválido', 400);
+        throw new AppError('CPF inválido', 400, 'INVALID_CPF');
       }
     } else {
       // CNPJ deve ter 14 dígitos
       if (cleanDocument.length !== 14) {
-        throw new AppError('CNPJ inválido', 400);
+        throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
       }
       if (!this.isValidCNPJ(cleanDocument)) {
-        throw new AppError('CNPJ inválido', 400);
+        throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
       }
     }
 
@@ -89,7 +89,7 @@ export class CustomersService {
     if (data.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(data.email)) {
-        throw new AppError('E-mail inválido', 400);
+        throw new AppError('E-mail inválido', 400, 'INVALID_EMAIL');
       }
     }
 
@@ -103,7 +103,7 @@ export class CustomersService {
     // Verificar se cliente existe
     const existingCustomer = await this.repository.findById(id);
     if (!existingCustomer) {
-      throw new AppError('Cliente não encontrado', 404);
+      throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
     }
 
     // Se documento foi alterado, verificar se já existe outro cliente com o novo documento
@@ -113,7 +113,7 @@ export class CustomersService {
       if (cleanDocument !== existingCustomer.document) {
         const customerWithDocument = await this.repository.findByDocument(cleanDocument);
         if (customerWithDocument) {
-          throw new AppError('Já existe um cliente com este documento', 409);
+          throw new AppError('Já existe um cliente com este documento', 409, 'DUPLICATE_DOCUMENT');
         }
       }
 
@@ -121,11 +121,11 @@ export class CustomersService {
       const customerType = data.type ?? existingCustomer.type;
       if (customerType === 'INDIVIDUAL') {
         if (cleanDocument.length !== 11 || !this.isValidCPF(cleanDocument)) {
-          throw new AppError('CPF inválido', 400);
+          throw new AppError('CPF inválido', 400, 'INVALID_CPF');
         }
       } else {
         if (cleanDocument.length !== 14 || !this.isValidCNPJ(cleanDocument)) {
-          throw new AppError('CNPJ inválido', 400);
+          throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
         }
       }
 
@@ -136,7 +136,7 @@ export class CustomersService {
     if (data.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(data.email)) {
-        throw new AppError('E-mail inválido', 400);
+        throw new AppError('E-mail inválido', 400, 'INVALID_EMAIL');
       }
     }
 
@@ -147,14 +147,15 @@ export class CustomersService {
     // Verificar se cliente existe
     const existingCustomer = await this.repository.findById(id);
     if (!existingCustomer) {
-      throw new AppError('Cliente não encontrado', 404);
+      throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
     }
 
     // Verificar se cliente tem orçamentos associados
     if (existingCustomer.quotes && existingCustomer.quotes.length > 0) {
       throw new AppError(
         'Não é possível excluir cliente com orçamentos associados',
-        400
+        400,
+        'CUSTOMER_HAS_QUOTES'
       );
     }
 

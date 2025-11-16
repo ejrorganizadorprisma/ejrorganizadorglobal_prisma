@@ -20,7 +20,7 @@ export class ProductsService {
     const { page, limit, search, category, status, inStock } = params;
 
     if (page < 1 || limit < 1 || limit > 100) {
-      throw new AppError('Parâmetros de paginação inválidos', 400);
+      throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
     const [products, total] = await Promise.all([
@@ -43,7 +43,7 @@ export class ProductsService {
     const product = await this.repository.findById(id);
 
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     return product;
@@ -53,7 +53,7 @@ export class ProductsService {
     const product = await this.repository.findByCode(code);
 
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     return product;
@@ -63,21 +63,21 @@ export class ProductsService {
     // Verificar se já existe produto com o mesmo código
     const existingProduct = await this.repository.findByCode(data.code);
     if (existingProduct) {
-      throw new AppError('Já existe um produto com este código', 409);
+      throw new AppError('Já existe um produto com este código', 409, 'DUPLICATE_CODE');
     }
 
     // Validar preços
     if (data.costPrice < 0 || data.salePrice < 0) {
-      throw new AppError('Preços não podem ser negativos', 400);
+      throw new AppError('Preços não podem ser negativos', 400, 'INVALID_PRICE');
     }
 
     if (data.salePrice < data.costPrice) {
-      throw new AppError('Preço de venda não pode ser menor que o preço de custo', 400);
+      throw new AppError('Preço de venda não pode ser menor que o preço de custo', 400, 'INVALID_PRICE');
     }
 
     // Validar estoque mínimo
     if (data.minimumStock && data.minimumStock < 0) {
-      throw new AppError('Estoque mínimo não pode ser negativo', 400);
+      throw new AppError('Estoque mínimo não pode ser negativo', 400, 'INVALID_STOCK');
     }
 
     return this.repository.create(data);
@@ -87,14 +87,14 @@ export class ProductsService {
     // Verificar se produto existe
     const existingProduct = await this.repository.findById(id);
     if (!existingProduct) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     // Se código foi alterado, verificar se já existe outro produto com o novo código
     if (data.code && data.code !== existingProduct.code) {
       const productWithCode = await this.repository.findByCode(data.code);
       if (productWithCode) {
-        throw new AppError('Já existe um produto com este código', 409);
+        throw new AppError('Já existe um produto com este código', 409, 'DUPLICATE_CODE');
       }
     }
 
@@ -103,16 +103,16 @@ export class ProductsService {
     const salePrice = data.salePrice ?? existingProduct.salePrice;
 
     if (costPrice < 0 || salePrice < 0) {
-      throw new AppError('Preços não podem ser negativos', 400);
+      throw new AppError('Preços não podem ser negativos', 400, 'INVALID_PRICE');
     }
 
     if (salePrice < costPrice) {
-      throw new AppError('Preço de venda não pode ser menor que o preço de custo', 400);
+      throw new AppError('Preço de venda não pode ser menor que o preço de custo', 400, 'INVALID_PRICE');
     }
 
     // Validar estoque mínimo
     if (data.minimumStock !== undefined && data.minimumStock < 0) {
-      throw new AppError('Estoque mínimo não pode ser negativo', 400);
+      throw new AppError('Estoque mínimo não pode ser negativo', 400, 'INVALID_STOCK');
     }
 
     return this.repository.update(id, data);
@@ -122,7 +122,7 @@ export class ProductsService {
     // Verificar se produto existe
     const existingProduct = await this.repository.findById(id);
     if (!existingProduct) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     // TODO: Verificar se produto está sendo usado em orçamentos/pedidos ativos
@@ -142,7 +142,7 @@ export class ProductsService {
   async updateStock(id: string, quantity: number, operation: 'add' | 'subtract') {
     const product = await this.repository.findById(id);
     if (!product) {
-      throw new AppError('Produto não encontrado', 404);
+      throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
     let newStock: number;
@@ -151,7 +151,7 @@ export class ProductsService {
     } else {
       newStock = product.currentStock - quantity;
       if (newStock < 0) {
-        throw new AppError('Estoque insuficiente', 400);
+        throw new AppError('Estoque insuficiente', 400, 'INSUFFICIENT_STOCK');
       }
     }
 
