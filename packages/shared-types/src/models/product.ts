@@ -58,6 +58,9 @@ export const UpdateProductSchema = z.object({
   warrantyMonths: z.number().int().min(0).optional(),
   minimumStock: z.number().int().min(0).optional(),
   status: z.nativeEnum(ProductStatus).optional(),
+  isAssembly: z.boolean().optional(),
+  isPart: z.boolean().optional(),
+  assemblyCost: z.number().int().min(0).optional(),
 });
 
 export type CreateProductDTO = z.infer<typeof CreateProductSchema>;

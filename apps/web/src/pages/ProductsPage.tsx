@@ -195,13 +195,23 @@ export function ProductsPage() {
                   {product.name}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    (product as any).productType === 'FINAL' || !(product as any).productType
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-purple-100 text-purple-800'
-                  }`}>
-                    {(product as any).productType === 'COMPONENT' ? 'Componente' : 'Produto Final'}
-                  </span>
+                  <div className="flex gap-1 flex-wrap">
+                    {(product as any).isAssembly && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                        Montagem
+                      </span>
+                    )}
+                    {(product as any).isPart && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800">
+                        Peça
+                      </span>
+                    )}
+                    {!(product as any).isAssembly && !(product as any).isPart && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                        Simples
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {product.category}
