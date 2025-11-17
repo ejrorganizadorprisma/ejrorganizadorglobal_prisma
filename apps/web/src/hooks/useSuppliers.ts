@@ -79,7 +79,7 @@ export function useSuppliers(params: FindManyParams = {}) {
     queryKey: ['suppliers', params],
     queryFn: async () => {
       const { data } = await api.get('/suppliers', { params });
-      return data;
+      return data.data; // Return only the data property from the API response
     },
   });
 }

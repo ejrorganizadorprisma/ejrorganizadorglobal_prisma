@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Suppliers API</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow: auto; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Debug Suppliers API</h1>
+
+    <div>
+        <button onclick="testAPI('http://192.168.1.91:3000/api/v1/suppliers?page=1&limit=10')">
+            Test API (192.168.1.91:3000)
+        </button>
+        <button onclick="testAPI('http://localhost:3000/api/v1/suppliers?page=1&limit=10')">
+            Test API (localhost:3000)
+        </button>
+    </div>
+
+    <h2>Request Info:</h2>
+    <div id="info"></div>
+
+    <h2>Response:</h2>
+    <pre id="result">Click a button to test...</pre>
+
+    <script>
+        async function testAPI(url) {
+            const resultEl = document.getElementById('result');
+            const infoEl = document.getElementById('info');
+
+            infoEl.innerHTML = `
+                <p><strong>URL:</strong> ${url}</p>
+                <p><strong>Origin:</strong> ${window.location.origin}</p>
+                <p><strong>Time:</strong> ${new Date().toLocaleTimeString()}</p>
+            `;
+
+            resultEl.textContent = 'Loading...';
+            resultEl.className = '';
+
+            try {
+                console.log('Fetching from:', url);
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                resultEl.textContent = JSON.stringify(data, null, 2);
+                resultEl.className = 'success';
+
+                if (data.success && data.data && data.data.data) {
+                    infoEl.innerHTML += `
+                        <p class="success"><strong>✓ Success!</strong> Found ${data.data.total} suppliers</p>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultEl.textContent = `Error: ${error.message}\n\nCheck browser console for details.`;
+                resultEl.className = 'error';
+
+                infoEl.innerHTML += `
+                    <p class="error"><strong>✗ Error:</strong> ${error.message}</p>
+                `;
+            }
+        }
+
+        // Auto-detect current page origin
+        window.onload = () => {
+            const origin = window.location.origin;
+            document.getElementById('info').innerHTML = `
+                <p><strong>Current Page Origin:</strong> ${origin}</p>
+                <p><strong>Current URL:</strong> ${window.location.href}</p>
+            `;
+        };
+    </script>
+</body>
+</html>

@@ -49,6 +49,10 @@ export interface CreatePurchaseOrderDTO {
   notes?: string;
   internalNotes?: string;
   createdBy?: string;
+  shippingCost?: number;
+  discountAmount?: number;
+  subtotal?: number;
+  totalAmount?: number;
   items: CreatePurchaseOrderItemDTO[];
 }
 
@@ -147,7 +151,7 @@ export class PurchaseOrdersRepository {
       .from('purchase_orders')
       .select(`
         *,
-        supplier:suppliers!inner(id, name, code)
+        supplier:suppliers!inner(id, name, document)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range((page - 1) * limit, page * limit - 1);
@@ -179,7 +183,7 @@ export class PurchaseOrdersRepository {
       .from('purchase_orders')
       .select(`
         *,
-        supplier:suppliers!inner(id, name, code)
+        supplier:suppliers!inner(id, name, document)
       `)
       .eq('id', id)
       .single();
@@ -197,7 +201,7 @@ export class PurchaseOrdersRepository {
       .from('purchase_orders')
       .select(`
         *,
-        supplier:suppliers!inner(id, name, code)
+        supplier:suppliers!inner(id, name, document)
       `)
       .eq('order_number', orderNumber)
       .single();
@@ -212,7 +216,12 @@ export class PurchaseOrdersRepository {
 
   async create(orderData: CreatePurchaseOrderDTO): Promise<PurchaseOrder> {
     const orderNumber = await this.generateOrderNumber();
-    const totals = this.calculateTotals(orderData.items);
+
+    // Use valores do frontend se fornecidos, senão calcula
+    const subtotal = orderData.subtotal !== undefined ? orderData.subtotal : this.calculateTotals(orderData.items).subtotal;
+    const shippingCost = orderData.shippingCost || 0;
+    const discountAmount = orderData.discountAmount || 0;
+    const totalAmount = orderData.totalAmount !== undefined ? orderData.totalAmount : (subtotal + shippingCost - discountAmount);
 
     // Cria a ordem de compra
     const { data: order, error: orderError } = await supabase
@@ -222,17 +231,17 @@ export class PurchaseOrdersRepository {
         supplier_id: orderData.supplierId,
         order_date: orderData.orderDate || new Date().toISOString(),
         expected_delivery_date: orderData.expectedDeliveryDate,
-        subtotal: totals.subtotal,
-        tax_amount: totals.taxAmount,
-        total_amount: totals.totalAmount,
+        subtotal: subtotal,
+        tax_amount: 0, // Tax não está sendo usado no frontend por enquanto
+        total_amount: totalAmount,
         payment_terms: orderData.paymentTerms,
         notes: orderData.notes,
         internal_notes: orderData.internalNotes,
         created_by: orderData.createdBy,
         status: 'DRAFT',
         payment_status: 'PENDING',
-        shipping_cost: 0,
-        discount_amount: 0,
+        shipping_cost: shippingCost,
+        discount_amount: discountAmount,
       })
       .select()
       .single();
@@ -473,7 +482,13 @@ export class PurchaseOrdersRepository {
       approvedAt: data.approved_at,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-    };
+      // Map supplier object with document → code mapping
+      supplier: data.supplier ? {
+        id: data.supplier.id,
+        name: data.supplier.name,
+        code: data.supplier.document, // Map document to code for application layer
+      } : undefined,
+    } as any;
   }
 
   private mapItemToDTO(data: any): PurchaseOrderItem {

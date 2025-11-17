@@ -26,6 +26,7 @@ import ManufacturingDashboardPage from './pages/ManufacturingDashboardPage';
 import { StockReservationsPage } from './pages/StockReservationsPage';
 import { PurchaseOrdersPage } from './pages/PurchaseOrdersPage';
 import { PurchaseOrderFormPage } from './pages/PurchaseOrderFormPage';
+import { PurchaseOrderDetailPage } from './pages/PurchaseOrderDetailPage';
 import { GoodsReceiptsPage } from './pages/GoodsReceiptsPage';
 import { GoodsReceiptFormPage } from './pages/GoodsReceiptFormPage';
 import { ProductionOrdersPage } from './pages/ProductionOrdersPage';
@@ -301,6 +302,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <PurchaseOrderFormPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/purchase-orders/:id"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <PurchaseOrderDetailPage />
             </MainLayout>
           </ProtectedRoute>
         }

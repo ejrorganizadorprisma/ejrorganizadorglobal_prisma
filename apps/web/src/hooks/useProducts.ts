@@ -82,8 +82,13 @@ export function useUpdateProduct() {
       const response = await api.patch<{ data: Product }>(`/products/${id}`, data);
       return response.data.data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      // Invalidate all products queries
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      // Invalidate specific product query
+      queryClient.invalidateQueries({ queryKey: ['products', variables.id] });
+      // Optionally, update the cache directly
+      queryClient.setQueryData(['products', variables.id], data);
     },
   });
 }

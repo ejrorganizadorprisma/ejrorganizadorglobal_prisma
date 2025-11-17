@@ -4,6 +4,7 @@ export * from './models/user';
 // Product
 export * from './models/product';
 export * from './models/product-part';
+export * from './models/product-supplier';
 
 // Customer
 export * from './models/customer';

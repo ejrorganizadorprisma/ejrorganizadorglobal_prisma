@@ -66,7 +66,7 @@ export class ProductsController {
 
   update = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const data = UpdateProductSchema.parse(req.body);
+    const data = UpdateProductSchema.passthrough().parse(req.body);
     const product = await this.service.update(id, data);
 
     res.json({
@@ -147,6 +147,25 @@ export class ProductsController {
     res.json({
       success: true,
       data: finalProducts,
+    });
+  };
+
+  uploadImage = async (req: Request, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Nenhuma imagem foi enviada',
+      });
+    }
+
+    const imageUrl = await this.service.uploadImage(req.file);
+
+    res.json({
+      success: true,
+      data: {
+        url: imageUrl,
+      },
+      message: 'Imagem enviada com sucesso',
     });
   };
 }

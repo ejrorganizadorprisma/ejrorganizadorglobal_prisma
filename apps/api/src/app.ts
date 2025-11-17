@@ -12,9 +12,21 @@ export const app = express();
 
 // Security middleware
 app.use(helmet());
+
+// Configure CORS to accept multiple origins
+const allowedOrigins = env.FRONTEND_URL.split(',').map(url => url.trim());
 app.use(
   cors({
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   })
 );

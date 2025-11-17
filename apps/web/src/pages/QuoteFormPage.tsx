@@ -117,8 +117,6 @@ export function QuoteFormPage() {
     }
   };
 
-  const formatPrice = (cents: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -193,7 +191,7 @@ export function QuoteFormPage() {
                     <option value="">Selecione...</option>
                     {productsData?.data.map((product: any) => (
                       <option key={product.id} value={product.id}>
-                        {product.name} - {formatPrice(product.salePrice)}
+                        {product.name} - {product.salePrice} centavos
                       </option>
                     ))}
                   </select>
@@ -212,21 +210,23 @@ export function QuoteFormPage() {
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Preço Unit.</label>
+                  <label className="block text-sm font-medium mb-1">Preço Unit. (R$)</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={(item.unitPrice / 100).toFixed(2)}
-                    onChange={(e) => updateItem(index, 'unitPrice', Math.round(parseFloat(e.target.value) * 100))}
+                    min="0"
+                    value={item.unitPrice / 100}
+                    onChange={(e) => updateItem(index, 'unitPrice', Math.round(parseFloat(e.target.value || '0') * 100))}
                     className="w-full px-3 py-2 border rounded"
+                    placeholder="0.00"
                     required
                   />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Total</label>
+                  <label className="block text-sm font-medium mb-1">Total (R$)</label>
                   <div className="px-3 py-2 bg-gray-50 border rounded">
-                    {formatPrice(item.quantity * item.unitPrice)}
+                    {((item.quantity * item.unitPrice) / 100).toFixed(2)}
                   </div>
                 </div>
 
@@ -254,8 +254,8 @@ export function QuoteFormPage() {
           <div className="flex justify-end space-y-2">
             <div className="w-64">
               <div className="flex justify-between py-2">
-                <span className="font-medium">Subtotal:</span>
-                <span>{formatPrice(calculateSubtotal())}</span>
+                <span className="font-medium">Subtotal (R$):</span>
+                <span>{(calculateSubtotal() / 100).toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center py-2">
@@ -263,15 +263,17 @@ export function QuoteFormPage() {
                 <input
                   type="number"
                   step="0.01"
-                  value={(formData.discount / 100).toFixed(2)}
-                  onChange={(e) => setFormData({ ...formData, discount: Math.round(parseFloat(e.target.value) * 100) })}
+                  min="0"
+                  value={formData.discount / 100}
+                  onChange={(e) => setFormData({ ...formData, discount: Math.round(parseFloat(e.target.value || '0') * 100) })}
                   className="w-32 px-3 py-1 border rounded text-right"
+                  placeholder="0.00"
                 />
               </div>
 
               <div className="flex justify-between py-2 text-xl font-bold border-t">
-                <span>Total:</span>
-                <span className="text-green-600">{formatPrice(calculateTotal())}</span>
+                <span>Total (R$):</span>
+                <span className="text-green-600">{(calculateTotal() / 100).toFixed(2)}</span>
               </div>
             </div>
           </div>

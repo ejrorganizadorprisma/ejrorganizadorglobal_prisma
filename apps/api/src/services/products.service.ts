@@ -1,6 +1,7 @@
 import { ProductsRepository } from '../repositories/products.repository';
 import { AppError } from '../utils/errors';
 import type { CreateProductDTO, UpdateProductDTO, ProductStatus } from '@ejr/shared-types';
+import { supabase } from '../config/supabase';
 
 export class ProductsService {
   private repository: ProductsRepository;
@@ -165,5 +166,33 @@ export class ProductsService {
 
   async getFinalProducts() {
     return this.repository.findFinalProducts();
+  }
+
+  async uploadImage(file: Express.Multer.File): Promise<string> {
+    // Gerar nome único para o arquivo
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 9);
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${timestamp}-${randomStr}.${fileExt}`;
+
+    // Upload para o Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, file.buffer, {
+        contentType: file.mimetype,
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error) {
+      throw new AppError(`Erro ao fazer upload da imagem: ${error.message}`, 500);
+    }
+
+    // Retornar URL pública da imagem
+    const { data: publicUrlData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(fileName);
+
+    return publicUrlData.publicUrl;
   }
 }

@@ -2,9 +2,26 @@ import { Router } from 'express';
 import { ProductsController } from '../controllers/products.controller';
 import { authenticate } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
+import multer from 'multer';
 
 const router = Router();
 const controller = new ProductsController();
+
+// Configure multer para armazenar em memória
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Aceitar apenas imagens
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas'));
+    }
+  },
+});
 
 // Todas as rotas requerem autenticação
 router.use(authenticate);
@@ -23,6 +40,9 @@ router.get('/components', asyncHandler(controller.getComponents));
 
 // GET /api/products/final-products - Listar apenas produtos finais
 router.get('/final-products', asyncHandler(controller.getFinalProducts));
+
+// POST /api/products/upload-image - Upload de imagem (DEVE VIR ANTES DE /:id)
+router.post('/upload-image', upload.single('image'), asyncHandler(controller.uploadImage));
 
 // GET /api/products/:id - Buscar produto por ID
 router.get('/:id', asyncHandler(controller.findById));

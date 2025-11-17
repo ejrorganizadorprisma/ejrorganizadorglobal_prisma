@@ -90,6 +90,9 @@ export function PurchaseOrderFormPage() {
     return calculateSubtotal() + formData.shippingCost - formData.discountAmount;
   };
 
+  const formatPrice = (cents: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
+
   const handleSubmit = async (e: React.FormEvent, sendImmediately = false) => {
     e.preventDefault();
 
@@ -112,8 +115,8 @@ export function PurchaseOrderFormPage() {
         toast.error('A quantidade deve ser maior que zero');
         return;
       }
-      if (item.unitPrice <= 0) {
-        toast.error('O preço unitário deve ser maior que zero');
+      if (item.unitPrice < 0) {
+        toast.error('O preço unitário não pode ser negativo');
         return;
       }
     }
@@ -158,8 +161,6 @@ export function PurchaseOrderFormPage() {
     }
   };
 
-  const formatPrice = (cents: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -216,9 +217,11 @@ export function PurchaseOrderFormPage() {
             <input
               type="number"
               step="0.01"
-              value={(formData.shippingCost / 100).toFixed(2)}
+              min="0"
+              value={formData.shippingCost / 100}
               onChange={(e) => setFormData({ ...formData, shippingCost: Math.round(parseFloat(e.target.value || '0') * 100) })}
               className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+              placeholder="0.00"
             />
           </div>
 
@@ -271,7 +274,7 @@ export function PurchaseOrderFormPage() {
                     <option value="">Selecione...</option>
                     {productsData?.data.map((product: any) => (
                       <option key={product.id} value={product.id}>
-                        {product.name} (SKU: {product.sku})
+                        {product.name} ({product.code})
                       </option>
                     ))}
                   </select>
@@ -294,17 +297,19 @@ export function PurchaseOrderFormPage() {
                   <input
                     type="number"
                     step="0.01"
-                    value={(item.unitPrice / 100).toFixed(2)}
+                    min="0"
+                    value={item.unitPrice / 100}
                     onChange={(e) => updateItem(index, 'unitPrice', Math.round(parseFloat(e.target.value || '0') * 100))}
                     className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00"
                     required
                   />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Total</label>
+                  <label className="block text-sm font-medium mb-1">Total (R$)</label>
                   <div className="px-3 py-2 bg-gray-50 border rounded">
-                    {formatPrice(item.quantity * item.unitPrice)}
+                    {((item.quantity * item.unitPrice) / 100).toFixed(2)}
                   </div>
                 </div>
 
@@ -344,13 +349,13 @@ export function PurchaseOrderFormPage() {
           <div className="flex justify-end">
             <div className="w-80">
               <div className="flex justify-between py-2">
-                <span className="font-medium">Subtotal:</span>
-                <span>{formatPrice(calculateSubtotal())}</span>
+                <span className="font-medium">Subtotal (R$):</span>
+                <span>{(calculateSubtotal() / 100).toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center py-2">
-                <span className="font-medium">Custo de Envio:</span>
-                <span>{formatPrice(formData.shippingCost)}</span>
+                <span className="font-medium">Custo de Envio (R$):</span>
+                <span>{(formData.shippingCost / 100).toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between items-center py-2">
@@ -358,15 +363,17 @@ export function PurchaseOrderFormPage() {
                 <input
                   type="number"
                   step="0.01"
-                  value={(formData.discountAmount / 100).toFixed(2)}
+                  min="0"
+                  value={formData.discountAmount / 100}
                   onChange={(e) => setFormData({ ...formData, discountAmount: Math.round(parseFloat(e.target.value || '0') * 100) })}
                   className="w-32 px-3 py-1 border rounded text-right focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="0.00"
                 />
               </div>
 
               <div className="flex justify-between py-2 text-xl font-bold border-t mt-2">
-                <span>Total:</span>
-                <span className="text-green-600">{formatPrice(calculateTotal())}</span>
+                <span>Total (R$):</span>
+                <span className="text-green-600">{(calculateTotal() / 100).toFixed(2)}</span>
               </div>
             </div>
           </div>

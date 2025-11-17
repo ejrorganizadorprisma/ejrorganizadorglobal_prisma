@@ -65,6 +65,7 @@ export class ProductsRepository {
       minimumStock: product.minimum_stock,
       costPrice: product.cost_price,
       salePrice: product.sale_price,
+      imageUrls: product.image_urls || [],
       isAssembly: product.is_assembly,
       isPart: product.is_part,
       assemblyCost: product.assembly_cost,
@@ -202,15 +203,52 @@ export class ProductsRepository {
     };
   }
 
+  // Generate next sequential code for product
+  private async generateProductCode(): Promise<string> {
+    // Get the last product ordered by created_at
+    const { data, error } = await supabase
+      .from('products')
+      .select('code')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching last product code:', error);
+      // If error, start from 1
+      return 'PROD-0001';
+    }
+
+    if (!data || data.length === 0) {
+      // First product
+      return 'PROD-0001';
+    }
+
+    // Extract number from last code (e.g., "PROD-0005" -> 5)
+    const lastCode = data[0].code;
+    const match = lastCode.match(/PROD-(\d+)/);
+
+    if (match) {
+      const lastNumber = parseInt(match[1], 10);
+      const nextNumber = lastNumber + 1;
+      return `PROD-${String(nextNumber).padStart(4, '0')}`;
+    }
+
+    // If no match, start from 1
+    return 'PROD-0001';
+  }
+
   async create(productData: CreateProductDTO) {
     // Generate a unique ID for the product
     const id = `prod-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+    // Auto-generate code
+    const code = await this.generateProductCode();
 
     const { data, error} = await supabase
       .from('products')
       .insert({
         id,
-        code: productData.code,
+        code,
         name: productData.name,
         category: productData.category,
         manufacturer: productData.manufacturer,
@@ -222,6 +260,7 @@ export class ProductsRepository {
         minimum_stock: productData.minimumStock,
         cost_price: productData.costPrice,
         sale_price: productData.salePrice,
+        image_urls: (productData as any).imageUrls || [],
         is_assembly: productData.isAssembly || false,
         is_part: productData.isPart || false,
         assembly_cost: productData.assemblyCost || 0,
@@ -266,7 +305,8 @@ export class ProductsRepository {
   async update(id: string, productData: UpdateProductDTO) {
     const updateData: any = {};
 
-    if (productData.code !== undefined) updateData.code = productData.code;
+    // Do not allow code to be updated - it's auto-generated
+    // if (productData.code !== undefined) updateData.code = productData.code;
     if (productData.name !== undefined) updateData.name = productData.name;
     if (productData.category !== undefined) updateData.category = productData.category;
     if (productData.description !== undefined) updateData.description = productData.description;
@@ -283,6 +323,7 @@ export class ProductsRepository {
     if (productData.minimumStock !== undefined) updateData.minimum_stock = productData.minimumStock;
     if (productData.costPrice !== undefined) updateData.cost_price = productData.costPrice;
     if (productData.salePrice !== undefined) updateData.sale_price = productData.salePrice;
+    if ((productData as any).imageUrls !== undefined) updateData.image_urls = (productData as any).imageUrls;
     if (productData.isAssembly !== undefined) updateData.is_assembly = productData.isAssembly;
     if (productData.isPart !== undefined) updateData.is_part = productData.isPart;
     if (productData.assemblyCost !== undefined) updateData.assembly_cost = productData.assemblyCost;
@@ -388,6 +429,7 @@ export class ProductsRepository {
       minimumStock: product.minimum_stock,
       costPrice: product.cost_price,
       salePrice: product.sale_price,
+      imageUrls: product.image_urls || [],
       isAssembly: product.is_assembly,
       isPart: product.is_part,
       assemblyCost: product.assembly_cost,
@@ -429,6 +471,7 @@ export class ProductsRepository {
       minimumStock: product.minimum_stock,
       costPrice: product.cost_price,
       salePrice: product.sale_price,
+      imageUrls: product.image_urls || [],
       isAssembly: product.is_assembly,
       isPart: product.is_part,
       assemblyCost: product.assembly_cost,

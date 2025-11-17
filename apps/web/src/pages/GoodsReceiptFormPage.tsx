@@ -232,8 +232,6 @@ export function GoodsReceiptFormPage() {
     return product ? `${product.name} (${product.sku})` : 'Produto não encontrado';
   };
 
-  const formatPrice = (cents: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -321,9 +319,11 @@ export function GoodsReceiptFormPage() {
             <input
               type="number"
               step="0.01"
-              value={(formData.invoiceAmount / 100).toFixed(2)}
+              min="0"
+              value={formData.invoiceAmount / 100}
               onChange={(e) => setFormData({ ...formData, invoiceAmount: Math.round(parseFloat(e.target.value || '0') * 100) })}
               className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+              placeholder="0.00"
             />
           </div>
 

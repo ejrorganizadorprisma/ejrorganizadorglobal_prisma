@@ -37,7 +37,7 @@ export interface Quote {
 const QuoteItemSchema = z.object({
   productId: z.string().uuid('ID do produto inválido'),
   quantity: z.number().int().positive('Quantidade deve ser maior que zero'),
-  unitPrice: z.number().int().positive('Preço unitário deve ser maior que zero'),
+  unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),
 });
 
 export const CreateQuoteSchema = z.object({

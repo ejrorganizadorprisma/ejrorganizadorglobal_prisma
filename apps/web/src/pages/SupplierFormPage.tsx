@@ -48,7 +48,7 @@ export function SupplierFormPage() {
 
   // General form data
   const [formData, setFormData] = useState<Partial<Supplier>>({
-    code: '',
+    // code is auto-generated, not needed in form state for new suppliers
     name: '',
     legalName: '',
     taxId: '',
@@ -115,8 +115,9 @@ export function SupplierFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.code || !formData.name) {
-      toast.error('Código e Nome são obrigatórios');
+    // Only name is required - code is auto-generated
+    if (!formData.name) {
+      toast.error('Nome é obrigatório');
       return;
     }
 
@@ -342,18 +343,24 @@ export function SupplierFormPage() {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Informações Básicas</h3>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        Código <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.code}
-                        onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                        className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </div>
+                    {/* Show code field only when editing (read-only) */}
+                    {isEditing && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Código (auto-gerado)
+                        </label>
+                        <input
+                          type="text"
+                          readOnly
+                          disabled
+                          value={formData.code}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-100 text-gray-500 cursor-not-allowed"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                          Código gerado automaticamente pelo sistema
+                        </p>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
@@ -482,11 +489,12 @@ export function SupplierFormPage() {
                       </label>
                       <input
                         type="number"
-                        min="0"
                         step="0.01"
-                        value={formData.minimumOrderValue}
-                        onChange={(e) => setFormData({ ...formData, minimumOrderValue: Number(e.target.value) })}
+                        min="0"
+                        value={formData.minimumOrderValue / 100}
+                        onChange={(e) => setFormData({ ...formData, minimumOrderValue: Math.round(parseFloat(e.target.value || '0') * 100) })}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.00"
                       />
                     </div>
 

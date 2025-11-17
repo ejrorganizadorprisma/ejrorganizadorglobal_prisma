@@ -107,16 +107,9 @@ export function ServiceOrderFormPage() {
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
-    } else if (name === 'laborCost') {
-      const numValue = parseFloat(value) || 0;
-      setFormData((prev) => ({ ...prev, [name]: Math.round(numValue * 100) }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
-  };
-
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toFixed(2);
   };
 
   if (loadingOrder) {
@@ -339,11 +332,14 @@ export function ServiceOrderFormPage() {
                       </label>
                       <input
                         type="number"
-                        name="laborCost"
-                        value={formatCurrency(formData.laborCost)}
-                        onChange={handleChange}
-                        min="0"
                         step="0.01"
+                        name="laborCost"
+                        value={formData.laborCost / 100}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          laborCost: Math.round(parseFloat(e.target.value || '0') * 100)
+                        })}
+                        min="0"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="0.00"
                       />

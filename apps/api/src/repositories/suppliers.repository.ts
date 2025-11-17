@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { randomUUID } from 'node:crypto';
 
 // Interface Supplier com todos os campos da tabela
 export interface Supplier {
@@ -66,7 +67,7 @@ export interface ProductSupplier {
 }
 
 export interface CreateSupplierDTO {
-  code: string;
+  code?: string; // Optional - auto-generated if not provided
   name: string;
   legalName?: string;
   taxId?: string;
@@ -102,19 +103,19 @@ export class SuppliersRepository {
   private mapSupplier(data: any): Supplier {
     return {
       id: data.id,
-      code: data.code,
+      code: data.document, // Map document field to code in application
       name: data.name,
-      legalName: data.legal_name,
-      taxId: data.tax_id,
-      email: data.email,
-      phone: data.phone,
-      website: data.website,
-      paymentTerms: data.payment_terms,
-      leadTimeDays: data.lead_time_days,
-      minimumOrderValue: data.minimum_order_value,
+      legalName: data.legal_name || undefined,
+      taxId: data.tax_id || undefined,
+      email: data.email || undefined,
+      phone: data.phone || undefined,
+      website: data.website || undefined,
+      paymentTerms: data.payment_terms || undefined,
+      leadTimeDays: data.lead_time_days || 0,
+      minimumOrderValue: data.minimum_order_value || 0,
       status: data.status,
-      rating: data.rating,
-      notes: data.notes,
+      rating: data.rating || undefined,
+      notes: data.notes || undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
@@ -219,10 +220,11 @@ export class SuppliersRepository {
   }
 
   async findByCode(code: string): Promise<Supplier | null> {
+    // Query using document field which maps to code in the application layer
     const { data, error } = await supabase
       .from('suppliers')
       .select('*')
-      .eq('code', code)
+      .eq('document', code)
       .single();
 
     if (error) {
@@ -235,11 +237,51 @@ export class SuppliersRepository {
     return this.mapSupplier(data);
   }
 
-  async create(supplierData: CreateSupplierDTO): Promise<Supplier> {
+  // Generate next sequential code for supplier
+  private async generateSupplierCode(): Promise<string> {
+    // Get the last supplier ordered by document field
     const { data, error } = await supabase
       .from('suppliers')
+      .select('document')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching last supplier code:', error);
+      // If error, start from 1
+      return 'FORN-0001';
+    }
+
+    if (!data || data.length === 0) {
+      // First supplier
+      return 'FORN-0001';
+    }
+
+    // Extract number from last code (e.g., "FORN-0005" -> 5)
+    const lastCode = data[0].document;
+    const match = lastCode.match(/FORN-(\d+)/);
+
+    if (match) {
+      const lastNumber = parseInt(match[1], 10);
+      const nextNumber = lastNumber + 1;
+      return `FORN-${String(nextNumber).padStart(4, '0')}`;
+    }
+
+    // If no match, start from 1
+    return 'FORN-0001';
+  }
+
+  async create(supplierData: CreateSupplierDTO): Promise<Supplier> {
+    const id = randomUUID();
+
+    // Auto-generate code if not provided
+    const code = await this.generateSupplierCode();
+
+    const { data, error} = await supabase
+      .from('suppliers')
       .insert({
-        code: supplierData.code,
+        id,
+        document: code, // Use auto-generated code
         name: supplierData.name,
         legal_name: supplierData.legalName,
         tax_id: supplierData.taxId,
@@ -264,7 +306,8 @@ export class SuppliersRepository {
   async update(id: string, supplierData: UpdateSupplierDTO): Promise<Supplier> {
     const updateData: any = {};
 
-    if (supplierData.code !== undefined) updateData.code = supplierData.code;
+    // Do not allow code to be updated - it's auto-generated
+    // if (supplierData.code !== undefined) updateData.document = supplierData.code;
     if (supplierData.name !== undefined) updateData.name = supplierData.name;
     if (supplierData.legalName !== undefined) updateData.legal_name = supplierData.legalName;
     if (supplierData.taxId !== undefined) updateData.tax_id = supplierData.taxId;

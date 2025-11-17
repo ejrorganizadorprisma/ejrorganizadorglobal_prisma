@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes';
 import productsRoutes from './products.routes';
 import productPartsRoutes from './product-parts.routes';
+import productSuppliersRoutes from './product-suppliers.routes';
 import customersRoutes from './customers.routes';
 import quotesRoutes from './quotes.routes';
 import salesRoutes from './sales.routes';
@@ -31,6 +32,7 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/products', productsRoutes);
 router.use('/products', productPartsRoutes);
+router.use('/products', productSuppliersRoutes);
 router.use('/customers', customersRoutes);
 router.use('/quotes', quotesRoutes);
 router.use('/sales', salesRoutes);

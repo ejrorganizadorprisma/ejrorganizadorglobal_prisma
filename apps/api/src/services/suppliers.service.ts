@@ -99,15 +99,10 @@ export class SuppliersService {
 
   async create(data: CreateSupplierDTO): Promise<Supplier> {
     // Validações
-    if (!data.code) {
-      throw new Error('Código é obrigatório');
-    }
-
     if (!data.name) {
       throw new Error('Nome é obrigatório');
     }
 
-    await this.validateUniqueCode(data.code);
     this.validateTaxId(data.taxId);
     this.validateRating(data.rating);
 

@@ -1,0 +1,24 @@
+# ==========================================
+# VARIÁVEIS DE AMBIENTE - FRONTEND (apps/web)
+# ==========================================
+# Copie e cole estas variáveis no Vercel
+# Settings > Environment Variables
+# ==========================================
+
+# API URL - SUBSTITUA pela URL do seu backend no Vercel
+# Exemplo: https://seu-backend-api.vercel.app
+VITE_API_URL=https://SEU-BACKEND-URL.vercel.app
+
+# Supabase Configuration (mesmas do backend)
+VITE_SUPABASE_URL=https://pqufymtbzrhzjfowaqgt.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxdWZ5bXRienJoempmb3dhcWd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMyNjAxNzcsImV4cCI6MjA3ODYyMDE3N30.5FhyfLLYYrr6VxGaFd5bhTQG33eFB6aIlaKLP57l7W0
+
+# ==========================================
+# INSTRUÇÕES:
+# ==========================================
+# 1. Acesse seu projeto FRONTEND no Vercel
+# 2. Vá em Settings > Environment Variables
+# 3. Adicione cada variável acima
+# 4. IMPORTANTE: Atualize VITE_API_URL com a URL real do backend
+#    (você receberá essa URL após fazer deploy do backend)
+# ==========================================

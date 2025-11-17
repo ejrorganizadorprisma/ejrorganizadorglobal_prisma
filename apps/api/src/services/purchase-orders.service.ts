@@ -216,14 +216,7 @@ export class PurchaseOrdersService {
       throw new Error('ID do fornecedor é obrigatório');
     }
 
-    if (orderData.expectedDeliveryDate) {
-      const expectedDate = new Date(orderData.expectedDeliveryDate);
-      const orderDate = orderData.orderDate ? new Date(orderData.orderDate) : new Date();
-
-      if (expectedDate < orderDate) {
-        throw new Error('Data de entrega esperada não pode ser anterior à data da ordem');
-      }
-    }
+    // Validação de data de entrega removida - permitir qualquer data futura ou presente
   }
 
   private validateUpdateOrder(orderData: UpdatePurchaseOrderDTO) {
