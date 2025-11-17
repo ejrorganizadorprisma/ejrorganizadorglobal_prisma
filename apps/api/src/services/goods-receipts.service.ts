@@ -172,11 +172,6 @@ export class GoodsReceiptsService {
       throw new Error('Recebimento já foi aprovado');
     }
 
-    // Verifica o status de qualidade
-    if (receipt.qualityCheckStatus === 'PENDING') {
-      throw new Error('Todos os itens devem ser inspecionados antes de aprovar o recebimento');
-    }
-
     // Aprova o recebimento (atualiza estoque automaticamente via trigger)
     return this.repository.approveReceipt(receiptId, approvedBy);
   }

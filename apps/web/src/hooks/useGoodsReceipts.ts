@@ -175,7 +175,9 @@ export function useApproveGoodsReceipt() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await api.post<{ data: GoodsReceipt }>(`/goods-receipts/${id}/approve`);
+      const response = await api.post<{ data: GoodsReceipt }>(`/goods-receipts/${id}/approve`, {
+        approvedBy: 'Sistema',
+      });
       return response.data.data;
     },
     onSuccess: () => {

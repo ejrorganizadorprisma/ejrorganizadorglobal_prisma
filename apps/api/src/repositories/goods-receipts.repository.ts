@@ -115,7 +115,7 @@ export class GoodsReceiptsRepository {
       .from('goods_receipts')
       .select(`
         *,
-        supplier:suppliers!inner(id, name, code),
+        supplier:suppliers!inner(id, name, document),
         purchase_order:purchase_orders(id, order_number)
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -152,7 +152,7 @@ export class GoodsReceiptsRepository {
       .from('goods_receipts')
       .select(`
         *,
-        supplier:suppliers!inner(id, name, code),
+        supplier:suppliers!inner(id, name, document),
         purchase_order:purchase_orders(id, order_number)
       `)
       .eq('id', id)
@@ -171,7 +171,7 @@ export class GoodsReceiptsRepository {
       .from('goods_receipts')
       .select(`
         *,
-        supplier:suppliers!inner(id, name, code),
+        supplier:suppliers!inner(id, name, document),
         purchase_order:purchase_orders(id, order_number)
       `)
       .eq('receipt_number', receiptNumber)
@@ -370,16 +370,21 @@ export class GoodsReceiptsRepository {
 
   // Aprovar recebimento completo (atualiza estoque e status)
   async approveReceipt(receiptId: string, approvedBy: string): Promise<GoodsReceipt> {
-    // Busca todos os itens do recebimento
+    // Busca os itens para copiar quantity_received para quantity_accepted
     const items = await this.getItems(receiptId);
 
-    // Verifica se todos os itens foram inspecionados
-    const allInspected = items.every(item =>
-      item.qualityStatus && item.qualityStatus !== 'PENDING'
-    );
+    // Atualiza cada item individualmente
+    for (const item of items) {
+      const { error: itemError } = await supabase
+        .from('goods_receipt_items')
+        .update({
+          quantity_accepted: item.quantityReceived,
+          quantity_rejected: 0,
+          quality_status: 'APPROVED',
+        })
+        .eq('id', item.id);
 
-    if (!allInspected) {
-      throw new Error('Todos os itens devem ser inspecionados antes de aprovar o recebimento');
+      if (itemError) throw new Error(`Erro ao atualizar item: ${itemError.message}`);
     }
 
     // Atualiza o status do recebimento
@@ -495,7 +500,18 @@ export class GoodsReceiptsRepository {
       createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
-    };
+      // Map supplier object with document → code mapping
+      supplier: data.supplier ? {
+        id: data.supplier.id,
+        name: data.supplier.name,
+        code: data.supplier.document, // Map document to code for application layer
+      } : undefined,
+      // Map purchase_order object
+      purchaseOrder: data.purchase_order ? {
+        id: data.purchase_order.id,
+        orderNumber: data.purchase_order.order_number,
+      } : undefined,
+    } as any;
   }
 
   private mapItemToDTO(data: any): GoodsReceiptItem {
