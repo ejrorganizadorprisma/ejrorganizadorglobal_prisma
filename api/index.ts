@@ -1,3 +1,3 @@
-import { app } from '../apps/api/src/app.js';
+const { app } = require('./app.bundle.cjs');
 
-export default app;
+module.exports = app;
