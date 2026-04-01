@@ -1,12 +1,14 @@
 import { Pool, QueryResult } from 'pg';
 import { env } from './env';
 
-// Create a connection pool
+// Create a connection pool (smaller for serverless)
+const isServerless = !!process.env.VERCEL;
 const pool = new Pool({
   connectionString: env.DATABASE_URL,
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: isServerless ? 2 : 20,
+  idleTimeoutMillis: isServerless ? 10000 : 30000,
+  connectionTimeoutMillis: 5000,
+  ssl: env.DATABASE_URL?.includes('supabase') ? { rejectUnauthorized: false } : undefined,
 });
 
 // Test the connection
