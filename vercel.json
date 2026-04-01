@@ -2,12 +2,6 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "node build-vercel.js",
   "outputDirectory": "dist",
-  "functions": {
-    "api/index.ts": {
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  },
   "rewrites": [
     { "source": "/api/v1/(.*)", "destination": "/api" },
     { "source": "/api/(.*)", "destination": "/api" },
