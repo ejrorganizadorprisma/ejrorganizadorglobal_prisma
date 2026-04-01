@@ -2,6 +2,7 @@
   "name": "ejr-organizador",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "Sistema de Gestão Empresarial - EJR Organizador",
   "scripts": {
     "dev": "pnpm --parallel --filter \"./apps/*\" dev",
