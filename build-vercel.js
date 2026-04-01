@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, cpSync } from 'fs';
 
 function run(cmd) {
   console.log(`\n>>> Running: ${cmd}`);
@@ -15,11 +15,14 @@ try {
   console.log('=== Building web frontend ===');
   run('cd apps/web && npx vite build');
 
-  // Verify output exists
-  if (existsSync('apps/web/dist/index.html')) {
-    console.log('\n✅ Build successful! Output at apps/web/dist');
+  // Step 3: Copy output to root dist (where Vercel expects it)
+  console.log('=== Copying output to dist/ ===');
+  cpSync('apps/web/dist', 'dist', { recursive: true });
+
+  if (existsSync('dist/index.html')) {
+    console.log('\n✅ Build successful! Output at dist/');
   } else {
-    console.error('\n❌ Build failed: apps/web/dist/index.html not found');
+    console.error('\n❌ Build failed: dist/index.html not found');
     process.exit(1);
   }
 } catch (error) {
