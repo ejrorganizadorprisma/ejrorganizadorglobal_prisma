@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import { existsSync, cpSync } from 'fs';
+import { build } from 'esbuild';
 
 function run(cmd) {
   console.log(`\n>>> Running: ${cmd}`);
@@ -15,9 +16,18 @@ try {
   console.log('=== Building web frontend ===');
   run('cd apps/web && npx vite build');
 
-  // Step 3: Bundle API serverless function with esbuild
+  // Step 3: Bundle API serverless function with esbuild JS API
   console.log('=== Bundling API serverless function ===');
-  run('./node_modules/.bin/esbuild apps/api/src/app.ts --bundle --platform=node --target=node18 --format=cjs --outfile=api/app.bundle.cjs --external:pg-native');
+  await build({
+    entryPoints: ['apps/api/src/app.ts'],
+    bundle: true,
+    platform: 'node',
+    target: 'node18',
+    format: 'cjs',
+    outfile: 'api/app.bundle.cjs',
+    external: ['pg-native'],
+  });
+  console.log('API bundle created: api/app.bundle.cjs');
 
   // Step 4: Copy web output to root dist
   console.log('=== Copying output to dist/ ===');
