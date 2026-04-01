@@ -1,15 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  try {
-    const { app } = await import('../apps/api/src/app.js');
-    return app(req, res);
-  } catch (err: any) {
-    console.error('API Error:', err);
-    return res.status(500).json({
-      error: 'Failed to initialize API',
-      message: err.message,
-      stack: err.stack?.split('\n').slice(0, 5),
-    });
-  }
+export default function handler(req: VercelRequest, res: VercelResponse) {
+  res.status(200).json({
+    ok: true,
+    message: 'API serverless function works!',
+    env: {
+      hasDbUrl: !!process.env.DATABASE_URL,
+      hasJwt: !!process.env.JWT_SECRET,
+      nodeEnv: process.env.NODE_ENV,
+    },
+    url: req.url,
+  });
 }
