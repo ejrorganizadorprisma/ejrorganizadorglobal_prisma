@@ -40,7 +40,7 @@ export function DebugSuppliersPage() {
   }, []);
 
   return (
-    <div className="p-8">
+    <div className="p-4 lg:p-8">
       <h1 className="text-2xl font-bold mb-4">Debug Suppliers Page</h1>
 
       <button
@@ -61,7 +61,7 @@ export function DebugSuppliersPage() {
       {data && (
         <div>
           <h2 className="text-xl font-semibold mb-2">Raw Response:</h2>
-          <pre className="bg-gray-100 p-4 rounded overflow-auto">
+          <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-sm">
             {JSON.stringify(data, null, 2)}
           </pre>
 

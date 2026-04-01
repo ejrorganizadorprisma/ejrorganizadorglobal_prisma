@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 
 export type ProductionOrderStatus =
   | 'DRAFT'
@@ -16,6 +16,10 @@ export interface ProductionOrder {
   id: string;
   orderNumber: string;
   productId: string;
+  product?: {
+    code: string;
+    name: string;
+  };
   bomVersionId?: string;
   quantityPlanned: number;
   quantityProduced: number;
@@ -160,275 +164,406 @@ export class ProductionOrdersRepository {
   }) {
     const { page, limit, status, priority, productId, assignedTo } = params;
 
-    let query = supabase
-      .from('production_orders')
-      .select('*, products(code, name)', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1);
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let paramCounter = 1;
 
     if (status) {
-      query = query.eq('status', status);
+      conditions.push(`po.status = $${paramCounter++}`);
+      values.push(status);
     }
 
     if (priority) {
-      query = query.eq('priority', priority);
+      conditions.push(`po.priority = $${paramCounter++}`);
+      values.push(priority);
     }
 
     if (productId) {
-      query = query.eq('product_id', productId);
+      conditions.push(`po.product_id = $${paramCounter++}`);
+      values.push(productId);
     }
 
     if (assignedTo) {
-      query = query.eq('assigned_to', assignedTo);
+      conditions.push(`po.assigned_to = $${paramCounter++}`);
+      values.push(assignedTo);
     }
 
-    const { data, error, count } = await query;
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    if (error) {
-      throw new Error(`Erro ao buscar ordens de produção: ${error.message}`);
-    }
+    // Get total count
+    const countQuery = `SELECT COUNT(*) FROM production_orders po ${whereClause}`;
+    const countResult = await db.query(countQuery, values);
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Get paginated data with product join
+    const offset = (page - 1) * limit;
+    values.push(limit, offset);
+
+    const dataQuery = `
+      SELECT
+        po.*,
+        p.code as product_code,
+        p.name as product_name
+      FROM production_orders po
+      LEFT JOIN products p ON po.product_id = p.id
+      ${whereClause}
+      ORDER BY po.created_at DESC
+      LIMIT $${paramCounter++} OFFSET $${paramCounter++}
+    `;
+
+    const result = await db.query(dataQuery, values);
 
     return {
-      data: (data || []).map(this.mapToProductionOrder),
-      total: count || 0,
+      data: result.rows.map((order) => this.mapToProductionOrder(order)),
+      total,
     };
   }
 
   async findById(id: string): Promise<ProductionOrder | null> {
-    const { data, error } = await supabase
-      .from('production_orders')
-      .select('*, products(code, name)')
-      .eq('id', id)
-      .single();
+    const query = `
+      SELECT
+        po.*,
+        p.code as product_code,
+        p.name as product_name
+      FROM production_orders po
+      LEFT JOIN products p ON po.product_id = p.id
+      WHERE po.id = $1
+    `;
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw new Error(`Erro ao buscar ordem de produção: ${error.message}`);
+    const result = await db.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return null;
     }
 
-    return this.mapToProductionOrder(data);
+    return this.mapToProductionOrder(result.rows[0]);
   }
 
   async create(dto: CreateProductionOrderDTO): Promise<ProductionOrder> {
     // Gerar número da ordem sequencial
     const orderNumber = await this.generateOrderNumber();
 
-    const { data, error } = await supabase
-      .from('production_orders')
-      .insert({
-        order_number: orderNumber,
-        product_id: dto.productId,
-        bom_version_id: dto.bomVersionId,
-        quantity_planned: dto.quantityPlanned,
-        priority: dto.priority || 'NORMAL',
-        planned_start_date: dto.plannedStartDate,
-        planned_end_date: dto.plannedEndDate,
-        due_date: dto.dueDate,
-        related_quote_id: dto.relatedQuoteId,
-        related_service_order_id: dto.relatedServiceOrderId,
-        created_by: dto.createdBy,
-        assigned_to: dto.assignedTo,
-        notes: dto.notes,
-        internal_notes: dto.internalNotes,
-        status: 'DRAFT',
-      })
-      .select('*, products(code, name)')
-      .single();
+    // Generate a unique ID for the production order
+    const id = `prod-order-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-    if (error) {
-      throw new Error(`Erro ao criar ordem de produção: ${error.message}`);
+    const insertQuery = `
+      INSERT INTO production_orders (
+        id, order_number, product_id, bom_version_id, quantity_planned,
+        priority, planned_start_date, planned_end_date, due_date,
+        related_quote_id, related_service_order_id, created_by,
+        assigned_to, notes, internal_notes, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      RETURNING *
+    `;
+
+    const values = [
+      id,
+      orderNumber,
+      dto.productId,
+      dto.bomVersionId || null,
+      dto.quantityPlanned,
+      dto.priority || 'NORMAL',
+      dto.plannedStartDate || null,
+      dto.plannedEndDate || null,
+      dto.dueDate || null,
+      dto.relatedQuoteId || null,
+      dto.relatedServiceOrderId || null,
+      dto.createdBy || null,
+      dto.assignedTo || null,
+      dto.notes || null,
+      dto.internalNotes || null,
+      'DRAFT',
+    ];
+
+    const result = await db.query(insertQuery, values);
+
+    // Fetch with product details
+    const created = await this.findById(result.rows[0].id);
+    if (!created) {
+      throw new Error('Erro ao buscar ordem criada');
     }
 
-    return this.mapToProductionOrder(data);
+    return created;
   }
 
   async update(id: string, dto: UpdateProductionOrderDTO): Promise<ProductionOrder> {
-    const updateData: any = {};
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCounter = 1;
 
-    if (dto.quantityPlanned !== undefined) updateData.quantity_planned = dto.quantityPlanned;
+    if (dto.quantityPlanned !== undefined) {
+      updates.push(`quantity_planned = $${paramCounter++}`);
+      values.push(dto.quantityPlanned);
+    }
+
     if (dto.status !== undefined) {
-      updateData.status = dto.status;
+      updates.push(`status = $${paramCounter++}`);
+      values.push(dto.status);
 
       // Atualizar datas automaticamente baseado no status
       if (dto.status === 'IN_PROGRESS' && !dto.actualStartDate) {
-        updateData.actual_start_date = new Date().toISOString();
+        updates.push(`actual_start_date = $${paramCounter++}`);
+        values.push(new Date().toISOString());
       }
       if ((dto.status === 'COMPLETED' || dto.status === 'CLOSED') && !dto.actualEndDate) {
-        updateData.actual_end_date = new Date().toISOString();
+        updates.push(`actual_end_date = $${paramCounter++}`);
+        values.push(new Date().toISOString());
       }
     }
-    if (dto.priority !== undefined) updateData.priority = dto.priority;
-    if (dto.plannedStartDate !== undefined) updateData.planned_start_date = dto.plannedStartDate;
-    if (dto.plannedEndDate !== undefined) updateData.planned_end_date = dto.plannedEndDate;
-    if (dto.actualStartDate !== undefined) updateData.actual_start_date = dto.actualStartDate;
-    if (dto.actualEndDate !== undefined) updateData.actual_end_date = dto.actualEndDate;
-    if (dto.dueDate !== undefined) updateData.due_date = dto.dueDate;
-    if (dto.assignedTo !== undefined) updateData.assigned_to = dto.assignedTo;
-    if (dto.notes !== undefined) updateData.notes = dto.notes;
-    if (dto.internalNotes !== undefined) updateData.internal_notes = dto.internalNotes;
 
-    const { data, error } = await supabase
-      .from('production_orders')
-      .update(updateData)
-      .eq('id', id)
-      .select('*, products(code, name)')
-      .single();
-
-    if (error) {
-      throw new Error(`Erro ao atualizar ordem de produção: ${error.message}`);
+    if (dto.priority !== undefined) {
+      updates.push(`priority = $${paramCounter++}`);
+      values.push(dto.priority);
     }
 
-    return this.mapToProductionOrder(data);
+    if (dto.plannedStartDate !== undefined) {
+      updates.push(`planned_start_date = $${paramCounter++}`);
+      values.push(dto.plannedStartDate);
+    }
+
+    if (dto.plannedEndDate !== undefined) {
+      updates.push(`planned_end_date = $${paramCounter++}`);
+      values.push(dto.plannedEndDate);
+    }
+
+    if (dto.actualStartDate !== undefined) {
+      updates.push(`actual_start_date = $${paramCounter++}`);
+      values.push(dto.actualStartDate);
+    }
+
+    if (dto.actualEndDate !== undefined) {
+      updates.push(`actual_end_date = $${paramCounter++}`);
+      values.push(dto.actualEndDate);
+    }
+
+    if (dto.dueDate !== undefined) {
+      updates.push(`due_date = $${paramCounter++}`);
+      values.push(dto.dueDate);
+    }
+
+    if (dto.assignedTo !== undefined) {
+      updates.push(`assigned_to = $${paramCounter++}`);
+      values.push(dto.assignedTo);
+    }
+
+    if (dto.notes !== undefined) {
+      updates.push(`notes = $${paramCounter++}`);
+      values.push(dto.notes);
+    }
+
+    if (dto.internalNotes !== undefined) {
+      updates.push(`internal_notes = $${paramCounter++}`);
+      values.push(dto.internalNotes);
+    }
+
+    if (updates.length === 0) {
+      const existing = await this.findById(id);
+      if (!existing) {
+        throw new Error('Ordem de produção não encontrada');
+      }
+      return existing;
+    }
+
+    values.push(id);
+    const updateQuery = `
+      UPDATE production_orders
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCounter}
+      RETURNING *
+    `;
+
+    await db.query(updateQuery, values);
+
+    const updated = await this.findById(id);
+    if (!updated) {
+      throw new Error('Erro ao buscar ordem atualizada');
+    }
+
+    return updated;
   }
 
   async delete(id: string): Promise<{ success: boolean }> {
-    const { error } = await supabase
-      .from('production_orders')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Erro ao deletar ordem de produção: ${error.message}`);
-    }
-
+    const query = `DELETE FROM production_orders WHERE id = $1`;
+    await db.query(query, [id]);
     return { success: true };
   }
 
   // Material Consumption
   async getMaterialConsumption(orderId: string): Promise<MaterialConsumption[]> {
-    const { data, error } = await supabase
-      .from('production_material_consumption')
-      .select('*, products(code, name)')
-      .eq('production_order_id', orderId)
-      .order('created_at', { ascending: true });
+    const query = `
+      SELECT
+        pmc.*,
+        p.code as product_code,
+        p.name as product_name
+      FROM production_material_consumption pmc
+      LEFT JOIN products p ON pmc.product_id = p.id
+      WHERE pmc.production_order_id = $1
+      ORDER BY pmc.created_at ASC
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao buscar consumo de materiais: ${error.message}`);
-    }
-
-    return (data || []).map(this.mapToMaterialConsumption);
+    const result = await db.query(query, [orderId]);
+    return result.rows.map(this.mapToMaterialConsumption);
   }
 
   async createMaterialConsumption(dto: CreateMaterialConsumptionDTO): Promise<MaterialConsumption> {
-    const { data, error } = await supabase
-      .from('production_material_consumption')
-      .insert({
-        production_order_id: dto.productionOrderId,
-        product_id: dto.productId,
-        bom_item_id: dto.bomItemId,
-        quantity_planned: dto.quantityPlanned,
-        unit_cost: dto.unitCost,
-      })
-      .select('*, products(code, name)')
-      .single();
+    const insertQuery = `
+      INSERT INTO production_material_consumption (
+        production_order_id, product_id, bom_item_id, quantity_planned, unit_cost
+      ) VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao criar consumo de material: ${error.message}`);
-    }
+    const values = [
+      dto.productionOrderId,
+      dto.productId,
+      dto.bomItemId || null,
+      dto.quantityPlanned,
+      dto.unitCost || null,
+    ];
 
-    return this.mapToMaterialConsumption(data);
+    const result = await db.query(insertQuery, values);
+
+    // Fetch with product details
+    const selectQuery = `
+      SELECT
+        pmc.*,
+        p.code as product_code,
+        p.name as product_name
+      FROM production_material_consumption pmc
+      LEFT JOIN products p ON pmc.product_id = p.id
+      WHERE pmc.id = $1
+    `;
+
+    const detailResult = await db.query(selectQuery, [result.rows[0].id]);
+    return this.mapToMaterialConsumption(detailResult.rows[0]);
   }
 
   async updateMaterialConsumption(
     id: string,
     dto: UpdateMaterialConsumptionDTO
   ): Promise<MaterialConsumption> {
-    const updateData: any = {};
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramCounter = 1;
 
     if (dto.quantityConsumed !== undefined) {
-      updateData.quantity_consumed = dto.quantityConsumed;
-      updateData.consumed_at = new Date().toISOString();
-    }
-    if (dto.quantityScrapped !== undefined) updateData.quantity_scrapped = dto.quantityScrapped;
-    if (dto.consumedBy !== undefined) updateData.consumed_by = dto.consumedBy;
-    if (dto.lotNumber !== undefined) updateData.lot_number = dto.lotNumber;
-    if (dto.notes !== undefined) updateData.notes = dto.notes;
-
-    const { data, error } = await supabase
-      .from('production_material_consumption')
-      .update(updateData)
-      .eq('id', id)
-      .select('*, products(code, name)')
-      .single();
-
-    if (error) {
-      throw new Error(`Erro ao atualizar consumo de material: ${error.message}`);
+      updates.push(`quantity_consumed = $${paramCounter++}`);
+      values.push(dto.quantityConsumed);
+      updates.push(`consumed_at = $${paramCounter++}`);
+      values.push(new Date().toISOString());
     }
 
-    return this.mapToMaterialConsumption(data);
+    if (dto.quantityScrapped !== undefined) {
+      updates.push(`quantity_scrapped = $${paramCounter++}`);
+      values.push(dto.quantityScrapped);
+    }
+
+    if (dto.consumedBy !== undefined) {
+      updates.push(`consumed_by = $${paramCounter++}`);
+      values.push(dto.consumedBy);
+    }
+
+    if (dto.lotNumber !== undefined) {
+      updates.push(`lot_number = $${paramCounter++}`);
+      values.push(dto.lotNumber);
+    }
+
+    if (dto.notes !== undefined) {
+      updates.push(`notes = $${paramCounter++}`);
+      values.push(dto.notes);
+    }
+
+    if (updates.length === 0) {
+      throw new Error('Nenhum campo para atualizar');
+    }
+
+    values.push(id);
+    const updateQuery = `
+      UPDATE production_material_consumption
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCounter}
+      RETURNING *
+    `;
+
+    await db.query(updateQuery, values);
+
+    // Fetch with product details
+    const selectQuery = `
+      SELECT
+        pmc.*,
+        p.code as product_code,
+        p.name as product_name
+      FROM production_material_consumption pmc
+      LEFT JOIN products p ON pmc.product_id = p.id
+      WHERE pmc.id = $1
+    `;
+
+    const result = await db.query(selectQuery, [id]);
+    return this.mapToMaterialConsumption(result.rows[0]);
   }
 
   // Operations
   async getOperations(orderId: string): Promise<ProductionOperation[]> {
-    const { data, error } = await supabase
-      .from('production_operations')
-      .select('*')
-      .eq('production_order_id', orderId)
-      .order('operation_number', { ascending: true });
+    const query = `
+      SELECT * FROM production_operations
+      WHERE production_order_id = $1
+      ORDER BY operation_number ASC
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao buscar operações: ${error.message}`);
-    }
-
-    return (data || []).map(this.mapToOperation);
+    const result = await db.query(query, [orderId]);
+    return result.rows.map(this.mapToOperation);
   }
 
   // Reportings
   async getReportings(orderId: string): Promise<ProductionReporting[]> {
-    const { data, error } = await supabase
-      .from('production_reportings')
-      .select('*')
-      .eq('production_order_id', orderId)
-      .order('reporting_date', { ascending: false });
+    const query = `
+      SELECT * FROM production_reportings
+      WHERE production_order_id = $1
+      ORDER BY reporting_date DESC
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao buscar apontamentos: ${error.message}`);
-    }
-
-    return (data || []).map(this.mapToReporting);
+    const result = await db.query(query, [orderId]);
+    return result.rows.map(this.mapToReporting);
   }
 
   async createReporting(dto: CreateProductionReportingDTO): Promise<ProductionReporting> {
-    const { data, error } = await supabase
-      .from('production_reportings')
-      .insert({
-        production_order_id: dto.productionOrderId,
-        quantity_produced: dto.quantityProduced,
-        quantity_scrapped: dto.quantityScrapped || 0,
-        scrap_reason: dto.scrapReason,
-        reported_by: dto.reportedBy,
-        shift: dto.shift,
-        notes: dto.notes,
-      })
-      .select()
-      .single();
+    const query = `
+      INSERT INTO production_reportings (
+        production_order_id, quantity_produced, quantity_scrapped,
+        scrap_reason, reported_by, shift, notes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao criar apontamento: ${error.message}`);
-    }
+    const values = [
+      dto.productionOrderId,
+      dto.quantityProduced,
+      dto.quantityScrapped || 0,
+      dto.scrapReason || null,
+      dto.reportedBy || null,
+      dto.shift || null,
+      dto.notes || null,
+    ];
 
-    return this.mapToReporting(data);
+    const result = await db.query(query, values);
+    return this.mapToReporting(result.rows[0]);
   }
 
   // Helper methods
   private async generateOrderNumber(): Promise<string> {
-    const { data, error } = await supabase
-      .from('production_orders')
-      .select('order_number')
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const query = `
+      SELECT order_number FROM production_orders
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao gerar número da ordem: ${error.message}`);
-    }
+    const result = await db.query(query);
 
-    if (!data || data.length === 0) {
+    if (result.rows.length === 0) {
       return 'OP-000001';
     }
 
-    const lastNumber = data[0].order_number;
+    const lastNumber = result.rows[0].order_number;
     const match = lastNumber.match(/OP-(\d+)/);
 
     if (!match) {
@@ -444,11 +579,15 @@ export class ProductionOrdersRepository {
       id: data.id,
       orderNumber: data.order_number,
       productId: data.product_id,
+      product: data.product_code ? {
+        code: data.product_code,
+        name: data.product_name,
+      } : undefined,
       bomVersionId: data.bom_version_id,
       quantityPlanned: data.quantity_planned,
-      quantityProduced: data.quantity_produced,
-      quantityScrapped: data.quantity_scrapped,
-      quantityPending: data.quantity_pending,
+      quantityProduced: data.quantity_produced || 0,
+      quantityScrapped: data.quantity_scrapped || 0,
+      quantityPending: data.quantity_pending || 0,
       status: data.status,
       priority: data.priority,
       plannedStartDate: data.planned_start_date,
@@ -456,10 +595,10 @@ export class ProductionOrdersRepository {
       actualStartDate: data.actual_start_date,
       actualEndDate: data.actual_end_date,
       dueDate: data.due_date,
-      materialCost: data.material_cost,
-      laborCost: data.labor_cost,
-      overheadCost: data.overhead_cost,
-      totalCost: data.total_cost,
+      materialCost: data.material_cost || 0,
+      laborCost: data.labor_cost || 0,
+      overheadCost: data.overhead_cost || 0,
+      totalCost: data.total_cost || 0,
       relatedQuoteId: data.related_quote_id,
       relatedServiceOrderId: data.related_service_order_id,
       createdBy: data.created_by,

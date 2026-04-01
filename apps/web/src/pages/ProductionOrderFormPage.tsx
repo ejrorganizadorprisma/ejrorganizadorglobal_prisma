@@ -11,11 +11,13 @@ import {
 import { useProducts } from '../hooks/useProducts';
 import { useProductBOM, useCanAssemble } from '../hooks/useProductParts';
 import { MaterialAvailabilityModal, PurchaseSuggestionsModal } from '../components/production';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 
 export function ProductionOrderFormPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const isEditing = !!id;
+  const { formatPrice } = useFormatPrice();
 
   const { data: productionOrder, isLoading: isLoadingOrder } = useProductionOrder(id);
   const { data: productsData } = useProducts({ limit: 1000 });
@@ -38,6 +40,7 @@ export function ProductionOrderFormPage() {
   const [showBOM, setShowBOM] = useState(false);
   const [showMaterialAvailability, setShowMaterialAvailability] = useState(false);
   const [showPurchaseSuggestions, setShowPurchaseSuggestions] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   const { data: bomData } = useProductBOM(selectedProductId || undefined);
   const { data: availabilityData } = useCanAssemble(
@@ -45,10 +48,20 @@ export function ProductionOrderFormPage() {
     formData.quantityPlanned
   );
 
-  // Filter products to show only ASSEMBLED or FINAL_GOOD types
+  // Filter products to show only products marked as "É produto montado? (possui BOM)"
   const assemblyProducts = productsData?.data?.filter(
-    (p) => p.type === 'ASSEMBLED' || p.type === 'FINAL_GOOD'
+    (p) => p.isAssembly === true
   ) || [];
+
+  // Filter products based on search
+  const filteredProducts = assemblyProducts.filter((product) => {
+    const searchLower = productSearch.toLowerCase();
+    return (
+      product.code.toLowerCase().includes(searchLower) ||
+      product.name.toLowerCase().includes(searchLower) ||
+      product.sku?.toLowerCase().includes(searchLower)
+    );
+  });
 
   useEffect(() => {
     if (productionOrder && isEditing) {
@@ -127,13 +140,6 @@ export function ProductionOrderFormPage() {
     }
   };
 
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
-
   if (isLoadingOrder && isEditing) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -157,14 +163,14 @@ export function ProductionOrderFormPage() {
             <ArrowLeft className="w-4 h-4" />
             Voltar para Ordens de Produção
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
             {isEditing ? 'Editar Ordem de Produção' : 'Nova Ordem de Produção'}
           </h1>
         </div>
 
         <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
           {/* Product Selection */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 lg:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Informações do Produto
             </h2>
@@ -174,6 +180,17 @@ export function ProductionOrderFormPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Produto <span className="text-red-500">*</span>
                 </label>
+
+                {!isEditing && (
+                  <input
+                    type="text"
+                    placeholder="Buscar produto por código, nome ou SKU..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="w-full px-3 py-2 mb-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                )}
+
                 <select
                   value={formData.productId}
                   onChange={(e) =>
@@ -184,14 +201,22 @@ export function ProductionOrderFormPage() {
                   disabled={isEditing}
                 >
                   <option value="">Selecione um produto para montar</option>
-                  {assemblyProducts.map((product) => (
+                  {filteredProducts.map((product) => (
                     <option key={product.id} value={product.id}>
                       {product.code} - {product.name} (Tipo: {product.type})
                     </option>
                   ))}
                 </select>
+
+                {!isEditing && filteredProducts.length === 0 && productSearch && (
+                  <p className="mt-1 text-sm text-amber-600">
+                    Nenhum produto encontrado com "{productSearch}"
+                  </p>
+                )}
+
                 <p className="mt-1 text-sm text-gray-500">
                   Apenas produtos do tipo ASSEMBLED ou FINAL_GOOD podem ser produzidos
+                  {!isEditing && ` (${filteredProducts.length} produto${filteredProducts.length !== 1 ? 's' : ''} disponível${filteredProducts.length !== 1 ? 'eis' : ''})`}
                 </p>
               </div>
 
@@ -208,6 +233,7 @@ export function ProductionOrderFormPage() {
                       quantityPlanned: parseInt(e.target.value) || 0,
                     })
                   }
+                  onFocus={(e) => e.target.select()}
                   min="1"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
@@ -238,7 +264,7 @@ export function ProductionOrderFormPage() {
           </div>
 
           {/* Dates */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 lg:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Datas</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -288,8 +314,8 @@ export function ProductionOrderFormPage() {
 
           {/* BOM Display */}
           {showBOM && bomData && bomData.length > 0 && (
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Materiais Necessários (BOM)
                 </h2>
@@ -354,12 +380,7 @@ export function ProductionOrderFormPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {bomData.map((item) => {
                       const totalQty = item.quantity * formData.quantityPlanned;
-                      const availability = availabilityData?.parts?.find(
-                        (p) => p.partId === item.partId
-                      );
-                      const hasStock = availability
-                        ? availability.available >= availability.required
-                        : false;
+                      const hasStock = item.availableStock >= totalQty;
 
                       return (
                         <tr key={item.partId}>
@@ -378,7 +399,7 @@ export function ProductionOrderFormPage() {
                             {totalQty}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {availability?.available || 0}
+                            {item.availableStock}
                           </td>
                           <td className="px-4 py-3">
                             {hasStock ? (
@@ -394,10 +415,10 @@ export function ProductionOrderFormPage() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatCurrency(item.unitCost)}
+                            {formatPrice(item.unitCost)}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
-                            {formatCurrency(item.totalCost * formData.quantityPlanned)}
+                            {formatPrice(item.totalCost * formData.quantityPlanned)}
                           </td>
                         </tr>
                       );
@@ -412,7 +433,7 @@ export function ProductionOrderFormPage() {
                         Custo Total Estimado de Materiais:
                       </td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                        {formatCurrency(estimatedMaterialCost)}
+                        {formatPrice(estimatedMaterialCost)}
                       </td>
                     </tr>
                   </tfoot>
@@ -422,7 +443,7 @@ export function ProductionOrderFormPage() {
           )}
 
           {/* Additional Info */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 lg:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Informações Adicionais
             </h2>
@@ -506,17 +527,17 @@ export function ProductionOrderFormPage() {
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
             <button
               type="button"
               onClick={() => navigate('/production-orders')}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               disabled={
                 createOrderMutation.isPending || updateOrderMutation.isPending
               }

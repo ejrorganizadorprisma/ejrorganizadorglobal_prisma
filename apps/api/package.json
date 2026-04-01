@@ -7,11 +7,14 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx src/scripts/migrate.ts",
+    "db:seed": "tsx src/scripts/seed.ts"
   },
   "dependencies": {
     "@ejr/shared-types": "workspace:*",
     "@supabase/supabase-js": "^2.81.1",
+    "@types/node-cron": "^3.0.11",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -21,7 +24,9 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "winston": "^3.11.0",
+    "pg": "^8.16.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -32,6 +37,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/multer": "^2.0.0",
     "@types/node": "^20.10.5",
+    "@types/pg": "^8.15.6",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }

@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 import { randomUUID } from 'node:crypto';
 
 // Interface Supplier com todos os campos da tabela
@@ -8,6 +8,9 @@ export interface Supplier {
   name: string;
   legalName?: string;
   taxId?: string;
+  ci?: string;
+  ruc?: string;
+  manufacturer?: string; // Fabricante associado
   email?: string;
   phone?: string;
   website?: string;
@@ -71,6 +74,9 @@ export interface CreateSupplierDTO {
   name: string;
   legalName?: string;
   taxId?: string;
+  ci?: string;
+  ruc?: string;
+  manufacturer?: string;
   email?: string;
   phone?: string;
   website?: string;
@@ -87,6 +93,9 @@ export interface UpdateSupplierDTO {
   name?: string;
   legalName?: string;
   taxId?: string;
+  ci?: string;
+  ruc?: string;
+  manufacturer?: string;
   email?: string;
   phone?: string;
   website?: string;
@@ -103,10 +112,13 @@ export class SuppliersRepository {
   private mapSupplier(data: any): Supplier {
     return {
       id: data.id,
-      code: data.document, // Map document field to code in application
+      code: data.code, // Use the code column from database
       name: data.name,
       legalName: data.legal_name || undefined,
       taxId: data.tax_id || undefined,
+      ci: data.ci || undefined,
+      ruc: data.ruc || undefined,
+      manufacturer: data.manufacturer || undefined,
       email: data.email || undefined,
       phone: data.phone || undefined,
       website: data.website || undefined,
@@ -178,87 +190,85 @@ export class SuppliersRepository {
   async findMany(params: { page: number; limit: number; search?: string; status?: string }) {
     const { page, limit, search, status } = params;
 
-    let query = supabase
-      .from('suppliers')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1);
+    // Build WHERE clauses
+    const whereClauses: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,tax_id.ilike.%${search}%`);
+      whereClauses.push(`(name ILIKE $${paramIndex} OR document ILIKE $${paramIndex} OR tax_id ILIKE $${paramIndex} OR ci ILIKE $${paramIndex} OR ruc ILIKE $${paramIndex})`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
     }
 
     if (status) {
-      query = query.eq('status', status);
+      whereClauses.push(`status = $${paramIndex}`);
+      queryParams.push(status);
+      paramIndex++;
     }
 
-    const { data, error, count } = await query;
+    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    if (error) throw new Error(`Erro ao buscar fornecedores: ${error.message}`);
+    // Get count
+    const countSql = `SELECT COUNT(*) as count FROM suppliers ${whereClause}`;
+    const countResult = await db.query(countSql, queryParams.slice(0, paramIndex - 1));
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // Get paginated data
+    queryParams.push(limit);
+    queryParams.push((page - 1) * limit);
+
+    const dataSql = `
+      SELECT * FROM suppliers
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    const dataResult = await db.query(dataSql, queryParams);
 
     return {
-      data: (data || []).map(this.mapSupplier),
-      total: count || 0,
+      data: dataResult.rows.map(this.mapSupplier),
+      total,
     };
   }
 
   async findById(id: string): Promise<Supplier | null> {
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const sql = 'SELECT * FROM suppliers WHERE id = $1';
+    const result = await db.query(sql, [id]);
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw new Error(`Erro ao buscar fornecedor: ${error.message}`);
+    if (result.rows.length === 0) {
+      return null;
     }
 
-    return this.mapSupplier(data);
+    return this.mapSupplier(result.rows[0]);
   }
 
   async findByCode(code: string): Promise<Supplier | null> {
-    // Query using document field which maps to code in the application layer
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .eq('document', code)
-      .single();
+    // Query using code field
+    const sql = 'SELECT * FROM suppliers WHERE code = $1';
+    const result = await db.query(sql, [code]);
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw new Error(`Erro ao buscar fornecedor: ${error.message}`);
+    if (result.rows.length === 0) {
+      return null;
     }
 
-    return this.mapSupplier(data);
+    return this.mapSupplier(result.rows[0]);
   }
 
   // Generate next sequential code for supplier
   private async generateSupplierCode(): Promise<string> {
-    // Get the last supplier ordered by document field
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('document')
-      .order('created_at', { ascending: false })
-      .limit(1);
+    // Get the last supplier ordered by code field
+    const sql = 'SELECT code FROM suppliers ORDER BY created_at DESC LIMIT 1';
+    const result = await db.query(sql);
 
-    if (error) {
-      console.error('Error fetching last supplier code:', error);
-      // If error, start from 1
-      return 'FORN-0001';
-    }
-
-    if (!data || data.length === 0) {
+    if (result.rows.length === 0) {
       // First supplier
       return 'FORN-0001';
     }
 
     // Extract number from last code (e.g., "FORN-0005" -> 5)
-    const lastCode = data[0].document;
+    const lastCode = result.rows[0].code;
     const match = lastCode.match(/FORN-(\d+)/);
 
     if (match) {
@@ -277,219 +287,430 @@ export class SuppliersRepository {
     // Auto-generate code if not provided
     const code = await this.generateSupplierCode();
 
-    const { data, error} = await supabase
-      .from('suppliers')
-      .insert({
-        id,
-        document: code, // Use auto-generated code
-        name: supplierData.name,
-        legal_name: supplierData.legalName,
-        tax_id: supplierData.taxId,
-        email: supplierData.email,
-        phone: supplierData.phone,
-        website: supplierData.website,
-        payment_terms: supplierData.paymentTerms,
-        lead_time_days: supplierData.leadTimeDays || 0,
-        minimum_order_value: supplierData.minimumOrderValue || 0,
-        status: supplierData.status || 'ACTIVE',
-        rating: supplierData.rating,
-        notes: supplierData.notes,
-      })
-      .select()
-      .single();
+    // Use taxId for document field, or code as fallback if taxId is not provided
+    const document = supplierData.taxId || code;
 
-    if (error) throw new Error(`Erro ao criar fornecedor: ${error.message}`);
+    const sql = `
+      INSERT INTO suppliers (
+        id, code, document, name, legal_name, tax_id, ci, ruc, manufacturer, email, phone, website,
+        payment_terms, lead_time_days, minimum_order_value, status, rating, notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      RETURNING *
+    `;
 
-    return this.mapSupplier(data);
+    const result = await db.query(sql, [
+      id,
+      code, // Auto-generated code (FORN-XXXX)
+      document, // taxId or code as fallback
+      supplierData.name,
+      supplierData.legalName,
+      supplierData.taxId,
+      supplierData.ci,
+      supplierData.ruc,
+      supplierData.manufacturer,
+      supplierData.email,
+      supplierData.phone,
+      supplierData.website,
+      supplierData.paymentTerms,
+      supplierData.leadTimeDays || 0,
+      supplierData.minimumOrderValue || 0,
+      supplierData.status || 'ACTIVE',
+      supplierData.rating,
+      supplierData.notes,
+    ]);
+
+    return this.mapSupplier(result.rows[0]);
   }
 
   async update(id: string, supplierData: UpdateSupplierDTO): Promise<Supplier> {
-    const updateData: any = {};
+    const updateFields: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
     // Do not allow code to be updated - it's auto-generated
-    // if (supplierData.code !== undefined) updateData.document = supplierData.code;
-    if (supplierData.name !== undefined) updateData.name = supplierData.name;
-    if (supplierData.legalName !== undefined) updateData.legal_name = supplierData.legalName;
-    if (supplierData.taxId !== undefined) updateData.tax_id = supplierData.taxId;
-    if (supplierData.email !== undefined) updateData.email = supplierData.email;
-    if (supplierData.phone !== undefined) updateData.phone = supplierData.phone;
-    if (supplierData.website !== undefined) updateData.website = supplierData.website;
-    if (supplierData.paymentTerms !== undefined) updateData.payment_terms = supplierData.paymentTerms;
-    if (supplierData.leadTimeDays !== undefined) updateData.lead_time_days = supplierData.leadTimeDays;
-    if (supplierData.minimumOrderValue !== undefined) updateData.minimum_order_value = supplierData.minimumOrderValue;
-    if (supplierData.status !== undefined) updateData.status = supplierData.status;
-    if (supplierData.rating !== undefined) updateData.rating = supplierData.rating;
-    if (supplierData.notes !== undefined) updateData.notes = supplierData.notes;
+    if (supplierData.name !== undefined) {
+      updateFields.push(`name = $${paramIndex}`);
+      queryParams.push(supplierData.name);
+      paramIndex++;
+    }
+    if (supplierData.legalName !== undefined) {
+      updateFields.push(`legal_name = $${paramIndex}`);
+      queryParams.push(supplierData.legalName);
+      paramIndex++;
+    }
+    if (supplierData.taxId !== undefined) {
+      updateFields.push(`tax_id = $${paramIndex}`);
+      queryParams.push(supplierData.taxId);
+      paramIndex++;
+    }
+    if (supplierData.ci !== undefined) {
+      updateFields.push(`ci = $${paramIndex}`);
+      queryParams.push(supplierData.ci);
+      paramIndex++;
+    }
+    if (supplierData.ruc !== undefined) {
+      updateFields.push(`ruc = $${paramIndex}`);
+      queryParams.push(supplierData.ruc);
+      paramIndex++;
+    }
+    if (supplierData.manufacturer !== undefined) {
+      updateFields.push(`manufacturer = $${paramIndex}`);
+      queryParams.push(supplierData.manufacturer);
+      paramIndex++;
+    }
+    if (supplierData.email !== undefined) {
+      updateFields.push(`email = $${paramIndex}`);
+      queryParams.push(supplierData.email);
+      paramIndex++;
+    }
+    if (supplierData.phone !== undefined) {
+      updateFields.push(`phone = $${paramIndex}`);
+      queryParams.push(supplierData.phone);
+      paramIndex++;
+    }
+    if (supplierData.website !== undefined) {
+      updateFields.push(`website = $${paramIndex}`);
+      queryParams.push(supplierData.website);
+      paramIndex++;
+    }
+    if (supplierData.paymentTerms !== undefined) {
+      updateFields.push(`payment_terms = $${paramIndex}`);
+      queryParams.push(supplierData.paymentTerms);
+      paramIndex++;
+    }
+    if (supplierData.leadTimeDays !== undefined) {
+      updateFields.push(`lead_time_days = $${paramIndex}`);
+      queryParams.push(supplierData.leadTimeDays);
+      paramIndex++;
+    }
+    if (supplierData.minimumOrderValue !== undefined) {
+      updateFields.push(`minimum_order_value = $${paramIndex}`);
+      queryParams.push(supplierData.minimumOrderValue);
+      paramIndex++;
+    }
+    if (supplierData.status !== undefined) {
+      updateFields.push(`status = $${paramIndex}`);
+      queryParams.push(supplierData.status);
+      paramIndex++;
+    }
+    if (supplierData.rating !== undefined) {
+      updateFields.push(`rating = $${paramIndex}`);
+      queryParams.push(supplierData.rating);
+      paramIndex++;
+    }
+    if (supplierData.notes !== undefined) {
+      updateFields.push(`notes = $${paramIndex}`);
+      queryParams.push(supplierData.notes);
+      paramIndex++;
+    }
 
-    const { data, error } = await supabase
-      .from('suppliers')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    if (updateFields.length === 0) {
+      throw new Error('Nenhum campo para atualizar');
+    }
 
-    if (error) throw new Error(`Erro ao atualizar fornecedor: ${error.message}`);
+    // Add updated_at timestamp
+    updateFields.push(`updated_at = NOW()`);
 
-    return this.mapSupplier(data);
+    // Add id to params
+    queryParams.push(id);
+
+    const sql = `
+      UPDATE suppliers
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await db.query(sql, queryParams);
+
+    if (result.rows.length === 0) {
+      throw new Error('Fornecedor não encontrado');
+    }
+
+    return this.mapSupplier(result.rows[0]);
   }
 
   async delete(id: string) {
-    const { error } = await supabase.from('suppliers').delete().eq('id', id);
+    const sql = 'DELETE FROM suppliers WHERE id = $1';
+    const result = await db.query(sql, [id]);
 
-    if (error) throw new Error(`Erro ao deletar fornecedor: ${error.message}`);
+    if (result.rowCount === 0) {
+      throw new Error('Fornecedor não encontrado');
+    }
 
     return { success: true };
   }
 
   // Métodos para endereços
   async getAddresses(supplierId: string): Promise<SupplierAddress[]> {
-    const { data, error } = await supabase
-      .from('supplier_addresses')
-      .select('*')
-      .eq('supplier_id', supplierId)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: false });
+    const sql = `
+      SELECT * FROM supplier_addresses
+      WHERE supplier_id = $1
+      ORDER BY is_default DESC, created_at DESC
+    `;
+    const result = await db.query(sql, [supplierId]);
 
-    if (error) throw new Error(`Erro ao buscar endereços: ${error.message}`);
-
-    return (data || []).map(this.mapAddress);
+    return result.rows.map(this.mapAddress);
   }
 
   async addAddress(addressData: any): Promise<SupplierAddress> {
-    const { data, error } = await supabase
-      .from('supplier_addresses')
-      .insert({
-        supplier_id: addressData.supplierId,
-        type: addressData.type,
-        street: addressData.street,
-        number: addressData.number,
-        complement: addressData.complement,
-        neighborhood: addressData.neighborhood,
-        city: addressData.city,
-        state: addressData.state,
-        postal_code: addressData.postalCode,
-        country: addressData.country || 'BR',
-        is_default: addressData.isDefault || false,
-      })
-      .select()
-      .single();
+    const sql = `
+      INSERT INTO supplier_addresses (
+        supplier_id, type, street, number, complement, neighborhood,
+        city, state, postal_code, country, is_default
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *
+    `;
 
-    if (error) throw new Error(`Erro ao adicionar endereço: ${error.message}`);
+    const result = await db.query(sql, [
+      addressData.supplierId,
+      addressData.type,
+      addressData.street,
+      addressData.number,
+      addressData.complement,
+      addressData.neighborhood,
+      addressData.city,
+      addressData.state,
+      addressData.postalCode,
+      addressData.country || 'BR',
+      addressData.isDefault || false,
+    ]);
 
-    return this.mapAddress(data);
+    return this.mapAddress(result.rows[0]);
   }
 
   async updateAddress(id: string, addressData: any): Promise<SupplierAddress> {
-    const updateData: any = {};
+    const updateFields: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
-    if (addressData.type !== undefined) updateData.type = addressData.type;
-    if (addressData.street !== undefined) updateData.street = addressData.street;
-    if (addressData.number !== undefined) updateData.number = addressData.number;
-    if (addressData.complement !== undefined) updateData.complement = addressData.complement;
-    if (addressData.neighborhood !== undefined) updateData.neighborhood = addressData.neighborhood;
-    if (addressData.city !== undefined) updateData.city = addressData.city;
-    if (addressData.state !== undefined) updateData.state = addressData.state;
-    if (addressData.postalCode !== undefined) updateData.postal_code = addressData.postalCode;
-    if (addressData.country !== undefined) updateData.country = addressData.country;
-    if (addressData.isDefault !== undefined) updateData.is_default = addressData.isDefault;
+    if (addressData.type !== undefined) {
+      updateFields.push(`type = $${paramIndex}`);
+      queryParams.push(addressData.type);
+      paramIndex++;
+    }
+    if (addressData.street !== undefined) {
+      updateFields.push(`street = $${paramIndex}`);
+      queryParams.push(addressData.street);
+      paramIndex++;
+    }
+    if (addressData.number !== undefined) {
+      updateFields.push(`number = $${paramIndex}`);
+      queryParams.push(addressData.number);
+      paramIndex++;
+    }
+    if (addressData.complement !== undefined) {
+      updateFields.push(`complement = $${paramIndex}`);
+      queryParams.push(addressData.complement);
+      paramIndex++;
+    }
+    if (addressData.neighborhood !== undefined) {
+      updateFields.push(`neighborhood = $${paramIndex}`);
+      queryParams.push(addressData.neighborhood);
+      paramIndex++;
+    }
+    if (addressData.city !== undefined) {
+      updateFields.push(`city = $${paramIndex}`);
+      queryParams.push(addressData.city);
+      paramIndex++;
+    }
+    if (addressData.state !== undefined) {
+      updateFields.push(`state = $${paramIndex}`);
+      queryParams.push(addressData.state);
+      paramIndex++;
+    }
+    if (addressData.postalCode !== undefined) {
+      updateFields.push(`postal_code = $${paramIndex}`);
+      queryParams.push(addressData.postalCode);
+      paramIndex++;
+    }
+    if (addressData.country !== undefined) {
+      updateFields.push(`country = $${paramIndex}`);
+      queryParams.push(addressData.country);
+      paramIndex++;
+    }
+    if (addressData.isDefault !== undefined) {
+      updateFields.push(`is_default = $${paramIndex}`);
+      queryParams.push(addressData.isDefault);
+      paramIndex++;
+    }
 
-    const { data, error } = await supabase
-      .from('supplier_addresses')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    if (updateFields.length === 0) {
+      throw new Error('Nenhum campo para atualizar');
+    }
 
-    if (error) throw new Error(`Erro ao atualizar endereço: ${error.message}`);
+    // Add id to params
+    queryParams.push(id);
 
-    return this.mapAddress(data);
+    const sql = `
+      UPDATE supplier_addresses
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await db.query(sql, queryParams);
+
+    if (result.rows.length === 0) {
+      throw new Error('Endereço não encontrado');
+    }
+
+    return this.mapAddress(result.rows[0]);
   }
 
   async deleteAddress(id: string) {
-    const { error } = await supabase.from('supplier_addresses').delete().eq('id', id);
+    const sql = 'DELETE FROM supplier_addresses WHERE id = $1';
+    const result = await db.query(sql, [id]);
 
-    if (error) throw new Error(`Erro ao deletar endereço: ${error.message}`);
+    if (result.rowCount === 0) {
+      throw new Error('Endereço não encontrado');
+    }
 
     return { success: true };
   }
 
   // Métodos para contatos
   async getContacts(supplierId: string): Promise<SupplierContact[]> {
-    const { data, error } = await supabase
-      .from('supplier_contacts')
-      .select('*')
-      .eq('supplier_id', supplierId)
-      .order('is_primary', { ascending: false })
-      .order('created_at', { ascending: false });
+    const sql = `
+      SELECT * FROM supplier_contacts
+      WHERE supplier_id = $1
+      ORDER BY is_primary DESC, created_at DESC
+    `;
+    const result = await db.query(sql, [supplierId]);
 
-    if (error) throw new Error(`Erro ao buscar contatos: ${error.message}`);
-
-    return (data || []).map(this.mapContact);
+    return result.rows.map(this.mapContact);
   }
 
   async addContact(contactData: any): Promise<SupplierContact> {
-    const { data, error } = await supabase
-      .from('supplier_contacts')
-      .insert({
-        supplier_id: contactData.supplierId,
-        name: contactData.name,
-        role: contactData.role,
-        email: contactData.email,
-        phone: contactData.phone,
-        mobile: contactData.mobile,
-        is_primary: contactData.isPrimary || false,
-        notes: contactData.notes,
-      })
-      .select()
-      .single();
+    const sql = `
+      INSERT INTO supplier_contacts (
+        supplier_id, name, role, email, phone, mobile, is_primary, notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
 
-    if (error) throw new Error(`Erro ao adicionar contato: ${error.message}`);
+    const result = await db.query(sql, [
+      contactData.supplierId,
+      contactData.name,
+      contactData.role,
+      contactData.email,
+      contactData.phone,
+      contactData.mobile,
+      contactData.isPrimary || false,
+      contactData.notes,
+    ]);
 
-    return this.mapContact(data);
+    return this.mapContact(result.rows[0]);
   }
 
   async updateContact(id: string, contactData: any): Promise<SupplierContact> {
-    const updateData: any = {};
+    const updateFields: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
-    if (contactData.name !== undefined) updateData.name = contactData.name;
-    if (contactData.role !== undefined) updateData.role = contactData.role;
-    if (contactData.email !== undefined) updateData.email = contactData.email;
-    if (contactData.phone !== undefined) updateData.phone = contactData.phone;
-    if (contactData.mobile !== undefined) updateData.mobile = contactData.mobile;
-    if (contactData.isPrimary !== undefined) updateData.is_primary = contactData.isPrimary;
-    if (contactData.notes !== undefined) updateData.notes = contactData.notes;
+    if (contactData.name !== undefined) {
+      updateFields.push(`name = $${paramIndex}`);
+      queryParams.push(contactData.name);
+      paramIndex++;
+    }
+    if (contactData.role !== undefined) {
+      updateFields.push(`role = $${paramIndex}`);
+      queryParams.push(contactData.role);
+      paramIndex++;
+    }
+    if (contactData.email !== undefined) {
+      updateFields.push(`email = $${paramIndex}`);
+      queryParams.push(contactData.email);
+      paramIndex++;
+    }
+    if (contactData.phone !== undefined) {
+      updateFields.push(`phone = $${paramIndex}`);
+      queryParams.push(contactData.phone);
+      paramIndex++;
+    }
+    if (contactData.mobile !== undefined) {
+      updateFields.push(`mobile = $${paramIndex}`);
+      queryParams.push(contactData.mobile);
+      paramIndex++;
+    }
+    if (contactData.isPrimary !== undefined) {
+      updateFields.push(`is_primary = $${paramIndex}`);
+      queryParams.push(contactData.isPrimary);
+      paramIndex++;
+    }
+    if (contactData.notes !== undefined) {
+      updateFields.push(`notes = $${paramIndex}`);
+      queryParams.push(contactData.notes);
+      paramIndex++;
+    }
 
-    const { data, error } = await supabase
-      .from('supplier_contacts')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+    if (updateFields.length === 0) {
+      throw new Error('Nenhum campo para atualizar');
+    }
 
-    if (error) throw new Error(`Erro ao atualizar contato: ${error.message}`);
+    // Add id to params
+    queryParams.push(id);
 
-    return this.mapContact(data);
+    const sql = `
+      UPDATE supplier_contacts
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramIndex}
+      RETURNING *
+    `;
+
+    const result = await db.query(sql, queryParams);
+
+    if (result.rows.length === 0) {
+      throw new Error('Contato não encontrado');
+    }
+
+    return this.mapContact(result.rows[0]);
   }
 
   async deleteContact(id: string) {
-    const { error } = await supabase.from('supplier_contacts').delete().eq('id', id);
+    const sql = 'DELETE FROM supplier_contacts WHERE id = $1';
+    const result = await db.query(sql, [id]);
 
-    if (error) throw new Error(`Erro ao deletar contato: ${error.message}`);
+    if (result.rowCount === 0) {
+      throw new Error('Contato não encontrado');
+    }
 
     return { success: true };
   }
 
   // Método para buscar produtos do fornecedor
   async getProductSuppliers(supplierId: string): Promise<ProductSupplier[]> {
-    const { data, error } = await supabase
-      .from('product_suppliers')
-      .select('*')
-      .eq('supplier_id', supplierId)
-      .order('is_preferred', { ascending: false })
-      .order('created_at', { ascending: false });
+    const sql = `
+      SELECT * FROM product_suppliers
+      WHERE supplier_id = $1
+      ORDER BY is_preferred DESC, created_at DESC
+    `;
+    const result = await db.query(sql, [supplierId]);
 
-    if (error) throw new Error(`Erro ao buscar produtos do fornecedor: ${error.message}`);
+    return result.rows.map(this.mapProductSupplier);
+  }
 
-    return (data || []).map(this.mapProductSupplier);
+  // Método para buscar fabricantes únicos
+  async getUniqueManufacturers(search?: string): Promise<string[]> {
+    let sql = `
+      SELECT DISTINCT manufacturer
+      FROM suppliers
+      WHERE manufacturer IS NOT NULL
+        AND manufacturer != ''
+    `;
+    const params: any[] = [];
+
+    if (search && search.trim() !== '') {
+      sql += ` AND manufacturer ILIKE $1`;
+      params.push(`%${search.trim()}%`);
+    }
+
+    sql += ` ORDER BY manufacturer ASC`;
+
+    const result = await db.query(sql, params);
+    return result.rows.map(row => row.manufacturer);
   }
 }

@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications, useUnreadCount, useMarkAsRead } from '../hooks/useNotifications';
 
 export function NotificationDropdown() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { data: notifications, isLoading } = useNotifications();
@@ -20,9 +22,36 @@ export function NotificationDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleNotificationClick = (id: string, isRead: boolean) => {
-    if (!isRead) {
-      markAsRead.mutate(id);
+  const getNavigationPath = (type: string, relatedEntityId?: string) => {
+    switch (type) {
+      case 'LOW_STOCK':
+        return '/products'; // Navigate to products page to see low stock items
+      case 'QUOTE_PENDING':
+        return relatedEntityId ? `/quotes/${relatedEntityId}` : '/quotes';
+      case 'SALE_COMPLETED':
+        return relatedEntityId ? `/sales/${relatedEntityId}` : '/sales';
+      case 'SERVICE_ORDER_PENDING':
+        return relatedEntityId ? `/service-orders/${relatedEntityId}` : '/service-orders';
+      case 'PURCHASE_ORDER_APPROVED':
+        return relatedEntityId ? `/purchase-orders/${relatedEntityId}` : '/purchase-orders';
+      case 'PURCHASE_REQUEST_PENDING':
+        return relatedEntityId ? `/purchase-requests/${relatedEntityId}` : '/purchase-requests';
+      default:
+        return null; // No navigation for unknown types
+    }
+  };
+
+  const handleNotificationClick = (notification: any) => {
+    // Mark as read if not already
+    if (!notification.isRead) {
+      markAsRead.mutate(notification.id);
+    }
+
+    // Navigate to related page
+    const path = getNavigationPath(notification.type, notification.relatedEntityId);
+    if (path) {
+      navigate(path);
+      setIsOpen(false); // Close dropdown after navigation
     }
   };
 
@@ -94,7 +123,7 @@ export function NotificationDropdown() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg z-50 max-h-96 overflow-hidden">
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg z-50 max-h-96 overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200">
             <h3 className="text-sm font-semibold text-gray-900">Notificações</h3>
           </div>
@@ -108,7 +137,7 @@ export function NotificationDropdown() {
               notifications.map((notification: any) => (
                 <div
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification.id, notification.isRead)}
+                  onClick={() => handleNotificationClick(notification)}
                   className={`px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
                     !notification.isRead ? 'bg-blue-50' : ''
                   }`}

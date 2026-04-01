@@ -298,14 +298,11 @@ export class GoodsReceiptsController {
       const { id } = req.params;
       const { inspectedBy, reason } = req.body;
 
-      if (!inspectedBy || !reason) {
-        return res.status(400).json({
-          success: false,
-          error: 'Campos inspectedBy e reason são obrigatórios',
-        });
-      }
-
-      const receipt = await this.service.rejectReceipt(id, inspectedBy, reason);
+      const receipt = await this.service.rejectReceipt(
+        id,
+        inspectedBy || 'Sistema',
+        reason || 'Rejeitado pelo usuario'
+      );
 
       res.json({
         success: true,

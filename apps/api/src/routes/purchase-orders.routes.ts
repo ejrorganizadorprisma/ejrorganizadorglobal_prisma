@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PurchaseOrdersController } from '../controllers/purchase-orders.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 import { asyncHandler } from '../utils/asyncHandler';
 
 const router = Router();
@@ -33,8 +34,8 @@ router.post('/', asyncHandler(controller.create));
 // PATCH /api/purchase-orders/:id - Atualizar ordem de compra
 router.patch('/:id', asyncHandler(controller.update));
 
-// DELETE /api/purchase-orders/:id - Excluir ordem de compra
-router.delete('/:id', asyncHandler(controller.delete));
+// DELETE /api/purchase-orders/:id - Excluir ordem de compra (ADMIN only)
+router.delete('/:id', authorize(['OWNER', 'ADMIN']), asyncHandler(controller.delete));
 
 // PATCH /api/purchase-orders/:id/status - Atualizar status da ordem
 router.patch('/:id/status', asyncHandler(controller.updateStatus));

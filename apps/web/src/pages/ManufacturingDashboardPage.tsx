@@ -12,6 +12,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 
 // Imports dos hooks
 import { useStockReservations } from '@/hooks/useStockReservations';
@@ -22,6 +23,7 @@ import { useProductionOrders } from '@/hooks/useProductionOrders';
 
 export default function ManufacturingDashboardPage() {
   const navigate = useNavigate();
+  const { formatPrice } = useFormatPrice();
   const [timeRange, setTimeRange] = useState('7d'); // 7d, 30d, 90d
 
   // Buscar dados de todos os módulos
@@ -87,16 +89,15 @@ export default function ManufacturingDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Aviso se tabelas não existem */}
+      {/* Aviso se houver problemas de conexão - TABELAS JÁ EXISTEM! */}
       {hasErrors && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-6 h-6 text-yellow-600" />
+            <AlertCircle className="w-6 h-6 text-blue-600" />
             <div>
-              <h3 className="font-semibold text-yellow-900">Banco de Dados Não Configurado</h3>
-              <p className="text-yellow-700 text-sm mt-1">
-                As tabelas de manufatura ainda não foram criadas no banco de dados.
-                Execute o arquivo <code className="bg-yellow-100 px-2 py-0.5 rounded">sql/COMPLETE_MIGRATIONS.sql</code> no Supabase SQL Editor para ativar todos os módulos.
+              <h3 className="font-semibold text-blue-900">Carregando dados de manufatura...</h3>
+              <p className="text-blue-700 text-sm mt-1">
+                Alguns módulos podem demorar para carregar. Se o problema persistir, <strong>recarregue a página</strong>.
               </p>
             </div>
           </div>
@@ -104,9 +105,9 @@ export default function ManufacturingDashboardPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard de Manufatura</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Dashboard de Manufatura</h1>
           <p className="text-gray-500 mt-1">
             Visão geral de compras, produção e estoque
           </p>
@@ -137,16 +138,16 @@ export default function ManufacturingDashboardPage() {
       {!isLoading && (
         <>
           {/* Row 1: Main Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6">
             {/* Stock Reservations */}
             <div
-              className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg shadow p-4 lg:p-6 cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => navigate('/stock-reservations')}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Reservas Ativas</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
+                  <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-2">
                     {metrics.reservations.total}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
@@ -161,13 +162,13 @@ export default function ManufacturingDashboardPage() {
 
             {/* Suppliers */}
             <div
-              className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg shadow p-4 lg:p-6 cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => navigate('/suppliers')}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Fornecedores</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
+                  <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-2">
                     {metrics.suppliers.total}
                   </p>
                   <p className="text-sm text-green-600 mt-1">
@@ -182,13 +183,13 @@ export default function ManufacturingDashboardPage() {
 
             {/* Purchase Orders */}
             <div
-              className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg shadow p-4 lg:p-6 cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => navigate('/purchase-orders')}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Ordens de Compra</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
+                  <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-2">
                     {metrics.purchaseOrders.total}
                   </p>
                   <p className="text-sm text-orange-600 mt-1">
@@ -203,13 +204,13 @@ export default function ManufacturingDashboardPage() {
 
             {/* Goods Receipts */}
             <div
-              className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg shadow p-4 lg:p-6 cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => navigate('/goods-receipts')}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Recebimentos</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
+                  <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-2">
                     {metrics.receipts.total}
                   </p>
                   <p className="text-sm text-purple-600 mt-1">
@@ -224,13 +225,13 @@ export default function ManufacturingDashboardPage() {
 
             {/* Production Orders */}
             <div
-              className="bg-white rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+              className="bg-white rounded-lg shadow p-4 lg:p-6 cursor-pointer hover:shadow-lg transition-shadow"
               onClick={() => navigate('/production-orders')}
             >
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Produção</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
+                  <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-2">
                     {metrics.production.inProgress}
                   </p>
                   <p className="text-sm text-indigo-600 mt-1">
@@ -247,7 +248,7 @@ export default function ManufacturingDashboardPage() {
           {/* Row 2: Detailed Sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Purchase Orders Details */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Ordens de Compra Recentes
@@ -274,7 +275,7 @@ export default function ManufacturingDashboardPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-medium text-gray-900">
-                      R$ {((po.totalAmount || 0) / 100).toFixed(2)}
+                      {formatPrice(po.totalAmount || 0)}
                     </p>
                     <span
                       className={`inline-block px-2 py-1 text-xs rounded-full ${
@@ -302,7 +303,7 @@ export default function ManufacturingDashboardPage() {
             </div>
 
             {/* Production Orders Details */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Ordens de Produção Ativas
@@ -378,7 +379,7 @@ export default function ManufacturingDashboardPage() {
           {/* Row 3: Alerts and Statistics */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Alerts */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Alertas e Pendências
               </h2>
@@ -445,7 +446,7 @@ export default function ManufacturingDashboardPage() {
             </div>
 
             {/* Production Statistics */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Estatísticas de Produção
               </h2>
@@ -505,7 +506,7 @@ export default function ManufacturingDashboardPage() {
             </div>
 
             {/* Purchase Value */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Valor de Compras
               </h2>
@@ -514,8 +515,8 @@ export default function ManufacturingDashboardPage() {
                 <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
                   <div>
                     <p className="text-sm text-gray-600">Total em OCs</p>
-                    <p className="text-2xl font-bold text-gray-900 mt-1">
-                      R$ {((metrics.purchaseOrders.totalValue || 0) / 100).toFixed(2)}
+                    <p className="text-xl lg:text-2xl font-bold text-gray-900 mt-1">
+                      {formatPrice(metrics.purchaseOrders.totalValue || 0)}
                     </p>
                   </div>
                   <div className="p-3 bg-green-100 rounded-lg">
@@ -533,14 +534,11 @@ export default function ManufacturingDashboardPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Valor médio</span>
                     <span className="font-medium text-gray-900">
-                      R${' '}
                       {metrics.purchaseOrders.total > 0
-                        ? (
-                            metrics.purchaseOrders.totalValue /
-                            100 /
-                            metrics.purchaseOrders.total
-                          ).toFixed(2)
-                        : '0.00'}
+                        ? formatPrice(
+                            Math.round(metrics.purchaseOrders.totalValue / metrics.purchaseOrders.total)
+                          )
+                        : formatPrice(0)}
                     </span>
                   </div>
                 </div>
@@ -556,12 +554,12 @@ export default function ManufacturingDashboardPage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 lg:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               Ações Rápidas
             </h2>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               <button
                 onClick={() => navigate('/suppliers/new')}
                 className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"

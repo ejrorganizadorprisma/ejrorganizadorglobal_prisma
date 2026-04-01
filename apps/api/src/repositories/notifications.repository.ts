@@ -1,58 +1,62 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 
 export class NotificationsRepository {
   async findByUserId(userId: string, limit: number = 10) {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    const query = `
+      SELECT *
+      FROM notifications
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2
+    `;
 
-    if (error) throw new Error(`Erro ao buscar notificações: ${error.message}`);
+    const result = await db.query(query, [userId, limit]);
 
-    return (data || []).map(this.mapNotification);
+    return result.rows.map(this.mapNotification);
   }
 
   async markAsRead(id: string) {
-    const { error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id);
+    const query = `
+      UPDATE notifications
+      SET is_read = true
+      WHERE id = $1
+    `;
 
-    if (error) throw new Error(`Erro ao marcar como lida: ${error.message}`);
+    await db.query(query, [id]);
 
     return { success: true };
   }
 
   async create(notification: { userId: string; type: string; title: string; message: string }) {
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert({
-        user_id: notification.userId,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        is_read: false,
-      })
-      .select()
-      .single();
+    const id = `notif-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const query = `
+      INSERT INTO notifications (id, user_id, type, title, message, is_read)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
 
-    if (error) throw new Error(`Erro ao criar notificação: ${error.message}`);
+    const result = await db.query(query, [
+      id,
+      notification.userId,
+      notification.type,
+      notification.title,
+      notification.message,
+      false,
+    ]);
 
-    return this.mapNotification(data);
+    return this.mapNotification(result.rows[0]);
   }
 
   async countUnread(userId: string) {
-    const { count, error } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('is_read', false);
+    const query = `
+      SELECT COUNT(*)::int as count
+      FROM notifications
+      WHERE user_id = $1 AND is_read = false
+    `;
 
-    if (error) throw new Error(`Erro ao contar não lidas: ${error.message}`);
+    const result = await db.query(query, [userId]);
 
-    return count || 0;
+    return result.rows[0]?.count || 0;
   }
 
   private mapNotification(data: any) {

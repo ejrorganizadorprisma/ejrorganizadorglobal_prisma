@@ -188,18 +188,16 @@ export class StockReservationsService {
       throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
 
-    // Verificar se há estoque suficiente para consumir
-    if (product.currentStock < reservation.quantity) {
-      throw new AppError(
-        `Estoque insuficiente para consumir a reserva. Disponível: ${product.currentStock}, Reservado: ${reservation.quantity}`,
-        400,
-        'INSUFFICIENT_STOCK'
-      );
+    // Calcular novo estoque (REGRA: nunca negativo)
+    let newStock = product.currentStock - reservation.quantity;
+    if (newStock < 0) {
+      console.warn(`Estoque ficaria negativo ao consumir reserva. Ajustando de ${newStock} para 0.`);
+      newStock = 0;
     }
 
     // Atualizar o estoque do produto (diminuir)
     await this.productsRepository.update(reservation.productId, {
-      currentStock: product.currentStock - reservation.quantity,
+      currentStock: newStock,
     } as any);
 
     // Marcar reserva como consumida

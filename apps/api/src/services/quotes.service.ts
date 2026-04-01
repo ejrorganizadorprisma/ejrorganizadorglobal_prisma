@@ -26,8 +26,11 @@ export class QuotesService {
   async create(data: CreateQuoteDTO, userId: string) {
     // Validar data de validade
     const validUntil = new Date(data.validUntil);
-    if (validUntil <= new Date()) {
-      throw new BadRequestError('Data de validade deve ser futura');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset to start of day
+
+    if (validUntil < today) {
+      throw new BadRequestError('Data de validade não pode ser anterior à data atual');
     }
 
     return this.repository.create(data, userId);

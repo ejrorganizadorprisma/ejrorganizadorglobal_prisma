@@ -199,6 +199,10 @@ export function useCreateProductionOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Invalidate BOM-related caches since stock may have changed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -218,6 +222,10 @@ export function useUpdateProductionOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Invalidate BOM-related caches since stock may have changed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -233,6 +241,10 @@ export function useDeleteProductionOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Invalidate BOM-related caches since reservations may have been freed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -251,6 +263,10 @@ export function useReleaseProductionOrder() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
+      // Invalidate BOM-related caches since stock reservations changed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -272,6 +288,10 @@ export function useStartProductionOrder() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
+      // Invalidate BOM-related caches since materials were consumed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -330,6 +350,10 @@ export function useCompleteProductionOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Invalidate BOM-related caches since stock changed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
@@ -349,6 +373,10 @@ export function useCancelProductionOrder() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-orders'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      // Invalidate BOM-related caches since stock may have changed (unreserving materials)
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }

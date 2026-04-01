@@ -1,12 +1,25 @@
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useDashboardMetrics } from '../hooks/useDashboard';
+import { useRequirePermission } from '../hooks/useRequirePermission';
 import { NotificationDropdown } from '../components/NotificationDropdown';
+import { AppPage } from '@ejr/shared-types';
+import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useFinancialSummary } from '../hooks/useFinancial';
+import { Wallet } from 'lucide-react';
 
 export function DashboardPage() {
+  const { formatPrice } = useFormatPrice();
+  const permissionCheck = useRequirePermission({
+    page: AppPage.DASHBOARD,
+    message: 'Você não tem permissão para acessar o dashboard.'
+  });
+  if (permissionCheck) return permissionCheck;
+
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { data: metrics, isLoading } = useDashboardMetrics();
+  const { data: financialSummary } = useFinancialSummary();
 
   const handleLogout = async () => {
     await logout();
@@ -40,8 +53,8 @@ export function DashboardPage() {
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <h2 className="text-xl lg:text-2xl font-bold text-gray-900">
               Bem-vindo, {user?.name}!
             </h2>
             <button
@@ -55,31 +68,31 @@ export function DashboardPage() {
           {/* KPIs Principais */}
           {!isLoading && metrics && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                <div className="bg-white p-6 rounded-lg shadow">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                   <div className="text-sm text-gray-500 mb-1">Total Produtos</div>
-                  <div className="text-3xl font-bold text-blue-600">{metrics.totalProducts}</div>
+                  <div className="text-2xl lg:text-3xl font-bold text-blue-600">{metrics.totalProducts}</div>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                   <div className="text-sm text-gray-500 mb-1">Total Clientes</div>
-                  <div className="text-3xl font-bold text-green-600">{metrics.totalCustomers}</div>
+                  <div className="text-2xl lg:text-3xl font-bold text-green-600">{metrics.totalCustomers}</div>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                   <div className="text-sm text-gray-500 mb-1">Valor do Estoque</div>
-                  <div className="text-2xl font-bold text-emerald-600">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.totalStockValue / 100)}
+                  <div className="text-xl lg:text-2xl font-bold text-emerald-600">
+                    {formatPrice(metrics.totalStockValue)}
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-lg shadow">
+                <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                   <div className="text-sm text-gray-500 mb-1">Estoque Baixo</div>
-                  <div className="text-3xl font-bold text-red-600">{metrics.lowStockProducts?.length || 0}</div>
+                  <div className="text-2xl lg:text-3xl font-bold text-red-600">{metrics.lowStockProducts?.length || 0}</div>
                 </div>
               </div>
 
               {/* Métricas de Ordens de Serviço */}
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Ordens de Serviço</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
                     <div className="text-sm text-gray-500 mb-1">Total</div>
                     <div className="text-2xl font-bold text-gray-900">{metrics.totalServiceOrders}</div>
@@ -102,7 +115,7 @@ export function DashboardPage() {
               {/* Métricas de Orçamentos */}
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Orçamentos</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
                     <div className="text-sm text-gray-500 mb-1">Total</div>
                     <div className="text-2xl font-bold text-gray-900">{metrics.totalQuotes}</div>
@@ -120,46 +133,81 @@ export function DashboardPage() {
             </>
           )}
 
+          {/* Resumo Financeiro */}
+          {financialSummary && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-blue-600" />
+                Financeiro
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button onClick={() => navigate('/financial/receivables')} className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-green-500 text-left hover:shadow-md transition-shadow">
+                  <div className="text-sm text-gray-500 mb-1">A Receber</div>
+                  <div className="text-xl font-bold text-green-600">{formatPrice(financialSummary.totalReceivable)}</div>
+                </button>
+                <button onClick={() => navigate('/financial/receivables?status=OVERDUE')} className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-red-500 text-left hover:shadow-md transition-shadow">
+                  <div className="text-sm text-gray-500 mb-1">Atrasado</div>
+                  <div className="text-xl font-bold text-red-600">{formatPrice(financialSummary.overdueReceivable)}</div>
+                </button>
+                <button onClick={() => navigate('/financial')} className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-blue-500 text-left hover:shadow-md transition-shadow">
+                  <div className="text-sm text-gray-500 mb-1">Saldo Previsto</div>
+                  <div className={`text-xl font-bold ${financialSummary.projectedBalance >= 0 ? 'text-blue-600' : 'text-amber-600'}`}>
+                    {formatPrice(financialSummary.projectedBalance)}
+                  </div>
+                </button>
+                <button onClick={() => navigate('/sales')} className="bg-white p-4 rounded-xl shadow-sm border border-l-4 border-l-emerald-500 text-left hover:shadow-md transition-shadow">
+                  <div className="text-sm text-gray-500 mb-1">Vendas Hoje</div>
+                  <div className="text-xl font-bold text-emerald-600">
+                    {financialSummary.salesToday ?? 0}
+                    {financialSummary.revenueTodayTotal ? (
+                      <span className="text-sm font-normal text-gray-400 ml-2">({formatPrice(financialSummary.revenueTodayTotal)})</span>
+                    ) : null}
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Menu Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
             <button
               onClick={() => navigate('/products')}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
+              className="bg-white p-4 lg:p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="font-semibold text-gray-900 mb-2">Produtos</h3>
               <p className="text-sm text-gray-600">Gerenciar produtos e estoque</p>
             </button>
             <button
               onClick={() => navigate('/customers')}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
+              className="bg-white p-4 lg:p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="font-semibold text-gray-900 mb-2">Clientes</h3>
               <p className="text-sm text-gray-600">Gerenciar clientes</p>
             </button>
             <button
               onClick={() => navigate('/quotes')}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
+              className="bg-white p-4 lg:p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="font-semibold text-gray-900 mb-2">Orçamentos</h3>
               <p className="text-sm text-gray-600">Criar e gerenciar orçamentos</p>
             </button>
             <button
               onClick={() => navigate('/suppliers')}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
+              className="bg-white p-4 lg:p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="font-semibold text-gray-900 mb-2">Fornecedores</h3>
               <p className="text-sm text-gray-600">Gerenciar fornecedores</p>
             </button>
             <button
               onClick={() => navigate('/reports')}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
+              className="bg-white p-4 lg:p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="font-semibold text-gray-900 mb-2">Relatórios</h3>
               <p className="text-sm text-gray-600">Visualizar relatórios e análises</p>
             </button>
             <button
               onClick={() => navigate('/service-orders')}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
+              className="bg-white p-4 lg:p-6 rounded-lg shadow hover:shadow-lg transition-shadow text-left"
             >
               <h3 className="font-semibold text-gray-900 mb-2">Ordens de Serviço</h3>
               <p className="text-sm text-gray-600">Gerenciar ordens de serviço</p>

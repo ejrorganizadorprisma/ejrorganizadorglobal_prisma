@@ -38,7 +38,12 @@ export class PurchaseOrdersService {
       throw new Error('Ordem de compra não encontrada');
     }
 
-    return order;
+    const items = await this.repository.getItems(id);
+
+    return {
+      ...order,
+      items,
+    };
   }
 
   async findByOrderNumber(orderNumber: string) {
@@ -69,10 +74,22 @@ export class PurchaseOrdersService {
 
   async update(id: string, orderData: UpdatePurchaseOrderDTO) {
     // Verifica se a ordem existe
-    await this.findById(id);
+    const order = await this.findById(id);
+
+    // Só permite atualizar itens em ordens em rascunho
+    if (orderData.items && orderData.items.length > 0 && order.status !== 'DRAFT') {
+      throw new Error('Apenas ordens em rascunho podem ter itens atualizados');
+    }
 
     // Validações
     this.validateUpdateOrder(orderData);
+
+    // Valida itens se fornecidos
+    if (orderData.items) {
+      orderData.items.forEach((item, index) => {
+        this.validateOrderItem(item, index);
+      });
+    }
 
     return this.repository.update(id, orderData);
   }
@@ -212,9 +229,8 @@ export class PurchaseOrdersService {
 
   // Validações privadas
   private validateCreateOrder(orderData: CreatePurchaseOrderDTO) {
-    if (!orderData.supplierId) {
-      throw new Error('ID do fornecedor é obrigatório');
-    }
+    // Supplier ID is optional - can be set later when editing the order
+    // This allows creating orders from purchase requests where supplier is not yet defined
 
     // Validação de data de entrega removida - permitir qualquer data futura ou presente
   }

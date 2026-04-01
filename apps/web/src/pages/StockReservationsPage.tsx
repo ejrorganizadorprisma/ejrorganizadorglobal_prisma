@@ -153,20 +153,20 @@ export function StockReservationsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Reservas de Estoque</h1>
-          <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Reservas de Estoque</h1>
+          <div className="flex w-full sm:w-auto gap-2">
             <button
               onClick={handleCancelExpired}
               disabled={cancelExpiredMutation.isPending}
-              className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
             >
               <AlertCircle className="w-5 h-5" />
               Cancelar Expiradas
             </button>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-5 h-5" />
               Nova Reserva
@@ -399,7 +399,7 @@ export function StockReservationsPage() {
 
             {/* Paginação */}
             {data.pagination && data.pagination.totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-between">
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-700">
                   Mostrando página {data.pagination.page} de {data.pagination.totalPages} (
                   {data.pagination.total} reservas)

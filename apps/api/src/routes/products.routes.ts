@@ -32,6 +32,9 @@ router.get('/', asyncHandler(controller.findMany));
 // GET /api/products/categories - Listar categorias únicas
 router.get('/categories', asyncHandler(controller.getCategories));
 
+// GET /api/products/manufacturers - Listar fabricantes únicos
+router.get('/manufacturers', asyncHandler(controller.getManufacturers));
+
 // GET /api/products/low-stock - Listar produtos com estoque baixo
 router.get('/low-stock', asyncHandler(controller.getLowStock));
 
@@ -59,7 +62,26 @@ router.patch('/:id', asyncHandler(controller.update));
 // DELETE /api/products/:id - Excluir produto
 router.delete('/:id', asyncHandler(controller.delete));
 
+// GET /api/products/:id/demand-analysis - Análise de demanda ABC
+router.get('/:id/demand-analysis', asyncHandler(controller.getDemandAnalysis));
+
 // PATCH /api/products/:id/stock - Atualizar estoque
 router.patch('/:id/stock', asyncHandler(controller.updateStock));
+
+// GET /api/products/:id/stock-history - Obter histórico de ajustes de estoque
+router.get('/:id/stock-history', asyncHandler(controller.getStockAdjustmentHistory));
+
+// Rotas para gerenciar BOM (Bill of Materials)
+// GET /api/products/:id/parts - Listar peças do produto
+router.get('/:id/parts', asyncHandler(controller.getProductParts));
+
+// GET /api/products/:id/bom - Obter BOM explodido com custos
+router.get('/:id/bom', asyncHandler(controller.getProductBOM));
+
+// POST /api/products/:id/parts - Adicionar peça ao BOM
+router.post('/:id/parts', asyncHandler(controller.addProductPart));
+
+// DELETE /api/products/:id/parts/:partId - Remover peça do BOM
+router.delete('/:id/parts/:partId', asyncHandler(controller.removeProductPart));
 
 export default router;

@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
+import usersRoutes from './users.routes';
+import permissionsRoutes from './permissions.routes';
 import productsRoutes from './products.routes';
 import productPartsRoutes from './product-parts.routes';
 import productSuppliersRoutes from './product-suppliers.routes';
@@ -14,8 +16,23 @@ import suppliersRoutes from './suppliers.routes';
 import stockReservationsRoutes from './stock-reservations.routes';
 import productionOrdersRoutes from './production-orders.routes';
 import purchaseOrdersRoutes from './purchase-orders.routes';
+import purchaseRequestsRoutes from './purchase-requests.routes';
 import goodsReceiptsRoutes from './goods-receipts.routes';
 import bomAnalysisRoutes from './bomAnalysis.routes';
+import storageLocationRoutes from './storage-location.routes';
+import backupRoutes from './backup.routes';
+import servicesRoutes from './services.routes';
+import documentSettingsRoutes from './document-settings.routes';
+import productCategoriesRoutes from './product-categories.routes';
+import productFamiliesRoutes from './product-families.routes';
+import supplierOrdersRoutes from './supplier-orders.routes';
+import productionBatchesRoutes from './production-batches.routes';
+import digitalFabricationRoutes from './digital-fabrication.routes';
+import systemSettingsRoutes from './system-settings.routes';
+import purchaseBudgetsRoutes from './purchase-budgets.routes';
+import approvalDelegationsRoutes from './approval-delegations.routes';
+import inventoryMovementsRoutes from './inventory-movements.routes';
+import financialRoutes from './financial.routes';
 
 const router = Router();
 
@@ -30,6 +47,8 @@ router.get('/health', (req, res) => {
 
 // Routes
 router.use('/auth', authRoutes);
+router.use('/users', usersRoutes);
+router.use('/permissions', permissionsRoutes);
 router.use('/products', productsRoutes);
 router.use('/products', productPartsRoutes);
 router.use('/products', productSuppliersRoutes);
@@ -44,7 +63,22 @@ router.use('/suppliers', suppliersRoutes);
 router.use('/stock-reservations', stockReservationsRoutes);
 router.use('/production-orders', productionOrdersRoutes);
 router.use('/purchase-orders', purchaseOrdersRoutes);
+router.use('/purchase-requests', purchaseRequestsRoutes);
 router.use('/goods-receipts', goodsReceiptsRoutes);
 router.use('/bom-analysis', bomAnalysisRoutes);
+router.use('/storage-locations', storageLocationRoutes);
+router.use('/backup', backupRoutes);
+router.use('/services', servicesRoutes);
+router.use('/document-settings', documentSettingsRoutes);
+router.use('/product-categories', productCategoriesRoutes);
+router.use('/product-families', productFamiliesRoutes);
+router.use('/supplier-orders', supplierOrdersRoutes);
+router.use('/production-batches', productionBatchesRoutes);
+router.use('/digital-fabrication', digitalFabricationRoutes);
+router.use('/system-settings', systemSettingsRoutes);
+router.use('/purchase-budgets', purchaseBudgetsRoutes);
+router.use('/approval-delegations', approvalDelegationsRoutes);
+router.use('/inventory-movements', inventoryMovementsRoutes);
+router.use('/financial', financialRoutes);
 
 export default router;

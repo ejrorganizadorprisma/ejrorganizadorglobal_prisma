@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSalesReport, useInventoryReport } from '../hooks/useReports';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 
 export function ReportsPage() {
   const [startDate, setStartDate] = useState('');
@@ -9,9 +10,7 @@ export function ReportsPage() {
     startDate && endDate ? { startDate, endDate } : undefined
   );
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryReport();
-
-  const formatPrice = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const { formatPrice } = useFormatPrice();
 
   const handleFilter = () => {
     refetch();
@@ -21,14 +20,14 @@ export function ReportsPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Relatórios</h1>
+          <h1 className="text-xl lg:text-2xl font-bold text-gray-900 mb-6">Relatórios</h1>
 
           {/* Sales Report */}
           <div className="bg-white shadow sm:rounded-lg mb-6">
             <div className="px-4 py-5 sm:p-6">
               <h2 className="text-lg font-medium text-gray-900 mb-4">Relatório de Vendas</h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Data Início</label>
                   <input
@@ -61,22 +60,22 @@ export function ReportsPage() {
                 <div className="text-center py-8">Carregando...</div>
               ) : salesData ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div className="bg-blue-50 p-6 rounded-lg">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
+                    <div className="bg-blue-50 p-4 lg:p-6 rounded-lg">
                       <div className="text-sm text-gray-600">Total de Vendas</div>
-                      <div className="text-2xl font-bold text-blue-600">
+                      <div className="text-xl lg:text-2xl font-bold text-blue-600">
                         {formatPrice(salesData.totalSales)}
                       </div>
                     </div>
-                    <div className="bg-green-50 p-6 rounded-lg">
+                    <div className="bg-green-50 p-4 lg:p-6 rounded-lg">
                       <div className="text-sm text-gray-600">Número de Pedidos</div>
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-xl lg:text-2xl font-bold text-green-600">
                         {salesData.totalOrders}
                       </div>
                     </div>
-                    <div className="bg-purple-50 p-6 rounded-lg">
+                    <div className="bg-purple-50 p-4 lg:p-6 rounded-lg">
                       <div className="text-sm text-gray-600">Ticket Médio</div>
-                      <div className="text-2xl font-bold text-purple-600">
+                      <div className="text-xl lg:text-2xl font-bold text-purple-600">
                         {formatPrice(salesData.averageTicket)}
                       </div>
                     </div>
@@ -143,22 +142,22 @@ export function ReportsPage() {
                 <div className="text-center py-8">Carregando...</div>
               ) : inventoryData ? (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    <div className="bg-blue-50 p-6 rounded-lg">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 mb-6">
+                    <div className="bg-blue-50 p-4 lg:p-6 rounded-lg">
                       <div className="text-sm text-gray-600">Total de Produtos</div>
-                      <div className="text-2xl font-bold text-blue-600">
+                      <div className="text-xl lg:text-2xl font-bold text-blue-600">
                         {inventoryData.totalProducts}
                       </div>
                     </div>
-                    <div className="bg-green-50 p-6 rounded-lg">
+                    <div className="bg-green-50 p-4 lg:p-6 rounded-lg">
                       <div className="text-sm text-gray-600">Valor Total do Estoque</div>
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-xl lg:text-2xl font-bold text-green-600">
                         {formatPrice(inventoryData.totalValue)}
                       </div>
                     </div>
-                    <div className="bg-red-50 p-6 rounded-lg">
+                    <div className="bg-red-50 p-4 lg:p-6 rounded-lg">
                       <div className="text-sm text-gray-600">Produtos com Estoque Baixo</div>
-                      <div className="text-2xl font-bold text-red-600">
+                      <div className="text-xl lg:text-2xl font-bold text-red-600">
                         {inventoryData.lowStockCount}
                       </div>
                     </div>

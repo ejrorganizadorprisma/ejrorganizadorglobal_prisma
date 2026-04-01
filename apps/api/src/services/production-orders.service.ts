@@ -1,6 +1,6 @@
 import { ProductionOrdersRepository } from '../repositories/production-orders.repository';
 import { StockReservationsRepository } from '../repositories/stock-reservations.repository';
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 import { BadRequestError, NotFoundError } from '../utils/errors';
 import type {
   CreateProductionOrderDTO,
@@ -53,13 +53,10 @@ export class ProductionOrdersService {
     }
 
     // Verificar se produto existe
-    const { data: product, error: productError } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', data.productId)
-      .single();
+    const productQuery = `SELECT * FROM products WHERE id = $1`;
+    const productResult = await db.query(productQuery, [data.productId]);
 
-    if (productError || !product) {
+    if (productResult.rows.length === 0) {
       throw new NotFoundError('Produto não encontrado');
     }
 
@@ -145,13 +142,11 @@ export class ProductionOrdersService {
     const materials = await this.repository.getMaterialConsumption(id);
 
     for (const material of materials) {
-      const { data: product } = await supabase
-        .from('products')
-        .select('current_stock, code, name')
-        .eq('id', material.productId)
-        .single();
+      const productQuery = `SELECT current_stock, code, name FROM products WHERE id = $1`;
+      const productResult = await db.query(productQuery, [material.productId]);
 
-      if (product) {
+      if (productResult.rows.length > 0) {
+        const product = productResult.rows[0];
         const available = product.current_stock;
         const reserved = await this.reservationsRepository.getTotalReserved(material.productId);
         const availableStock = available - reserved;
@@ -320,22 +315,22 @@ export class ProductionOrdersService {
     quantity: number
   ) {
     // Buscar itens do BOM
-    const { data: bomItems, error } = await supabase
-      .from('bom_items')
-      .select('*, products(cost_price)')
-      .eq('product_id', productId)
-      .eq('bom_version_id', bomVersionId);
+    const bomQuery = `
+      SELECT
+        bi.*,
+        p.cost_price as product_cost_price
+      FROM bom_items bi
+      LEFT JOIN products p ON bi.component_id = p.id
+      WHERE bi.product_id = $1 AND bi.bom_version_id = $2
+    `;
+    const bomResult = await db.query(bomQuery, [productId, bomVersionId]);
 
-    if (error) {
-      throw new BadRequestError(`Erro ao buscar itens do BOM: ${error.message}`);
-    }
-
-    if (!bomItems || bomItems.length === 0) {
+    if (bomResult.rows.length === 0) {
       throw new BadRequestError('BOM não possui itens cadastrados');
     }
 
     // Criar consumo de materiais para cada item do BOM
-    for (const item of bomItems) {
+    for (const item of bomResult.rows) {
       const quantityNeeded = item.quantity * quantity;
       const scrapPercentage = item.scrap_percentage || 0;
       const quantityWithScrap = quantityNeeded * (1 + scrapPercentage / 100);
@@ -345,7 +340,7 @@ export class ProductionOrdersService {
         productId: item.component_id,
         bomItemId: item.id,
         quantityPlanned: Math.ceil(quantityWithScrap),
-        unitCost: item.products?.cost_price,
+        unitCost: item.product_cost_price,
       });
     }
   }
@@ -372,15 +367,16 @@ export class ProductionOrdersService {
 
   private async cancelRemainingReservations(orderId: string) {
     // Buscar reservas ativas para esta ordem
-    const { data: reservations } = await supabase
-      .from('stock_reservations')
-      .select('id')
-      .eq('reserved_for_type', 'PRODUCTION_ORDER')
-      .eq('reserved_for_id', orderId)
-      .eq('status', 'ACTIVE');
+    const reservationsQuery = `
+      SELECT id FROM stock_reservations
+      WHERE reserved_for_type = 'PRODUCTION_ORDER'
+        AND reserved_for_id = $1
+        AND status = 'ACTIVE'
+    `;
+    const reservationsResult = await db.query(reservationsQuery, [orderId]);
 
-    if (reservations && reservations.length > 0) {
-      for (const reservation of reservations) {
+    if (reservationsResult.rows.length > 0) {
+      for (const reservation of reservationsResult.rows) {
         await this.reservationsRepository.update(reservation.id, {
           status: 'CANCELLED',
         });

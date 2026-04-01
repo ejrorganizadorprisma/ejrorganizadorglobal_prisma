@@ -27,7 +27,8 @@ export function CustomersPage() {
     }
   };
 
-  const formatDocument = (document: string, type: string) => {
+  const formatDocument = (document: string | null | undefined, type: string) => {
+    if (!document) return '-';
     if (type === 'INDIVIDUAL') {
       // CPF: 000.000.000-00
       return document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
@@ -55,11 +56,11 @@ export function CustomersPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Clientes</h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl lg:text-3xl font-bold">Clientes</h1>
         <button
           onClick={() => navigate('/customers/new')}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
           Novo Cliente
         </button>
@@ -100,6 +101,7 @@ export function CustomersPage() {
 
       {/* Tabela */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -141,7 +143,10 @@ export function CustomersPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {formatDocument(customer.document, customer.type)}
+                  {customer.document ? formatDocument(customer.document, customer.type) : null}
+                  {customer.ci && <span className="text-xs text-gray-500">{customer.document ? ' · ' : ''}CI: {customer.ci}</span>}
+                  {customer.ruc && <span className="text-xs text-gray-500">{(customer.document || customer.ci) ? ' · ' : ''}RUC: {customer.ruc}</span>}
+                  {!customer.document && !customer.ci && !customer.ruc && '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {customer.email || '-'}
@@ -167,11 +172,12 @@ export function CustomersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Paginação */}
       {data?.pagination && (
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-700">
             Mostrando página {data.pagination.page} de {data.pagination.totalPages} ({data.pagination.total} clientes)
           </div>

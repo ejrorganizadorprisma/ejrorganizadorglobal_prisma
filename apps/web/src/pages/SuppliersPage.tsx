@@ -69,16 +69,16 @@ export function SuppliersPage() {
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Fornecedores</h1>
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Fornecedores</h1>
               <p className="mt-1 text-sm text-gray-500">
                 Gerencie seus fornecedores e suas informações
               </p>
             </div>
             <button
               onClick={() => navigate('/suppliers/new')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Novo Fornecedor
             </button>
@@ -133,6 +133,7 @@ export function SuppliersPage() {
           ) : (
             <>
               <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -147,6 +148,9 @@ export function SuppliersPage() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Telefone
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Fabricante
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Avaliação
@@ -187,6 +191,11 @@ export function SuppliersPage() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {supplier.manufacturer || '-'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             {getRatingStars(supplier.rating)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -194,16 +203,10 @@ export function SuppliersPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
-                              onClick={() => navigate(`/suppliers/${supplier.id}`)}
+                              onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
                               className="text-blue-600 hover:text-blue-900 mr-4"
                             >
-                              Ver
-                            </button>
-                            <button
-                              onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
-                              className="text-indigo-600 hover:text-indigo-900 mr-4"
-                            >
-                              Editar
+                              Ver / Editar
                             </button>
                             <button
                               onClick={() => handleDelete(supplier.id, supplier.name)}
@@ -216,7 +219,7 @@ export function SuppliersPage() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-500">
+                        <td colSpan={8} className="px-6 py-12 text-center text-sm text-gray-500">
                           {search || statusFilter ? (
                             <>
                               Nenhum fornecedor encontrado com os filtros aplicados.
@@ -247,11 +250,12 @@ export function SuppliersPage() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
 
               {/* Pagination */}
               {data && data.total > 0 && (
-                <div className="mt-4 flex justify-between items-center">
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-sm text-gray-700">
                     Mostrando {((page - 1) * 10) + 1} até {Math.min(page * 10, data.total)} de {data.total} fornecedores
                   </div>

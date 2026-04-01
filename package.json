@@ -17,7 +17,12 @@
     "db:studio": "pnpm --filter @ejr/api db:studio",
     "db:seed": "pnpm --filter @ejr/api db:seed"
   },
-  "keywords": ["erp", "gestão", "estoque", "vendas"],
+  "keywords": [
+    "erp",
+    "gestão",
+    "estoque",
+    "vendas"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
@@ -28,5 +33,8 @@
     "pnpm": "^10.22.0",
     "prettier": "^3.1.1",
     "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
   }
 }

@@ -46,3 +46,13 @@ lerna-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Uploads and backups
+uploads/
+backups/
+apps/api/uploads/
+apps/api/backups/
+apps/api/data/
+
+# Vercel
+.vercel

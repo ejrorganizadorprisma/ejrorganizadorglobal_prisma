@@ -8,6 +8,9 @@ export interface Supplier {
   name: string;
   legalName?: string;
   taxId?: string;
+  ci?: string;
+  ruc?: string;
+  manufacturer?: string;
   email?: string;
   phone?: string;
   website?: string;
@@ -114,7 +117,7 @@ export function useUpdateSupplier() {
 
   return useMutation({
     mutationFn: async ({ id, data: supplierData }: { id: string; data: Partial<Supplier> }) => {
-      const { data } = await api.patch(`/suppliers/${id}`, supplierData);
+      const { data } = await api.put(`/suppliers/${id}`, supplierData);
       return data.data as Supplier;
     },
     onSuccess: (_, variables) => {
@@ -168,7 +171,7 @@ export function useUpdateSupplierAddress() {
 
   return useMutation({
     mutationFn: async ({ supplierId, addressId, data: addressData }: { supplierId: string; addressId: string; data: Partial<SupplierAddress> }) => {
-      const { data } = await api.patch(`/suppliers/${supplierId}/addresses/${addressId}`, addressData);
+      const { data } = await api.put(`/suppliers/${supplierId}/addresses/${addressId}`, addressData);
       return data.data as SupplierAddress;
     },
     onSuccess: (_, variables) => {
@@ -221,7 +224,7 @@ export function useUpdateSupplierContact() {
 
   return useMutation({
     mutationFn: async ({ supplierId, contactId, data: contactData }: { supplierId: string; contactId: string; data: Partial<SupplierContact> }) => {
-      const { data } = await api.patch(`/suppliers/${supplierId}/contacts/${contactId}`, contactData);
+      const { data } = await api.put(`/suppliers/${supplierId}/contacts/${contactId}`, contactData);
       return data.data as SupplierContact;
     },
     onSuccess: (_, variables) => {
@@ -252,5 +255,18 @@ export function useSupplierProducts(supplierId?: string) {
       return data.data as ProductSupplier[];
     },
     enabled: !!supplierId,
+  });
+}
+
+// Manufacturers hooks
+export function useManufacturers(search?: string) {
+  return useQuery({
+    queryKey: ['manufacturers', search],
+    queryFn: async () => {
+      const { data } = await api.get('/suppliers/manufacturers', {
+        params: search ? { search } : {},
+      });
+      return data.data as string[];
+    },
   });
 }

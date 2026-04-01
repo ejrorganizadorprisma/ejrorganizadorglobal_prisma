@@ -363,14 +363,6 @@ export class GoodsReceiptsService {
         throw new Error(`Produto do item não corresponde ao da ordem de compra`);
       }
 
-      // Verifica se não está recebendo mais do que o pedido
-      const totalReceived = orderItem.quantityReceived + receiptItem.quantityReceived;
-      if (totalReceived > orderItem.quantity) {
-        throw new Error(
-          `Quantidade recebida (${totalReceived}) excede a quantidade pedida (${orderItem.quantity}) para o produto`
-        );
-      }
-
       // Aviso se o preço for muito diferente
       if (receiptItem.unitPrice && orderItem.unitPrice) {
         const priceDiff = Math.abs(receiptItem.unitPrice - orderItem.unitPrice);

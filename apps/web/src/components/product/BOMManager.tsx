@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Trash2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, Trash2, CheckCircle, AlertTriangle, Search, X, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useProductBOM,
@@ -7,6 +7,7 @@ import {
   useRemoveProductPart,
 } from '../../hooks/useProductParts';
 import { useProducts } from '../../hooks/useProducts';
+import { useFormatPrice } from '../../hooks/useFormatPrice';
 import { AssemblyAvailabilityModal } from './AssemblyAvailabilityModal';
 
 interface BOMManagerProps {
@@ -19,6 +20,158 @@ interface AddPartFormData {
   isOptional: boolean;
 }
 
+// Componente de Select com Pesquisa
+interface SearchableSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{
+    id: string;
+    code: string;
+    name: string;
+    currentStock: number;
+    isAssembly?: boolean;
+  }>;
+  placeholder?: string;
+  required?: boolean;
+}
+
+function SearchableSelect({ value, onChange, options, placeholder = 'Selecione...', required }: SearchableSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedOption = options.find((o) => o.id === value);
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    const searchLower = search.toLowerCase();
+    return options.filter(
+      (o) =>
+        o.code.toLowerCase().includes(searchLower) ||
+        o.name.toLowerCase().includes(searchLower)
+    );
+  }, [options, search]);
+
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+        setSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Focar no input quando abrir
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Campo de seleção */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`
+          w-full px-3 py-2 text-left border rounded-md
+          flex items-center justify-between gap-2
+          focus:outline-none focus:ring-2 focus:ring-blue-500
+          ${value ? 'border-gray-300 text-gray-900' : 'border-gray-300 text-gray-500'}
+        `}
+      >
+        <span className="truncate">
+          {selectedOption ? (
+            <>
+              {selectedOption.isAssembly ? '🔧 ' : '⚙️ '}
+              {selectedOption.code} - {selectedOption.name}
+            </>
+          ) : (
+            placeholder
+          )}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {/* Input hidden para validação de formulário */}
+      {required && <input type="hidden" value={value} required />}
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-80 overflow-hidden">
+          {/* Campo de pesquisa */}
+          <div className="p-2 border-b">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Pesquisar por código ou nome..."
+                className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Lista de opções */}
+          <div className="max-h-60 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                Nenhum resultado encontrado
+              </div>
+            ) : (
+              filteredOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.id);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
+                  className={`
+                    w-full px-4 py-2 text-left text-sm hover:bg-blue-50
+                    flex items-center justify-between
+                    ${option.id === value ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}
+                  `}
+                >
+                  <span>
+                    {option.isAssembly ? '🔧 ' : '⚙️ '}
+                    <span className="font-medium">{option.code}</span>
+                    {' - '}
+                    {option.name}
+                    {option.isAssembly && (
+                      <span className="ml-1 text-xs text-blue-600">[BOM]</span>
+                    )}
+                  </span>
+                  <span className={`text-xs ${option.currentStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    Est: {option.currentStock}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function BOMManager({ productId }: BOMManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
@@ -28,19 +181,17 @@ export function BOMManager({ productId }: BOMManagerProps) {
     isOptional: false,
   });
 
+  const { formatPrice } = useFormatPrice();
   const { data: bomData, isLoading } = useProductBOM(productId);
   const { data: productsData } = useProducts({ limit: 1000 });
   const addPartMutation = useAddProductPart();
   const removePartMutation = useRemoveProductPart();
 
-  const parts = productsData?.data?.filter((p) => p.isPart) || [];
-
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
+  // Permite adicionar tanto peças simples quanto sub-assemblies (BOMs aninhados)
+  // Exclui apenas o produto atual para evitar referência circular
+  const parts = productsData?.data?.filter((p) =>
+    (p.isPart || p.isAssembly) && p.id !== productId
+  ) || [];
 
   const handleAddPart = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,11 +234,11 @@ export function BOMManager({ productId }: BOMManagerProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-gray-900">
           BOM - Bill of Materials
         </h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setShowAvailabilityModal(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100"
@@ -112,21 +263,13 @@ export function BOMManager({ productId }: BOMManagerProps) {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Peça *
               </label>
-              <select
+              <SearchableSelect
                 value={formData.partId}
-                onChange={(e) =>
-                  setFormData({ ...formData, partId: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(value) => setFormData({ ...formData, partId: value })}
+                options={parts}
+                placeholder="Pesquisar e selecionar uma peça ou sub-assembly..."
                 required
-              >
-                <option value="">Selecione uma peça</option>
-                {parts.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.code} - {product.name} (Estoque: {product.currentStock})
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             <div>
@@ -143,13 +286,14 @@ export function BOMManager({ productId }: BOMManagerProps) {
                     quantity: parseInt(e.target.value) || 1,
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
           </div>
 
-          <div className="mt-4 flex items-center gap-4">
+          <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -164,7 +308,7 @@ export function BOMManager({ productId }: BOMManagerProps) {
               </span>
             </label>
 
-            <div className="flex gap-2 ml-auto">
+            <div className="flex gap-2 sm:ml-auto w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => {
@@ -227,6 +371,11 @@ export function BOMManager({ productId }: BOMManagerProps) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {item.partName}
+                    {item.isAssembly && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                        🔧 Sub-BOM
+                      </span>
+                    )}
                     {item.isOptional && (
                       <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                         Opcional
@@ -237,10 +386,10 @@ export function BOMManager({ productId }: BOMManagerProps) {
                     {item.quantity}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                    {formatCurrency(item.unitCost)}
+                    {formatPrice(item.unitCost)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                    {formatCurrency(item.totalCost)}
+                    {formatPrice(item.totalCost)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
                     <span
@@ -278,7 +427,7 @@ export function BOMManager({ productId }: BOMManagerProps) {
                   colSpan={3}
                   className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right"
                 >
-                  {formatCurrency(totalBOMCost)}
+                  {formatPrice(totalBOMCost)}
                 </td>
               </tr>
             </tfoot>

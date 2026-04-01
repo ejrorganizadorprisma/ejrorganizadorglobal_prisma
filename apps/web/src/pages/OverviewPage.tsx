@@ -1,13 +1,11 @@
 import { useNavigate } from 'react-router-dom';
 import { useCompleteOverview } from '../hooks/useOverview';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 
 export function OverviewPage() {
   const navigate = useNavigate();
   const { data: overview, isLoading } = useCompleteOverview();
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value / 100);
-  };
+  const { formatPrice: formatCurrency } = useFormatPrice();
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('pt-BR');
@@ -22,14 +20,14 @@ export function OverviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">Visão Geral Completa do Sistema</h1>
+        <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-8">Visão Geral Completa do Sistema</h1>
 
         {/* ===== PRODUTOS ===== */}
         <section className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">Produtos</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Produtos</h2>
             <button
               onClick={() => navigate('/products')}
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -38,26 +36,26 @@ export function OverviewPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow border-l-4 border-blue-500">
               <div className="text-sm text-gray-500 mb-1">Total de Produtos</div>
-              <div className="text-3xl font-bold text-gray-900">{overview?.products.total || 0}</div>
+              <div className="text-2xl lg:text-3xl font-bold text-gray-900">{overview?.products.total || 0}</div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-emerald-500">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow border-l-4 border-emerald-500">
               <div className="text-sm text-gray-500 mb-1">Valor do Estoque</div>
-              <div className="text-2xl font-bold text-emerald-600">
+              <div className="text-xl lg:text-2xl font-bold text-emerald-600">
                 {formatCurrency(overview?.products.totalStockValue || 0)}
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow border-l-4 border-green-500">
               <div className="text-sm text-gray-500 mb-1">Receita Potencial</div>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-xl lg:text-2xl font-bold text-green-600">
                 {formatCurrency(overview?.products.totalPotentialRevenue || 0)}
               </div>
             </div>
-            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow border-l-4 border-purple-500">
               <div className="text-sm text-gray-500 mb-1">Margem de Lucro</div>
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-xl lg:text-2xl font-bold text-purple-600">
                 {overview?.products.profitMargin?.toFixed(1) || 0}%
               </div>
             </div>
@@ -79,7 +77,7 @@ export function OverviewPage() {
           )}
 
           {overview?.products.recent && overview.products.recent.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
               <h3 className="font-semibold text-gray-900 mb-4">Produtos Recentes</h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -111,8 +109,8 @@ export function OverviewPage() {
 
         {/* ===== ORDENS DE SERVIÇO ===== */}
         <section className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">Ordens de Serviço</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Ordens de Serviço</h2>
             <button
               onClick={() => navigate('/service-orders')}
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -121,7 +119,7 @@ export function OverviewPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
               <div className="text-sm text-gray-500 mb-1">Total</div>
               <div className="text-2xl font-bold text-gray-900">{overview?.serviceOrders.total || 0}</div>
@@ -145,11 +143,11 @@ export function OverviewPage() {
           </div>
 
           {overview?.serviceOrders.recent && overview.serviceOrders.recent.length > 0 && (
-            <div className="bg-white p-6 rounded-lg shadow">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
               <h3 className="font-semibold text-gray-900 mb-4">Ordens Recentes</h3>
               <div className="space-y-3">
                 {overview.serviceOrders.recent.map((order: any) => (
-                  <div key={order.id} className="flex justify-between items-center p-3 border rounded-lg hover:bg-gray-50">
+                  <div key={order.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-3 border rounded-lg hover:bg-gray-50">
                     <div>
                       <div className="font-medium">{order.order_number}</div>
                       <div className="text-sm text-gray-600">
@@ -173,10 +171,87 @@ export function OverviewPage() {
           )}
         </section>
 
+        {/* ===== ORDENS DE PRODUÇÃO ===== */}
+        <section className="mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Ordens de Produção</h2>
+            <button
+              onClick={() => navigate('/production-orders')}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              Ver todas →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+              <div className="text-sm text-gray-500 mb-1">Total</div>
+              <div className="text-2xl font-bold text-gray-900">{overview?.productionOrders.total || 0}</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-gray-500">
+              <div className="text-sm text-gray-500 mb-1">Rascunho</div>
+              <div className="text-2xl font-bold text-gray-600">{overview?.productionOrders.draft || 0}</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
+              <div className="text-sm text-gray-500 mb-1">Planejadas</div>
+              <div className="text-2xl font-bold text-yellow-600">{overview?.productionOrders.planned || 0}</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
+              <div className="text-sm text-gray-500 mb-1">Em Produção</div>
+              <div className="text-2xl font-bold text-purple-600">{overview?.productionOrders.inProduction || 0}</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+              <div className="text-sm text-gray-500 mb-1">Concluídas</div>
+              <div className="text-2xl font-bold text-green-600">{overview?.productionOrders.completed || 0}</div>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow border-l-4 border-red-500">
+              <div className="text-sm text-gray-500 mb-1">Canceladas</div>
+              <div className="text-2xl font-bold text-red-600">{overview?.productionOrders.cancelled || 0}</div>
+            </div>
+          </div>
+
+          {overview?.productionOrders.recent && overview.productionOrders.recent.length > 0 && (
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
+              <h3 className="font-semibold text-gray-900 mb-4">Ordens Recentes</h3>
+              <div className="space-y-3">
+                {overview.productionOrders.recent.map((order: any) => (
+                  <div key={order.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/production-orders/${order.id}`)}>
+                    <div>
+                      <div className="font-medium">{order.order_number}</div>
+                      <div className="text-sm text-gray-600">
+                        Produto: {order.products?.code} - {order.products?.name}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        Quantidade: {order.quantity_planned} unidades
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        order.status === 'DRAFT' ? 'bg-gray-100 text-gray-800' :
+                        order.status === 'PLANNED' ? 'bg-yellow-100 text-yellow-800' :
+                        order.status === 'IN_PRODUCTION' ? 'bg-purple-100 text-purple-800' :
+                        order.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                        order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {order.status === 'DRAFT' ? 'Rascunho' :
+                         order.status === 'PLANNED' ? 'Planejada' :
+                         order.status === 'IN_PRODUCTION' ? 'Em Produção' :
+                         order.status === 'COMPLETED' ? 'Concluída' :
+                         order.status === 'CANCELLED' ? 'Cancelada' : order.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* ===== ORÇAMENTOS ===== */}
         <section className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">Orçamentos</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Orçamentos</h2>
             <button
               onClick={() => navigate('/quotes')}
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -185,7 +260,7 @@ export function OverviewPage() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
               <div className="text-sm text-gray-500 mb-1">Total</div>
               <div className="text-2xl font-bold text-gray-900">{overview?.quotes.total || 0}</div>
@@ -207,10 +282,10 @@ export function OverviewPage() {
 
         {/* ===== CLIENTES & FORNECEDORES ===== */}
         <section className="mb-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Clientes & Fornecedores</h2>
+          <h2 className="text-xl lg:text-2xl font-semibold text-gray-900 mb-4">Clientes & Fornecedores</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Clientes</h3>
                 <button
@@ -220,7 +295,7 @@ export function OverviewPage() {
                   Ver todos →
                 </button>
               </div>
-              <div className="text-4xl font-bold text-green-600 mb-4">{overview?.customers.total || 0}</div>
+              <div className="text-3xl lg:text-4xl font-bold text-green-600 mb-4">{overview?.customers.total || 0}</div>
 
               {overview?.customers.recent && overview.customers.recent.length > 0 && (
                 <div>
@@ -237,7 +312,7 @@ export function OverviewPage() {
               )}
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow">
+            <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Fornecedores</h3>
                 <button
@@ -247,19 +322,19 @@ export function OverviewPage() {
                   Ver todos →
                 </button>
               </div>
-              <div className="text-4xl font-bold text-purple-600">{overview?.suppliers.total || 0}</div>
+              <div className="text-3xl lg:text-4xl font-bold text-purple-600">{overview?.suppliers.total || 0}</div>
             </div>
           </div>
         </section>
 
         {/* ===== MOVIMENTAÇÕES DE ESTOQUE ===== */}
         <section className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-semibold text-gray-900">Movimentações de Estoque</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h2 className="text-xl lg:text-2xl font-semibold text-gray-900">Movimentações de Estoque</h2>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow">
-            <div className="text-3xl font-bold text-blue-600 mb-6">
+          <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
+            <div className="text-2xl lg:text-3xl font-bold text-blue-600 mb-6">
               {overview?.inventory.totalMovements || 0} movimentações
             </div>
 

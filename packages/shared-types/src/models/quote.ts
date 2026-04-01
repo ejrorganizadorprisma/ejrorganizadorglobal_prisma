@@ -9,13 +9,26 @@ export enum QuoteStatus {
   CONVERTED = 'CONVERTED',
 }
 
+export enum QuoteItemType {
+  PRODUCT = 'PRODUCT',
+  SERVICE = 'SERVICE',
+}
+
 export interface QuoteItem {
   id: string;
   quoteId: string;
-  productId: string;
+  itemType: QuoteItemType;
+  productId?: string; // Obrigatório se itemType = PRODUCT
+  serviceName?: string; // Obrigatório se itemType = SERVICE
+  serviceDescription?: string; // Opcional para serviços
   quantity: number;
   unitPrice: number; // centavos
   total: number; // quantity * unitPrice
+  product?: {
+    name: string;
+    code: string;
+    factoryCode?: string;
+  };
 }
 
 export interface Quote {
@@ -34,14 +47,26 @@ export interface Quote {
   updatedAt: Date;
 }
 
-const QuoteItemSchema = z.object({
-  productId: z.string().uuid('ID do produto inválido'),
-  quantity: z.number().int().positive('Quantidade deve ser maior que zero'),
-  unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),
-});
+const QuoteItemSchema = z.discriminatedUnion('itemType', [
+  // Schema para itens de produto
+  z.object({
+    itemType: z.literal(QuoteItemType.PRODUCT),
+    productId: z.string().min(1, 'Produto é obrigatório'),
+    quantity: z.number().int().positive('Quantidade deve ser maior que zero'),
+    unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),
+  }),
+  // Schema para itens de serviço
+  z.object({
+    itemType: z.literal(QuoteItemType.SERVICE),
+    serviceName: z.string().min(1, 'Nome do serviço é obrigatório'),
+    serviceDescription: z.string().optional(),
+    quantity: z.number().int().positive('Quantidade deve ser maior que zero'),
+    unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),
+  }),
+]);
 
 export const CreateQuoteSchema = z.object({
-  customerId: z.string().uuid('ID do cliente inválido'),
+  customerId: z.string().min(1, 'Cliente é obrigatório'),
   items: z.array(QuoteItemSchema).min(1, 'Orçamento deve ter pelo menos 1 item'),
   discount: z.number().int().min(0).default(0),
   validUntil: z.string().datetime('Data de validade inválida'),
@@ -49,7 +74,7 @@ export const CreateQuoteSchema = z.object({
 });
 
 export const UpdateQuoteSchema = z.object({
-  customerId: z.string().uuid().optional(),
+  customerId: z.string().min(1).optional(),
   items: z.array(QuoteItemSchema).min(1).optional(),
   discount: z.number().int().min(0).optional(),
   validUntil: z.string().datetime().optional(),
@@ -57,6 +82,30 @@ export const UpdateQuoteSchema = z.object({
   status: z.nativeEnum(QuoteStatus).optional(),
 });
 
-export type CreateQuoteDTO = z.infer<typeof CreateQuoteSchema>;
-export type UpdateQuoteDTO = z.infer<typeof UpdateQuoteSchema>;
-export type QuoteItemInput = z.infer<typeof QuoteItemSchema>;
+export interface CreateQuoteItemDTO {
+  itemType: QuoteItemType;
+  productId?: string;
+  serviceName?: string;
+  serviceDescription?: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreateQuoteDTO {
+  customerId: string;
+  items: CreateQuoteItemDTO[];
+  discount: number;
+  validUntil: string;
+  notes?: string;
+}
+
+export interface UpdateQuoteDTO {
+  customerId?: string;
+  items?: CreateQuoteItemDTO[];
+  discount?: number;
+  validUntil?: string;
+  notes?: string | null;
+  status?: QuoteStatus;
+}
+
+export type QuoteItemInput = CreateQuoteItemDTO;

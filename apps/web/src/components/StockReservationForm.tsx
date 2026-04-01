@@ -101,6 +101,7 @@ export function StockReservationForm({ onSuccess, onCancel }: StockReservationFo
           min="1"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
+          onFocus={(e) => e.target.select()}
           className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             errors.quantity ? 'border-red-500' : 'border-gray-300'
           }`}
@@ -220,24 +221,24 @@ export function StockReservationForm({ onSuccess, onCancel }: StockReservationFo
       </div>
 
       {/* Botões */}
-      <div className="flex gap-3 pt-4">
-        <button
-          type="submit"
-          disabled={createMutation.isPending}
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {createMutation.isPending ? 'Criando...' : 'Criar Reserva'}
-        </button>
+      <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             disabled={createMutation.isPending}
-            className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="sm:flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancelar
           </button>
         )}
+        <button
+          type="submit"
+          disabled={createMutation.isPending}
+          className="sm:flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          {createMutation.isPending ? 'Criando...' : 'Criar Reserva'}
+        </button>
       </div>
 
       {/* Erro de Submissão */}

@@ -1,17 +1,32 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 
 export class InventoryMovementsRepository {
-  async findByProduct(productId: string, limit: number = 50) {
-    const { data, error } = await supabase
-      .from('inventory_movements')
-      .select('*, product:products(name), user:users(name)')
-      .eq('product_id', productId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+  async findByProduct(productId: string, limit: number = 100, type?: string) {
+    const params: any[] = [productId];
+    let paramIdx = 2;
 
-    if (error) throw new Error(`Erro ao buscar movimentações: ${error.message}`);
+    let query = `
+      SELECT
+        im.*,
+        json_build_object('name', p.name, 'code', p.code) as product,
+        json_build_object('name', COALESCE(u.name, 'Sistema'), 'email', u.email) as "user"
+      FROM inventory_movements im
+      LEFT JOIN products p ON p.id = im.product_id
+      LEFT JOIN users u ON u.id = im.user_id
+      WHERE im.product_id = $1
+    `;
 
-    return data || [];
+    if (type) {
+      query += ` AND im.type = $${paramIdx}`;
+      params.push(type);
+      paramIdx++;
+    }
+
+    query += ` ORDER BY im.created_at DESC LIMIT $${paramIdx}`;
+    params.push(limit);
+
+    const result = await db.query(query, params);
+    return result.rows;
   }
 
   async create(movement: {
@@ -21,20 +36,24 @@ export class InventoryMovementsRepository {
     userId: string;
     reason?: string;
   }) {
-    const { data, error } = await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id: movement.productId,
-        type: movement.type,
-        quantity: movement.quantity,
-        user_id: movement.userId,
-        reason: movement.reason,
-      })
-      .select()
-      .single();
+    const query = `
+      INSERT INTO inventory_movements (id, product_id, type, quantity, user_id, reason)
+      VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5)
+      RETURNING *
+    `;
 
-    if (error) throw new Error(`Erro ao criar movimentação: ${error.message}`);
+    const result = await db.query(query, [
+      movement.productId,
+      movement.type,
+      movement.quantity,
+      movement.userId,
+      movement.reason || null,
+    ]);
 
-    return data;
+    if (result.rowCount === 0) {
+      throw new Error('Erro ao criar movimentação');
+    }
+
+    return result.rows[0];
   }
 }

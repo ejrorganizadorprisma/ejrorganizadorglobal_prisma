@@ -30,6 +30,7 @@ import {
   type ProductionOrderStatus,
 } from '../hooks/useProductionOrders';
 import { ProductionReportingForm } from '../components/production/ProductionReportingForm';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 
 type TabType = 'overview' | 'materials' | 'operations' | 'reports';
 
@@ -38,6 +39,7 @@ export function ProductionOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showReportingForm, setShowReportingForm] = useState(false);
+  const { formatPrice } = useFormatPrice();
 
   const { data: order, isLoading } = useProductionOrder(id);
   const { data: materials } = useProductionOrderMaterials(id);
@@ -131,13 +133,6 @@ export function ProductionOrderDetailPage() {
     });
   };
 
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
-
   const getStatusBadge = (status: ProductionOrderStatus) => {
     const configs: Record<ProductionOrderStatus, { label: string; className: string }> = {
       DRAFT: { label: 'Rascunho', className: 'bg-gray-100 text-gray-800 border-gray-200' },
@@ -195,10 +190,10 @@ export function ProductionOrderDetailPage() {
             <ArrowLeft className="w-4 h-4" />
             Voltar para Ordens de Produção
           </button>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-gray-900">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
                   OP #{order.orderNumber}
                 </h1>
                 {isOverdue && (
@@ -217,7 +212,7 @@ export function ProductionOrderDetailPage() {
         </div>
 
         {/* Progress Bar */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-700">Progresso de Produção</h3>
             <span className="text-sm font-semibold text-gray-900">{progress}%</span>
@@ -243,7 +238,7 @@ export function ProductionOrderDetailPage() {
             {/* Tabs */}
             <div className="bg-white rounded-lg shadow">
               <div className="border-b border-gray-200">
-                <nav className="flex -mb-px">
+                <nav className="flex flex-wrap -mb-px overflow-x-auto">
                   <button
                     onClick={() => setActiveTab('overview')}
                     className={`flex items-center gap-2 px-6 py-3 border-b-2 font-medium text-sm ${
@@ -291,7 +286,7 @@ export function ProductionOrderDetailPage() {
                 </nav>
               </div>
 
-              <div className="p-6">
+              <div className="p-4 lg:p-6">
                 {/* Overview Tab */}
                 {activeTab === 'overview' && (
                   <div className="space-y-6">
@@ -503,7 +498,7 @@ export function ProductionOrderDetailPage() {
                                 {operation.status}
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                               {operation.assignedTo && (
                                 <div>
                                   <span className="text-gray-600">Responsável: </span>
@@ -527,7 +522,7 @@ export function ProductionOrderDetailPage() {
                 {/* Reports Tab */}
                 {activeTab === 'reports' && (
                   <div>
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
                       <h3 className="text-lg font-semibold text-gray-900">
                         Apontamentos de Produção
                       </h3>
@@ -570,7 +565,7 @@ export function ProductionOrderDetailPage() {
                                 </span>
                               )}
                             </div>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                               <div>
                                 <span className="text-gray-600">Produzido: </span>
                                 <span className="text-green-600 font-semibold">
@@ -611,7 +606,7 @@ export function ProductionOrderDetailPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Costs */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-5 h-5 text-gray-400" />
                 <h2 className="text-lg font-semibold text-gray-900">Custos</h2>
@@ -620,26 +615,26 @@ export function ProductionOrderDetailPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Materiais:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrency(order.materialCost)}
+                    {formatPrice(order.materialCost)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Mão de Obra:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrency(order.laborCost)}
+                    {formatPrice(order.laborCost)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Overhead:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrency(order.overheadCost)}
+                    {formatPrice(order.overheadCost)}
                   </span>
                 </div>
                 <div className="pt-3 border-t border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="text-base font-semibold text-gray-900">Total:</span>
                     <span className="text-lg font-bold text-gray-900">
-                      {formatCurrency(order.totalCost)}
+                      {formatPrice(order.totalCost)}
                     </span>
                   </div>
                 </div>
@@ -647,7 +642,7 @@ export function ProductionOrderDetailPage() {
             </div>
 
             {/* Actions */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações</h2>
               <div className="space-y-3">
                 {canEdit && (

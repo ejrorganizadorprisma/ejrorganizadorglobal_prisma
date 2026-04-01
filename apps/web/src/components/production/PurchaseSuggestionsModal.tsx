@@ -3,6 +3,7 @@ import { X, ShoppingCart, Package, AlertTriangle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
+import { useFormatPrice } from '../../hooks/useFormatPrice';
 import { toast } from 'sonner';
 
 interface PurchaseSuggestionsModalProps {
@@ -42,6 +43,7 @@ export function PurchaseSuggestionsModal({
   quantity,
 }: PurchaseSuggestionsModalProps) {
   const navigate = useNavigate();
+  const { formatPrice } = useFormatPrice();
   const [creatingPurchaseOrders, setCreatingPurchaseOrders] = useState<Set<string>>(
     new Set()
   );
@@ -59,13 +61,6 @@ export function PurchaseSuggestionsModal({
     },
     enabled: isOpen && !!productId && quantity > 0,
   });
-
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
 
   const handleCreateSinglePO = (suggestion: PurchaseSuggestion) => {
     if (!suggestion.suggestedSupplier) {
@@ -299,10 +294,10 @@ export function PurchaseSuggestionsModal({
                                 )}
                               </td>
                               <td className="py-3 px-4 text-right text-gray-900">
-                                {formatCurrency(suggestion.unitPrice)}
+                                {formatPrice(suggestion.unitPrice)}
                               </td>
                               <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                                {formatCurrency(suggestion.totalPrice)}
+                                {formatPrice(suggestion.totalPrice)}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <button
@@ -332,7 +327,7 @@ export function PurchaseSuggestionsModal({
                           Total Estimado
                         </p>
                         <p className="text-2xl font-bold text-blue-900 mt-1">
-                          {formatCurrency(data.totalEstimated)}
+                          {formatPrice(data.totalEstimated)}
                         </p>
                       </div>
                       <div className="text-right text-sm text-blue-800">

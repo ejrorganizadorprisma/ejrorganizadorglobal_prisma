@@ -5,9 +5,18 @@ export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const { data } = await api.get('/notifications');
-      return data.data;
+      try {
+        const { data } = await api.get('/notifications');
+        return data.data;
+      } catch (error: any) {
+        // Silenciar erro 404 - endpoint ainda não implementado
+        if (error?.response?.status === 404) {
+          return [];
+        }
+        throw error;
+      }
     },
+    retry: false, // Não tentar novamente em caso de 404
   });
 }
 
@@ -15,10 +24,19 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: ['notifications', 'unread'],
     queryFn: async () => {
-      const { data } = await api.get('/notifications/unread');
-      return data.data.count;
+      try {
+        const { data } = await api.get('/notifications/unread');
+        return data.data.count;
+      } catch (error: any) {
+        // Silenciar erro 404 - endpoint ainda não implementado
+        if (error?.response?.status === 404) {
+          return 0;
+        }
+        throw error;
+      }
     },
     refetchInterval: 30000, // Refetch every 30 seconds
+    retry: false, // Não tentar novamente em caso de 404
   });
 }
 

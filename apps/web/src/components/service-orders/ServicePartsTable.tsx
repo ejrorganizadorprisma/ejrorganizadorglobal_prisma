@@ -1,5 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import type { ServiceOrderWithRelations } from '@ejr/shared-types';
+import { useFormatPrice } from '../../hooks/useFormatPrice';
 
 interface ServicePartsTableProps {
   serviceOrder: ServiceOrderWithRelations;
@@ -12,12 +13,7 @@ export function ServicePartsTable({
   onRemovePart,
   readOnly = false,
 }: ServicePartsTableProps) {
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
+  const { formatPrice } = useFormatPrice();
 
   if (!serviceOrder.partsUsed || serviceOrder.partsUsed.length === 0) {
     return (
@@ -67,10 +63,10 @@ export function ServicePartsTable({
                 {part.quantity}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                {formatCurrency(part.unitCost)}
+                {formatPrice(part.unitCost)}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">
-                {formatCurrency(part.totalCost)}
+                {formatPrice(part.totalCost)}
               </td>
               {!readOnly && (
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -95,7 +91,7 @@ export function ServicePartsTable({
               Total de Peças:
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-right">
-              {formatCurrency(serviceOrder.partsCost)}
+              {formatPrice(serviceOrder.partsCost)}
             </td>
           </tr>
         </tfoot>

@@ -26,6 +26,12 @@ export const useAuth = create<AuthState>((set) => ({
         data
       );
       console.log('✅ Login bem-sucedido!', response.data);
+
+      // Salvar token no localStorage para uso em rede
+      if (response.data.data.token) {
+        localStorage.setItem('token', response.data.data.token);
+      }
+
       set({
         user: response.data.data.user,
         isAuthenticated: true,
@@ -44,27 +50,41 @@ export const useAuth = create<AuthState>((set) => ({
   logout: async () => {
     try {
       await api.post('/auth/logout');
+      localStorage.removeItem('token'); // Remove token do localStorage
       set({ user: null, isAuthenticated: false });
       toast.success('Logout realizado com sucesso!');
+      // Redireciona para a página de login
+      window.location.href = '/login';
     } catch (error) {
       toast.error('Erro ao fazer logout');
+      // Mesmo com erro, limpa o estado e redireciona
+      localStorage.removeItem('token'); // Remove token do localStorage
+      set({ user: null, isAuthenticated: false });
+      window.location.href = '/login';
     }
   },
 
   fetchUser: async () => {
-    // AUTENTICAÇÃO DESABILITADA - Mock user
-    set({
-      user: {
-        id: 'mock-user-id',
-        name: 'Administrador',
-        email: 'admin@ejr.com',
-        role: 'OWNER',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      isAuthenticated: true,
-      isLoading: false,
-    });
+    try {
+      set({ isLoading: true });
+      const response = await api.get<{ success: boolean; data: Omit<User, 'passwordHash'> }>(
+        '/auth/me'
+      );
+      set({
+        user: response.data.data,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      // Silencia erro 401 (não autenticado) - esperado quando não há token
+      if (error.response?.status !== 401) {
+        console.error('Erro ao buscar usuário:', error);
+      }
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+    }
   },
 }));

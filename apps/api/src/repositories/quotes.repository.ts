@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 import type { Quote, QuoteStatus, QuoteItem, CreateQuoteDTO, UpdateQuoteDTO } from '@ejr/shared-types';
 
 export class QuotesRepository {
@@ -11,178 +11,313 @@ export class QuotesRepository {
   }) {
     const { page, limit, search, status, customerId } = params;
 
-    let query = supabase
-      .from('quotes')
-      .select('*, customer:customers(id, name, document), items:quote_items(*, product:products(id, name, code))', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range((page - 1) * limit, page * limit - 1);
+    const offset = (page - 1) * limit;
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+    const conditions: string[] = [];
 
     if (search) {
-      query = query.or(`quote_number.ilike.%${search}%`);
+      conditions.push(`q.quote_number ILIKE $${paramIndex}`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
     }
 
     if (status) {
-      query = query.eq('status', status);
+      conditions.push(`q.status = $${paramIndex}`);
+      queryParams.push(status);
+      paramIndex++;
     }
 
     if (customerId) {
-      query = query.eq('customer_id', customerId);
+      conditions.push(`q.customer_id = $${paramIndex}`);
+      queryParams.push(customerId);
+      paramIndex++;
     }
 
-    const { data, error, count } = await query;
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    if (error) {
-      throw new Error(`Erro ao buscar orçamentos: ${error.message}`);
-    }
+    // Count query
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM quotes q
+      ${whereClause}
+    `;
 
-    return { data: data || [], total: count || 0 };
+    const countResult = await db.query(countQuery, queryParams);
+    const total = parseInt(countResult.rows[0]?.total || '0');
+
+    // Main query
+    const query = `
+      SELECT
+        q.*,
+        c.id as customer_id,
+        c.name as customer_name,
+        c.document as customer_document
+      FROM quotes q
+      LEFT JOIN customers c ON q.customer_id = c.id
+      ${whereClause}
+      ORDER BY q.created_at DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+
+    queryParams.push(limit, offset);
+    const result = await db.query(query, queryParams);
+
+    // Fetch items for each quote
+    const quotes = await Promise.all(
+      result.rows.map(async (row) => {
+        const itemsResult = await db.query(
+          `
+          SELECT
+            qi.*,
+            p.id as product_id,
+            p.name as product_name,
+            p.code as product_code,
+            p.factory_code as product_factory_code
+          FROM quote_items qi
+          LEFT JOIN products p ON qi.product_id = p.id
+          WHERE qi.quote_id = $1
+          `,
+          [row.id]
+        );
+
+        return {
+          ...row,
+          customer: {
+            id: row.customer_id,
+            name: row.customer_name,
+            document: row.customer_document,
+          },
+          items: itemsResult.rows.map((item) => ({
+            ...item,
+            product: item.product_id ? {
+              id: item.product_id,
+              name: item.product_name,
+              code: item.product_code,
+              factory_code: item.product_factory_code,
+            } : null,
+          })),
+        };
+      })
+    );
+
+    return { data: quotes, total };
   }
 
   async findById(id: string) {
-    const { data, error } = await supabase
-      .from('quotes')
-      .select('*, customer:customers(*), items:quote_items(*, product:products(*))')
-      .eq('id', id)
-      .single();
+    const query = `
+      SELECT
+        q.*,
+        row_to_json(c.*) as customer
+      FROM quotes q
+      LEFT JOIN customers c ON q.customer_id = c.id
+      WHERE q.id = $1
+    `;
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw new Error(`Erro ao buscar orçamento: ${error.message}`);
+    const result = await db.query(query, [id]);
+
+    if (result.rows.length === 0) {
+      return null;
     }
 
-    return this.mapToQuote(data);
+    const quote = result.rows[0];
+
+    // Fetch items with products
+    const itemsResult = await db.query(
+      `
+      SELECT
+        qi.*,
+        row_to_json(p.*) as product
+      FROM quote_items qi
+      LEFT JOIN products p ON qi.product_id = p.id
+      WHERE qi.quote_id = $1
+      `,
+      [id]
+    );
+
+    return this.mapToQuote({
+      ...quote,
+      items: itemsResult.rows,
+    });
   }
 
   async create(quoteData: CreateQuoteDTO, userId: string) {
     const quoteNumber = await this.generateQuoteNumber();
 
-    const { data: quoteResult, error: quoteError } = await supabase
-      .from('quotes')
-      .insert({
-        quote_number: quoteNumber,
-        customer_id: quoteData.customerId,
-        subtotal: 0, // Será calculado depois
-        discount: quoteData.discount || 0,
-        total: 0, // Será calculado depois
-        status: 'DRAFT',
-        valid_until: quoteData.validUntil,
-        notes: quoteData.notes,
-        responsible_user_id: userId,
-      })
-      .select()
-      .single();
+    // Generate a unique ID for the quote
+    const id = `quote-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-    if (quoteError) {
-      throw new Error(`Erro ao criar orçamento: ${quoteError.message}`);
-    }
-
-    // Inserir items
+    // Calcular totais primeiro
     const items = quoteData.items.map((item) => ({
-      quote_id: quoteResult.id,
-      product_id: item.productId,
+      id: `qitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      quote_id: id,
+      item_type: item.itemType,
+      product_id: 'productId' in item ? item.productId : null,
+      service_name: 'serviceName' in item ? item.serviceName : null,
+      service_description: 'serviceDescription' in item ? item.serviceDescription : null,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       total: item.quantity * item.unitPrice,
     }));
 
-    const { error: itemsError } = await supabase
-      .from('quote_items')
-      .insert(items);
-
-    if (itemsError) {
-      throw new Error(`Erro ao criar itens do orçamento: ${itemsError.message}`);
-    }
-
-    // Calcular totais
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
     const total = subtotal - (quoteData.discount || 0);
 
-    // Atualizar totais
-    const { data: updatedQuote, error: updateError } = await supabase
-      .from('quotes')
-      .update({ subtotal, total })
-      .eq('id', quoteResult.id)
-      .select('*, customer:customers(*), items:quote_items(*, product:products(*))')
-      .single();
+    const insertQuoteQuery = `
+      INSERT INTO quotes (
+        id, quote_number, customer_id, subtotal, discount, total,
+        status, valid_until, notes, responsible_user_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `;
 
-    if (updateError) {
-      throw new Error(`Erro ao atualizar totais: ${updateError.message}`);
+    const quoteResult = await db.query(insertQuoteQuery, [
+      id,
+      quoteNumber,
+      quoteData.customerId,
+      subtotal,
+      quoteData.discount || 0,
+      total,
+      'DRAFT',
+      quoteData.validUntil,
+      quoteData.notes,
+      userId,
+    ]);
+
+    // Inserir items
+    for (const item of items) {
+      const insertItemQuery = `
+        INSERT INTO quote_items (
+          id, quote_id, item_type, product_id, service_name,
+          service_description, quantity, unit_price, total
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `;
+
+      await db.query(insertItemQuery, [
+        item.id,
+        item.quote_id,
+        item.item_type,
+        item.product_id,
+        item.service_name,
+        item.service_description,
+        item.quantity,
+        item.unit_price,
+        item.total,
+      ]);
     }
 
-    return this.mapToQuote(updatedQuote);
+    // Buscar orçamento completo
+    const quote = await this.findById(id);
+    if (!quote) {
+      throw new Error('Erro ao buscar orçamento criado');
+    }
+
+    return quote;
   }
 
   async update(id: string, quoteData: UpdateQuoteDTO) {
-    const updateData: any = {};
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
 
-    if (quoteData.customerId !== undefined) updateData.customer_id = quoteData.customerId;
-    if (quoteData.discount !== undefined) updateData.discount = quoteData.discount;
-    if (quoteData.validUntil !== undefined) updateData.valid_until = quoteData.validUntil;
-    if (quoteData.notes !== undefined) updateData.notes = quoteData.notes;
-    if (quoteData.status !== undefined) updateData.status = quoteData.status;
+    if (quoteData.customerId !== undefined) {
+      updates.push(`customer_id = $${paramIndex}`);
+      values.push(quoteData.customerId);
+      paramIndex++;
+    }
+    if (quoteData.discount !== undefined) {
+      updates.push(`discount = $${paramIndex}`);
+      values.push(quoteData.discount);
+      paramIndex++;
+    }
+    if (quoteData.validUntil !== undefined) {
+      updates.push(`valid_until = $${paramIndex}`);
+      values.push(quoteData.validUntil);
+      paramIndex++;
+    }
+    if (quoteData.notes !== undefined) {
+      updates.push(`notes = $${paramIndex}`);
+      values.push(quoteData.notes);
+      paramIndex++;
+    }
+    if (quoteData.status !== undefined) {
+      updates.push(`status = $${paramIndex}`);
+      values.push(quoteData.status);
+      paramIndex++;
+    }
 
     // Se houver items, deletar os antigos e inserir novos
     if (quoteData.items) {
       // Deletar items antigos
-      const { error: deleteError } = await supabase
-        .from('quote_items')
-        .delete()
-        .eq('quote_id', id);
-
-      if (deleteError) {
-        throw new Error(`Erro ao deletar itens antigos: ${deleteError.message}`);
-      }
+      await db.query('DELETE FROM quote_items WHERE quote_id = $1', [id]);
 
       // Inserir novos items
       const items = quoteData.items.map((item) => ({
+        id: `qitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         quote_id: id,
-        product_id: item.productId,
+        item_type: item.itemType,
+        product_id: 'productId' in item ? item.productId : null,
+        service_name: 'serviceName' in item ? item.serviceName : null,
+        service_description: 'serviceDescription' in item ? item.serviceDescription : null,
         quantity: item.quantity,
         unit_price: item.unitPrice,
         total: item.quantity * item.unitPrice,
       }));
 
-      const { error: itemsError } = await supabase
-        .from('quote_items')
-        .insert(items);
+      for (const item of items) {
+        const insertItemQuery = `
+          INSERT INTO quote_items (
+            id, quote_id, item_type, product_id, service_name,
+            service_description, quantity, unit_price, total
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
 
-      if (itemsError) {
-        throw new Error(`Erro ao inserir novos itens: ${itemsError.message}`);
+        await db.query(insertItemQuery, [
+          item.id,
+          item.quote_id,
+          item.item_type,
+          item.product_id,
+          item.service_name,
+          item.service_description,
+          item.quantity,
+          item.unit_price,
+          item.total,
+        ]);
       }
 
       // Recalcular totais
       const subtotal = items.reduce((sum, item) => sum + item.total, 0);
       const total = subtotal - (quoteData.discount || 0);
-      updateData.subtotal = subtotal;
-      updateData.total = total;
+      updates.push(`subtotal = $${paramIndex}`);
+      values.push(subtotal);
+      paramIndex++;
+      updates.push(`total = $${paramIndex}`);
+      values.push(total);
+      paramIndex++;
     }
 
-    const { data, error } = await supabase
-      .from('quotes')
-      .update(updateData)
-      .eq('id', id)
-      .select('*, customer:customers(*), items:quote_items(*, product:products(*))')
-      .single();
+    if (updates.length > 0) {
+      const updateQuery = `
+        UPDATE quotes
+        SET ${updates.join(', ')}
+        WHERE id = $${paramIndex}
+      `;
+      values.push(id);
 
-    if (error) {
-      throw new Error(`Erro ao atualizar orçamento: ${error.message}`);
+      await db.query(updateQuery, values);
     }
 
-    return this.mapToQuote(data);
+    // Buscar orçamento completo
+    const quote = await this.findById(id);
+    if (!quote) {
+      throw new Error('Orçamento não encontrado após atualização');
+    }
+
+    return quote;
   }
 
   async delete(id: string) {
-    const { error } = await supabase
-      .from('quotes')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw new Error(`Erro ao deletar orçamento: ${error.message}`);
-    }
-
+    await db.query('DELETE FROM quotes WHERE id = $1', [id]);
     return { success: true };
   }
 
@@ -190,21 +325,19 @@ export class QuotesRepository {
     const year = new Date().getFullYear();
     const prefix = `QOT-${year}-`;
 
-    // Buscar último orçamento do ano
-    const { data, error } = await supabase
-      .from('quotes')
-      .select('quote_number')
-      .like('quote_number', `${prefix}%`)
-      .order('quote_number', { ascending: false })
-      .limit(1);
+    const query = `
+      SELECT quote_number
+      FROM quotes
+      WHERE quote_number LIKE $1
+      ORDER BY quote_number DESC
+      LIMIT 1
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao gerar número do orçamento: ${error.message}`);
-    }
+    const result = await db.query(query, [`${prefix}%`]);
 
     let nextNumber = 1;
-    if (data && data.length > 0) {
-      const lastNumber = parseInt(data[0].quote_number.split('-')[2]);
+    if (result.rows.length > 0) {
+      const lastNumber = parseInt(result.rows[0].quote_number.split('-')[2]);
       nextNumber = lastNumber + 1;
     }
 
@@ -219,10 +352,18 @@ export class QuotesRepository {
       items: (data.items || []).map((item: any) => ({
         id: item.id,
         quoteId: item.quote_id,
-        productId: item.product_id,
+        itemType: item.item_type || 'PRODUCT',
+        productId: item.product_id || undefined,
+        serviceName: item.service_name || undefined,
+        serviceDescription: item.service_description || undefined,
         quantity: item.quantity,
         unitPrice: item.unit_price,
         total: item.total,
+        product: item.product
+          ? { name: item.product.name, code: item.product.code || '', factoryCode: item.product.factory_code || undefined }
+          : item.product_name
+          ? { name: item.product_name, code: item.product_code || '', factoryCode: item.product_factory_code || undefined }
+          : undefined,
       })),
       subtotal: data.subtotal,
       discount: data.discount,

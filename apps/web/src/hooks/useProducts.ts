@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type {
   Product,
@@ -13,8 +13,12 @@ interface FindManyParams {
   limit?: number;
   search?: string;
   category?: string;
+  family?: string;
+  manufacturer?: string;
   status?: ProductStatus;
   inStock?: boolean;
+  productType?: 'FINAL' | 'COMPONENT';
+  sortBy?: string;
 }
 
 export function useProducts(params: FindManyParams = {}) {
@@ -26,6 +30,8 @@ export function useProducts(params: FindManyParams = {}) {
       });
       return data;
     },
+    staleTime: 0,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -45,6 +51,16 @@ export function useProductCategories() {
     queryKey: ['products', 'categories'],
     queryFn: async () => {
       const { data } = await api.get<{ data: string[] }>('/products/categories');
+      return data.data;
+    },
+  });
+}
+
+export function useProductManufacturers() {
+  return useQuery({
+    queryKey: ['products', 'manufacturers'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: string[] }>('/products/manufacturers');
       return data.data;
     },
   });
@@ -127,6 +143,10 @@ export function useUpdateStock() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      // Invalidate BOM-related caches since stock changed
+      queryClient.invalidateQueries({ queryKey: ['product-can-assemble'] });
+      queryClient.invalidateQueries({ queryKey: ['product-bom'] });
+      queryClient.invalidateQueries({ queryKey: ['product-parts'] });
     },
   });
 }

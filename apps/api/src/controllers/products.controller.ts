@@ -1,12 +1,15 @@
 import type { Request, Response } from 'express';
 import { ProductsService } from '../services/products.service';
 import { CreateProductSchema, UpdateProductSchema } from '@ejr/shared-types';
+import { DemandAnalysisRepository } from '../repositories/demand-analysis.repository';
 
 export class ProductsController {
   private service: ProductsService;
+  private demandRepo: DemandAnalysisRepository;
 
   constructor() {
     this.service = new ProductsService();
+    this.demandRepo = new DemandAnalysisRepository();
   }
 
   findMany = async (req: Request, res: Response) => {
@@ -14,16 +17,24 @@ export class ProductsController {
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 10));
     const search = req.query.search as string | undefined;
     const category = req.query.category as string | undefined;
+    const family = req.query.family as string | undefined;
+    const manufacturer = req.query.manufacturer as string | undefined;
     const status = req.query.status as any;
     const inStock = req.query.inStock === 'true';
+    const productType = req.query.productType as 'FINAL' | 'COMPONENT' | undefined;
+    const sortBy = req.query.sortBy as string | undefined;
 
     const result = await this.service.findMany({
       page,
       limit,
       search,
       category,
+      family,
+      manufacturer,
       status,
       inStock: req.query.inStock ? inStock : undefined,
+      productType,
+      sortBy,
     });
 
     res.json({
@@ -95,6 +106,15 @@ export class ProductsController {
     });
   };
 
+  getManufacturers = async (_req: Request, res: Response) => {
+    const manufacturers = await this.service.getManufacturers();
+
+    res.json({
+      success: true,
+      data: manufacturers,
+    });
+  };
+
   getLowStock = async (_req: Request, res: Response) => {
     const products = await this.service.getLowStock();
 
@@ -104,9 +124,10 @@ export class ProductsController {
     });
   };
 
-  updateStock = async (req: Request, res: Response) => {
+  updateStock = async (req: any, res: Response) => {
     const { id } = req.params;
-    const { quantity, operation } = req.body;
+    const { quantity, operation, reason } = req.body;
+    const userId = req.user?.id; // Pega userId do middleware de autenticação
 
     if (!quantity || typeof quantity !== 'number' || quantity <= 0) {
       return res.status(400).json({
@@ -122,12 +143,22 @@ export class ProductsController {
       });
     }
 
-    const product = await this.service.updateStock(id, quantity, operation);
+    const product = await this.service.updateStock(id, quantity, operation, userId, reason);
 
     res.json({
       success: true,
       data: product,
       message: 'Estoque atualizado com sucesso',
+    });
+  };
+
+  getStockAdjustmentHistory = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const history = await this.service.getStockAdjustmentHistory(id);
+
+    res.json({
+      success: true,
+      data: history,
     });
   };
 
@@ -166,6 +197,74 @@ export class ProductsController {
         url: imageUrl,
       },
       message: 'Imagem enviada com sucesso',
+    });
+  };
+
+  // Métodos para gerenciar BOM
+  getProductParts = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const parts = await this.service.getProductParts(id);
+
+    res.json({
+      success: true,
+      data: parts,
+    });
+  };
+
+  getProductBOM = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const bom = await this.service.getProductBOM(id);
+
+    res.json({
+      success: true,
+      data: bom,
+    });
+  };
+
+  addProductPart = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { partId, quantity, isOptional } = req.body;
+
+    const part = await this.service.addProductPart(id, {
+      partId,
+      quantity,
+      isOptional,
+    });
+
+    res.json({
+      success: true,
+      data: part,
+      message: 'Peça adicionada ao BOM com sucesso',
+    });
+  };
+
+  removeProductPart = async (req: Request, res: Response) => {
+    const { id, partId } = req.params;
+    await this.service.removeProductPart(id, partId);
+
+    res.json({
+      success: true,
+      message: 'Peça removida do BOM com sucesso',
+    });
+  };
+
+  getDemandAnalysis = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const validPeriods = [3, 6, 12, 24];
+    const rawPeriod = parseInt(req.query.period as string) || 6;
+    const periodMonths = validPeriods.includes(rawPeriod) ? rawPeriod as 3 | 6 | 12 | 24 : 6;
+    const analysis = await this.demandRepo.getProductDemandAnalysis(id, periodMonths);
+
+    if (!analysis) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produto não encontrado',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: analysis,
     });
   };
 }

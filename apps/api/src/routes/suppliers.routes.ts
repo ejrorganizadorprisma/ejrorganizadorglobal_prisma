@@ -12,6 +12,7 @@ router.use(authenticate);
 
 // Rotas principais de Suppliers (rotas específicas antes das genéricas)
 router.get('/', asyncHandler(controller.findMany));
+router.get('/manufacturers', asyncHandler(controller.getManufacturers));
 router.get('/code/:code', asyncHandler(controller.findByCode));
 router.post('/', authorize(['OWNER', 'DIRECTOR', 'MANAGER']), asyncHandler(controller.create));
 

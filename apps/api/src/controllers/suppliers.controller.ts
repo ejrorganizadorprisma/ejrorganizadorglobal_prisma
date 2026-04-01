@@ -113,4 +113,11 @@ export class SuppliersController {
     const products = await this.service.getProductSuppliers(id);
     res.json({ success: true, data: products });
   };
+
+  // Endpoint: Fabricantes únicos
+  getManufacturers = async (req: Request, res: Response) => {
+    const search = req.query.search as string;
+    const manufacturers = await this.service.getUniqueManufacturers(search);
+    res.json({ success: true, data: manufacturers });
+  };
 }

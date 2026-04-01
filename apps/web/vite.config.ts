@@ -12,9 +12,14 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', // Permite acesso de outras máquinas na rede
     port: 5173,
+    allowedHosts: ['.trycloudflare.com'],
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:3002',
         changeOrigin: true,
       },
     },

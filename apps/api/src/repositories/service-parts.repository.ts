@@ -1,29 +1,26 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 import type { ServicePart, AddServicePartDTO } from '@ejr/shared-types';
 
 export class ServicePartsRepository {
   async findByServiceOrderId(serviceOrderId: string) {
-    const { data, error } = await supabase
-      .from('service_parts')
-      .select(`
-        *,
-        product:products!service_parts_product_id_fkey(
-          id,
-          code,
-          name,
-          cost_price,
-          current_stock
-        )
-      `)
-      .eq('service_order_id', serviceOrderId)
-      .order('created_at', { ascending: true });
+    const query = `
+      SELECT
+        sp.*,
+        p.id as product_id_rel,
+        p.code as product_code,
+        p.name as product_name,
+        p.cost_price as product_cost_price,
+        p.current_stock as product_current_stock
+      FROM service_parts sp
+      LEFT JOIN products p ON sp.product_id = p.id
+      WHERE sp.service_order_id = $1
+      ORDER BY sp.created_at ASC
+    `;
 
-    if (error) {
-      throw new Error(`Erro ao buscar peças da ordem de serviço: ${error.message}`);
-    }
+    const result = await db.query(query, [serviceOrderId]);
 
     // Converte snake_case para camelCase
-    return (data || []).map(item => ({
+    return (result.rows || []).map(item => ({
       id: item.id,
       serviceOrderId: item.service_order_id,
       productId: item.product_id,
@@ -31,30 +28,24 @@ export class ServicePartsRepository {
       unitCost: item.unit_cost,
       totalCost: item.total_cost,
       createdAt: item.created_at,
-      product: {
-        id: item.product.id,
-        code: item.product.code,
-        name: item.product.name,
-        costPrice: item.product.cost_price,
-        currentStock: item.product.current_stock,
-      },
+      product: item.product_id_rel ? {
+        id: item.product_id_rel,
+        code: item.product_code,
+        name: item.product_name,
+        costPrice: item.product_cost_price,
+        currentStock: item.product_current_stock,
+      } : undefined,
     }));
   }
 
   async findById(id: string) {
-    const { data, error } = await supabase
-      .from('service_parts')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const result = await db.query('SELECT * FROM service_parts WHERE id = $1', [id]);
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw new Error(`Erro ao buscar peça: ${error.message}`);
+    if (!result.rows || result.rows.length === 0) {
+      return null;
     }
 
+    const data = result.rows[0];
     return {
       id: data.id,
       serviceOrderId: data.service_order_id,
@@ -68,28 +59,19 @@ export class ServicePartsRepository {
 
   async add(serviceOrderId: string, partData: AddServicePartDTO) {
     // Usar RPC para adicionar peça (vai atualizar estoque e custos automaticamente)
-    const { data, error } = await supabase
-      .rpc('add_service_part', {
-        p_service_order_id: serviceOrderId,
-        p_product_id: partData.productId,
-        p_quantity: partData.quantity
-      });
+    const result = await db.query(
+      'SELECT add_service_part($1, $2, $3) as data',
+      [serviceOrderId, partData.productId, partData.quantity]
+    );
 
-    if (error) {
-      throw new Error(`Erro ao adicionar peça: ${error.message}`);
-    }
-
-    return data;
+    return result.rows[0]?.data;
   }
 
   async remove(id: string) {
-    const { error } = await supabase
-      .from('service_parts')
-      .delete()
-      .eq('id', id);
+    const result = await db.query('DELETE FROM service_parts WHERE id = $1', [id]);
 
-    if (error) {
-      throw new Error(`Erro ao remover peça: ${error.message}`);
+    if (result.rowCount === 0) {
+      throw new Error('Peça não encontrada');
     }
 
     return { success: true };

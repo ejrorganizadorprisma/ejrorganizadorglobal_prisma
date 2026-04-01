@@ -64,6 +64,7 @@ interface GoodsReceiptItem {
 }
 
 interface CreateGoodsReceiptDTO {
+  supplierOrderId?: string;
   purchaseOrderId?: string;
   supplierId: string;
   receiptDate?: string;
@@ -72,6 +73,7 @@ interface CreateGoodsReceiptDTO {
   invoiceAmount?: number;
   notes?: string;
   items: Array<{
+    supplierOrderItemId?: string;
     purchaseOrderItemId?: string;
     productId: string;
     quantityOrdered?: number;
@@ -183,6 +185,7 @@ export function useApproveGoodsReceipt() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['goods-receipts'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
     },
   });
 }

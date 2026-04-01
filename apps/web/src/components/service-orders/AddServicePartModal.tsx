@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useProducts } from '../../hooks/useProducts';
+import { useFormatPrice } from '../../hooks/useFormatPrice';
 import type { AddServicePartDTO } from '@ejr/shared-types';
 
 interface AddServicePartModalProps {
@@ -18,6 +19,7 @@ export function AddServicePartModal({
 }: AddServicePartModalProps) {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const { formatPrice } = useFormatPrice();
 
   // Buscar produtos que são peças (isPart = true)
   const { data: productsData } = useProducts({
@@ -41,13 +43,6 @@ export function AddServicePartModal({
     onAdd({
       productId: selectedProductId,
       quantity,
-    });
-  };
-
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
     });
   };
 
@@ -105,7 +100,7 @@ export function AddServicePartModal({
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Custo unitário:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrency(selectedProduct.costPrice)}
+                    {formatPrice(selectedProduct.costPrice)}
                   </span>
                 </div>
               </div>
@@ -133,7 +128,7 @@ export function AddServicePartModal({
                     Custo Total:
                   </span>
                   <span className="text-sm font-bold text-blue-900">
-                    {formatCurrency(calculateTotal())}
+                    {formatPrice(calculateTotal())}
                   </span>
                 </div>
               </div>

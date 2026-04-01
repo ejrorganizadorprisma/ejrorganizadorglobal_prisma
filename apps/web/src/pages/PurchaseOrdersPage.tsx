@@ -3,12 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import {
   usePurchaseOrders,
   useDeletePurchaseOrder,
-  useSendPurchaseOrder,
   useConfirmPurchaseOrder,
   useCancelPurchaseOrder,
 } from '../hooks/usePurchaseOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { useAuth } from '../hooks/useAuth';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 import { toast } from 'sonner';
+import { api } from '../lib/api';
+import { generatePurchaseOrderPdf } from '../services/purchaseOrderPdf';
+import type { DocumentSettingsForPdf } from '../services/supplierOrderPdf';
 
 const STATUS_LABELS = {
   DRAFT: 'Rascunho',
@@ -30,6 +35,8 @@ const STATUS_COLORS = {
 
 export function PurchaseOrdersPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { formatPrice, defaultCurrency } = useFormatPrice();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -48,10 +55,11 @@ export function PurchaseOrdersPage() {
   });
 
   const { data: suppliersData } = useSuppliers({ page: 1, limit: 100 });
+  const { data: documentSettings } = useDefaultDocumentSettings();
   const deletePO = useDeletePurchaseOrder();
-  const sendPO = useSendPurchaseOrder();
   const confirmPO = useConfirmPurchaseOrder();
   const cancelPO = useCancelPurchaseOrder();
+  const isAdmin = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta ordem de compra?')) {
@@ -64,14 +72,24 @@ export function PurchaseOrdersPage() {
     }
   };
 
-  const handleSend = async (id: string) => {
-    if (window.confirm('Deseja enviar esta ordem de compra ao fornecedor?')) {
-      try {
-        await sendPO.mutateAsync(id);
-        toast.success('Ordem enviada ao fornecedor!');
-      } catch (error: any) {
-        toast.error(error.response?.data?.error?.message || 'Erro ao enviar');
-      }
+  const handleGeneratePdf = async (id: string) => {
+    try {
+      const { data } = await api.get(`/purchase-orders/${id}`);
+      const pdfSettings: DocumentSettingsForPdf | undefined = documentSettings ? {
+        companyLogo: documentSettings.companyLogo || undefined,
+        companyName: documentSettings.companyName || undefined,
+        footerText: documentSettings.footerText || undefined,
+        footerAddress: documentSettings.footerAddress || undefined,
+        footerPhone: documentSettings.footerPhone || undefined,
+        footerEmail: documentSettings.footerEmail || undefined,
+        footerWebsite: documentSettings.footerWebsite || undefined,
+        primaryColor: documentSettings.primaryColor || undefined,
+        secondaryColor: documentSettings.secondaryColor || undefined,
+      } : undefined;
+      generatePurchaseOrderPdf(data.data, pdfSettings, defaultCurrency);
+      toast.success('PDF gerado com sucesso!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao gerar PDF');
     }
   };
 
@@ -97,9 +115,6 @@ export function PurchaseOrdersPage() {
     }
   };
 
-  const formatPrice = (cents: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
-
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
@@ -117,11 +132,11 @@ export function PurchaseOrdersPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Ordens de Compra</h1>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Ordens de Compra</h1>
             <button
               onClick={() => navigate('/purchase-orders/new')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
               Nova Ordem de Compra
             </button>
@@ -213,11 +228,12 @@ export function PurchaseOrdersPage() {
           ) : (
             <>
               <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Número
+                        Nome
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fornecedor
@@ -242,13 +258,18 @@ export function PurchaseOrdersPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {data?.data.map((order: any) => (
                       <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {order.orderNumber}
+                            {order.name || order.purchaseRequest?.title || <span className="text-gray-400">-</span>}
                           </div>
+                          {order.purchaseRequest && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full inline-block mt-1" title={`Requisição: ${order.purchaseRequest.title}`}>
+                              {order.purchaseRequest.requestNumber}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{order.supplier?.name || '-'}</div>
+                          <div className="text-sm text-gray-900">{order.supplier?.name || <span className="text-gray-400 italic">Não definido</span>}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">{formatDate(order.orderDate)}</div>
@@ -282,23 +303,22 @@ export function PurchaseOrdersPage() {
                               Ver
                             </button>
 
+                            <button
+                              onClick={() => handleGeneratePdf(order.id)}
+                              className="text-green-600 hover:text-green-900"
+                              title="Gerar PDF"
+                            >
+                              PDF
+                            </button>
+
                             {order.status === 'DRAFT' && (
-                              <>
-                                <button
-                                  onClick={() => navigate(`/purchase-orders/${order.id}/edit`)}
-                                  className="text-yellow-600 hover:text-yellow-900"
-                                  title="Editar"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => handleSend(order.id)}
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Enviar ao fornecedor"
-                                >
-                                  Enviar
-                                </button>
-                              </>
+                              <button
+                                onClick={() => navigate(`/purchase-orders/${order.id}/edit`)}
+                                className="text-yellow-600 hover:text-yellow-900"
+                                title="Editar"
+                              >
+                                Editar
+                              </button>
                             )}
 
                             {order.status === 'SENT' && (
@@ -321,7 +341,7 @@ export function PurchaseOrdersPage() {
                               </button>
                             )}
 
-                            {order.status === 'DRAFT' && (
+                            {order.status === 'DRAFT' && isAdmin && (
                               <button
                                 onClick={() => handleDelete(order.id)}
                                 className="text-red-600 hover:text-red-900"
@@ -336,6 +356,7 @@ export function PurchaseOrdersPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
 
                 {data?.data.length === 0 && (
                   <div className="text-center py-12 text-gray-500">
@@ -345,7 +366,7 @@ export function PurchaseOrdersPage() {
               </div>
 
               {data && data.pagination && (
-                <div className="mt-4 flex justify-between items-center">
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-sm text-gray-700">
                     Mostrando {((page - 1) * 10) + 1} até {Math.min(page * 10, data.pagination.total)} de {data.pagination.total} ordens
                   </div>

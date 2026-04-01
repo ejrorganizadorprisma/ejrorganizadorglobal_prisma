@@ -22,12 +22,14 @@ import {
 import { ServiceOrderStatusBadge } from '../components/service-orders/ServiceOrderStatusBadge';
 import { ServicePartsTable } from '../components/service-orders/ServicePartsTable';
 import { AddServicePartModal } from '../components/service-orders/AddServicePartModal';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 
 export function ServiceOrderDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [showAddPartModal, setShowAddPartModal] = useState(false);
   const [internalNotes, setInternalNotes] = useState('');
+  const { formatPrice } = useFormatPrice();
 
   const { data: serviceOrder, isLoading } = useServiceOrder(id);
   const completeOrderMutation = useCompleteServiceOrder();
@@ -111,13 +113,6 @@ export function ServiceOrderDetailPage() {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -149,9 +144,9 @@ export function ServiceOrderDetailPage() {
             <ArrowLeft className="w-4 h-4" />
             Voltar para Ordens de Serviço
           </button>
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
                 OS #{serviceOrder.orderNumber}
               </h1>
               <p className="text-gray-600 mt-1">
@@ -166,38 +161,42 @@ export function ServiceOrderDetailPage() {
           {/* Coluna Principal */}
           <div className="lg:col-span-2 space-y-6">
             {/* Informações Gerais */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Informações Gerais
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-start gap-3">
-                  <User className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Cliente</p>
-                    <p className="font-medium text-gray-900">
-                      {serviceOrder.customer.name}
-                    </p>
-                    {serviceOrder.customer.phone && (
-                      <p className="text-sm text-gray-600">
-                        {serviceOrder.customer.phone}
+                {serviceOrder.customer && (
+                  <div className="flex items-start gap-3">
+                    <User className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Cliente</p>
+                      <p className="font-medium text-gray-900">
+                        {serviceOrder.customer.name}
                       </p>
-                    )}
+                      {serviceOrder.customer.phone && (
+                        <p className="text-sm text-gray-600">
+                          {serviceOrder.customer.phone}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-3">
-                  <Package className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-gray-600">Produto</p>
-                    <p className="font-medium text-gray-900">
-                      {serviceOrder.product.name}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {serviceOrder.product.code}
-                    </p>
+                {serviceOrder.product && (
+                  <div className="flex items-start gap-3">
+                    <Package className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-gray-600">Produto</p>
+                      <p className="font-medium text-gray-900">
+                        {serviceOrder.product.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {serviceOrder.product.code}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {serviceOrder.technician && (
                   <div className="flex items-start gap-3">
@@ -234,7 +233,7 @@ export function ServiceOrderDetailPage() {
             </div>
 
             {/* Descrição do Problema */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
                 Descrição do Problema
               </h2>
@@ -255,7 +254,7 @@ export function ServiceOrderDetailPage() {
 
             {/* Diagnóstico e Serviço */}
             {(serviceOrder.diagnosis || serviceOrder.servicePerformed) && (
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 lg:p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Diagnóstico e Serviço
                 </h2>
@@ -283,8 +282,8 @@ export function ServiceOrderDetailPage() {
             )}
 
             {/* Peças Utilizadas */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">
                   Peças Utilizadas
                 </h2>
@@ -307,7 +306,7 @@ export function ServiceOrderDetailPage() {
 
             {/* Notas Internas */}
             {canEdit && (
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 lg:p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Notas Internas
                 </h2>
@@ -332,7 +331,7 @@ export function ServiceOrderDetailPage() {
           {/* Coluna Lateral */}
           <div className="space-y-6">
             {/* Custos */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <DollarSign className="w-5 h-5 text-gray-400" />
                 <h2 className="text-lg font-semibold text-gray-900">Custos</h2>
@@ -341,13 +340,13 @@ export function ServiceOrderDetailPage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Mão de Obra:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrency(serviceOrder.laborCost)}
+                    {formatPrice(serviceOrder.laborCost)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Peças:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrency(serviceOrder.partsCost)}
+                    {formatPrice(serviceOrder.partsCost)}
                   </span>
                 </div>
                 <div className="pt-3 border-t border-gray-200">
@@ -356,7 +355,7 @@ export function ServiceOrderDetailPage() {
                       Total:
                     </span>
                     <span className="text-lg font-bold text-gray-900">
-                      {formatCurrency(serviceOrder.totalCost)}
+                      {formatPrice(serviceOrder.totalCost)}
                     </span>
                   </div>
                 </div>
@@ -364,7 +363,7 @@ export function ServiceOrderDetailPage() {
             </div>
 
             {/* Ações */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white rounded-lg shadow p-4 lg:p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Ações</h2>
               <div className="space-y-3">
                 <button
@@ -399,7 +398,7 @@ export function ServiceOrderDetailPage() {
 
             {/* Timeline */}
             {serviceOrder.completionDate && (
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 lg:p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Datas
                 </h2>

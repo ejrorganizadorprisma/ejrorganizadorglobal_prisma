@@ -53,6 +53,7 @@ export class QuotesController {
 
   create = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+      console.log('Recebendo dados do orçamento:', JSON.stringify(req.body, null, 2));
       const data = CreateQuoteSchema.parse(req.body);
       const userId = req.user!.id;
 
@@ -63,7 +64,18 @@ export class QuotesController {
         data: quote,
         message: 'Orçamento criado com sucesso',
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle Zod validation errors with better messages
+      if (error.name === 'ZodError') {
+        const errorMessages = error.errors.map((err: any) => err.message).join(', ');
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: `Erro de validação: ${errorMessages}`,
+            details: error.errors,
+          },
+        });
+      }
       next(error);
     }
   };
@@ -80,7 +92,18 @@ export class QuotesController {
         data: quote,
         message: 'Orçamento atualizado com sucesso',
       });
-    } catch (error) {
+    } catch (error: any) {
+      // Handle Zod validation errors with better messages
+      if (error.name === 'ZodError') {
+        const errorMessages = error.errors.map((err: any) => err.message).join(', ');
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: `Erro de validação: ${errorMessages}`,
+            details: error.errors,
+          },
+        });
+      }
       next(error);
     }
   };

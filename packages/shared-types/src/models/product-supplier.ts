@@ -16,8 +16,8 @@ export interface ProductSupplier {
 }
 
 // Schema de validação para criar relacionamento produto-fornecedor
+// Nota: productId vem pela URL, não no body
 export const CreateProductSupplierSchema = z.object({
-  productId: z.string().uuid('ID do produto inválido'),
   supplierId: z.string().uuid('ID do fornecedor inválido'),
   supplierSku: z.string().max(100).optional(),
   unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),

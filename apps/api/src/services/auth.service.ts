@@ -1,5 +1,6 @@
-import { supabase } from '../config/supabase';
-import { hashPassword } from '../utils/password';
+import { randomUUID } from 'crypto';
+import { db } from '../config/database';
+import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { UnauthorizedError, ConflictError } from '../utils/errors';
 import type { LoginDTO, CreateUserDTO, AuthResponse } from '@ejr/shared-types';
@@ -8,28 +9,23 @@ export class AuthService {
   async login(data: LoginDTO): Promise<AuthResponse> {
     const { email, password } = data;
 
-    // Busca usuário
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .limit(1);
+    // Busca usuário (incluindo password_version para validação de sessão)
+    const result = await db.query(
+      'SELECT * FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
 
-    if (error || !users || users.length === 0) {
+    if (result.rowCount === 0) {
       throw new UnauthorizedError('Email ou senha inválidos');
     }
 
-    const user = users[0];
+    const user = result.rows[0];
 
-    // Verifica senha usando a função crypt do PostgreSQL (DESABILITADO)
-    // const { data: passwordCheckResult } = await supabase.rpc('verify_password', {
-    //   p_email: email,
-    //   p_password: password,
-    // });
-
-    // if (!passwordCheckResult) {
-    //   throw new UnauthorizedError('Email ou senha inválidos');
-    // }
+    // Verifica senha usando bcrypt
+    const isPasswordValid = await comparePassword(password, user.password_hash);
+    if (!isPasswordValid) {
+      throw new UnauthorizedError('Email ou senha inválidos');
+    }
 
     // Verifica se está ativo
     if (!user.is_active) {
@@ -63,39 +59,34 @@ export class AuthService {
     const { email, password, name, role, allowedHours } = data;
 
     // Verifica se email já existe
-    const { data: existingUsers } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .limit(1);
+    const existingResult = await db.query(
+      'SELECT id FROM users WHERE email = $1 LIMIT 1',
+      [email]
+    );
 
-    if (existingUsers && existingUsers.length > 0) {
+    if (existingResult.rowCount > 0) {
       throw new ConflictError('Email já cadastrado');
     }
 
-    // Cria o hash da senha usando RPC (chama crypt do PostgreSQL)
-    const { data: hashedPassword } = await supabase.rpc('hash_password', {
-      p_password: password,
-    });
+    // Cria o hash da senha usando bcrypt
+    const passwordHash = await hashPassword(password);
+
+    // Gera um UUID para o novo usuário
+    const userId = randomUUID();
 
     // Cria usuário
-    const { data: newUsers, error } = await supabase
-      .from('users')
-      .insert({
-        email,
-        password_hash: hashedPassword,
-        name,
-        role,
-        allowed_hours: allowedHours || null,
-        is_active: true,
-      })
-      .select('*');
+    const result = await db.query(
+      `INSERT INTO users (id, email, password_hash, name, role, allowed_hours, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [userId, email, passwordHash, name, role, allowedHours || null, true]
+    );
 
-    if (error || !newUsers || newUsers.length === 0) {
+    if (result.rowCount === 0) {
       throw new Error('Erro ao criar usuário');
     }
 
-    const user = newUsers[0];
+    const user = result.rows[0];
 
     // Gera token
     const token = generateToken({
@@ -121,17 +112,16 @@ export class AuthService {
   }
 
   async getCurrentUser(userId: string) {
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, email, name, role, is_active, allowed_hours, created_at, updated_at')
-      .eq('id', userId)
-      .limit(1);
+    const result = await db.query(
+      'SELECT id, email, name, role, is_active, allowed_hours, created_at, updated_at FROM users WHERE id = $1 LIMIT 1',
+      [userId]
+    );
 
-    if (error || !users || users.length === 0) {
+    if (result.rowCount === 0) {
       throw new UnauthorizedError('Usuário não encontrado');
     }
 
-    const user = users[0];
+    const user = result.rows[0];
 
     // Converte snake_case para camelCase
     return {

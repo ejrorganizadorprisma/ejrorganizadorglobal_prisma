@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import { db } from '../config/database';
 import { AppError } from '../utils/errors';
 
 interface BOMExplosion {
@@ -42,15 +42,18 @@ export class BOMAnalysisService {
     }
 
     // Verificar se o produto existe
-    const { data: product, error: productError } = await supabase
-      .from('products')
-      .select('id, code, name, product_type')
-      .eq('id', productId)
-      .single();
+    const productQuery = `
+      SELECT id, code, name, product_type
+      FROM products
+      WHERE id = $1
+    `;
+    const productResult = await db.query(productQuery, [productId]);
 
-    if (productError || !product) {
+    if (productResult.rows.length === 0) {
       throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
+
+    const product = productResult.rows[0];
 
     // Verificar se o produto é do tipo FINAL ou SEMI_FINISHED
     if (product.product_type !== 'FINAL' && product.product_type !== 'SEMI_FINISHED') {
@@ -62,75 +65,93 @@ export class BOMAnalysisService {
     }
 
     // Buscar o BOM do produto
-    let bomQuery = supabase
-      .from('bom_items')
-      .select(`
-        id,
-        component_id,
-        quantity,
-        unit,
-        scrap_percentage,
-        is_optional,
-        products:component_id (
-          id,
-          code,
-          name,
-          product_type
-        )
-      `)
-      .eq('product_id', productId);
+    let bomVersionIdToUse: string | null = null;
 
     // Se versionId foi fornecido, buscar BOM dessa versão
     if (versionId) {
       // Verificar se a versão existe
-      const { data: version, error: versionError } = await supabase
-        .from('bom_versions')
-        .select('id, status')
-        .eq('id', versionId)
-        .eq('product_id', productId)
-        .single();
+      const versionQuery = `
+        SELECT id, status
+        FROM bom_versions
+        WHERE id = $1 AND product_id = $2
+      `;
+      const versionResult = await db.query(versionQuery, [versionId, productId]);
 
-      if (versionError || !version) {
+      if (versionResult.rows.length === 0) {
         throw new AppError('Versão do BOM não encontrada', 404, 'BOM_VERSION_NOT_FOUND');
       }
 
-      bomQuery = bomQuery.eq('bom_version_id', versionId);
+      bomVersionIdToUse = versionId;
     } else {
       // Buscar versão ativa mais recente
-      const { data: activeVersion } = await supabase
-        .from('bom_versions')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('status', 'ACTIVE')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      const activeVersionQuery = `
+        SELECT id
+        FROM bom_versions
+        WHERE product_id = $1 AND status = 'ACTIVE'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      const activeVersionResult = await db.query(activeVersionQuery, [productId]);
 
-      if (activeVersion) {
-        bomQuery = bomQuery.eq('bom_version_id', activeVersion.id);
-      } else {
-        // Se não há versão ativa, buscar itens sem versão (BOM legado)
-        bomQuery = bomQuery.is('bom_version_id', null);
+      if (activeVersionResult.rows.length > 0) {
+        bomVersionIdToUse = activeVersionResult.rows[0].id;
       }
+      // Se não há versão ativa, bomVersionIdToUse fica null (BOM legado)
     }
 
-    const { data: bomItems, error: bomError } = await bomQuery;
+    // Buscar itens do BOM
+    let bomQuery: string;
+    let bomParams: any[];
 
-    if (bomError) {
-      throw new AppError(
-        `Erro ao buscar BOM: ${bomError.message}`,
-        500,
-        'BOM_FETCH_ERROR'
-      );
+    if (bomVersionIdToUse) {
+      bomQuery = `
+        SELECT
+          bi.id,
+          bi.component_id,
+          bi.quantity,
+          bi.unit,
+          bi.scrap_percentage,
+          bi.is_optional,
+          p.id as product_id,
+          p.code as product_code,
+          p.name as product_name,
+          p.product_type as product_type
+        FROM bom_items bi
+        LEFT JOIN products p ON bi.component_id = p.id
+        WHERE bi.product_id = $1 AND bi.bom_version_id = $2
+      `;
+      bomParams = [productId, bomVersionIdToUse];
+    } else {
+      bomQuery = `
+        SELECT
+          bi.id,
+          bi.component_id,
+          bi.quantity,
+          bi.unit,
+          bi.scrap_percentage,
+          bi.is_optional,
+          p.id as product_id,
+          p.code as product_code,
+          p.name as product_name,
+          p.product_type as product_type
+        FROM bom_items bi
+        LEFT JOIN products p ON bi.component_id = p.id
+        WHERE bi.product_id = $1 AND bi.bom_version_id IS NULL
+      `;
+      bomParams = [productId];
     }
 
-    if (!bomItems || bomItems.length === 0) {
+    const bomResult = await db.query(bomQuery, bomParams);
+
+    if (bomResult.rows.length === 0) {
       throw new AppError(
         'Produto não possui BOM cadastrado',
         404,
         'BOM_NOT_FOUND'
       );
     }
+
+    const bomItems = bomResult.rows;
 
     // Calcular materiais necessários considerando scrap
     const materials: BOMExplosion[] = [];
@@ -141,8 +162,6 @@ export class BOMAnalysisService {
         continue;
       }
 
-      const component = item.products as any;
-
       // Calcular quantidade necessária com scrap
       // Ex: 10 unidades + 5% scrap = 10 * 1.05 = 10.5 unidades
       const scrapMultiplier = 1 + ((item.scrap_percentage || 0) / 100);
@@ -150,14 +169,14 @@ export class BOMAnalysisService {
 
       materials.push({
         product_id: item.component_id,
-        product_code: component.code,
-        product_name: component.name,
+        product_code: item.product_code,
+        product_name: item.product_name,
         quantity_needed: Math.ceil(quantityNeeded), // Arredondar para cima
         unit: item.unit || 'UN',
       });
 
       // Se o componente é SEMI_FINISHED, explodir seu BOM recursivamente
-      if (component.product_type === 'SEMI_FINISHED') {
+      if (item.product_type === 'SEMI_FINISHED') {
         try {
           const subBOM = await this.explodeBOM(
             item.component_id,
@@ -179,7 +198,7 @@ export class BOMAnalysisService {
           }
         } catch (error) {
           // Se sub-componente não tem BOM, apenas usar ele como componente
-          console.warn(`Sub-componente ${component.code} não possui BOM`);
+          console.warn(`Sub-componente ${item.product_code} não possui BOM`);
         }
       }
     }
@@ -221,13 +240,10 @@ export class BOMAnalysisService {
 
     for (const material of materials) {
       // Buscar estoque atual do produto
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('current_stock')
-        .eq('id', material.product_id)
-        .single();
+      const productQuery = `SELECT current_stock FROM products WHERE id = $1`;
+      const productResult = await db.query(productQuery, [material.product_id]);
 
-      if (productError || !product) {
+      if (productResult.rows.length === 0) {
         throw new AppError(
           `Produto ${material.product_code} não encontrado`,
           404,
@@ -235,25 +251,17 @@ export class BOMAnalysisService {
         );
       }
 
-      const currentStock = product.current_stock || 0;
+      const currentStock = productResult.rows[0].current_stock || 0;
 
       // Buscar reservas ativas do produto
-      const { data: reservations, error: reservationsError } = await supabase
-        .from('stock_reservations')
-        .select('quantity')
-        .eq('product_id', material.product_id)
-        .eq('status', 'ACTIVE');
-
-      if (reservationsError) {
-        throw new AppError(
-          `Erro ao buscar reservas: ${reservationsError.message}`,
-          500,
-          'RESERVATIONS_FETCH_ERROR'
-        );
-      }
+      const reservationsQuery = `
+        SELECT quantity FROM stock_reservations
+        WHERE product_id = $1 AND status = 'ACTIVE'
+      `;
+      const reservationsResult = await db.query(reservationsQuery, [material.product_id]);
 
       // Calcular total reservado
-      const totalReserved = (reservations || []).reduce(
+      const totalReserved = reservationsResult.rows.reduce(
         (sum, r) => sum + r.quantity,
         0
       );
@@ -306,39 +314,30 @@ export class BOMAnalysisService {
 
     for (const material of missingMaterials) {
       // Buscar fornecedores do produto
-      const { data: suppliers, error: suppliersError } = await supabase
-        .from('product_suppliers')
-        .select(`
-          id,
-          supplier_id,
-          unit_price,
-          minimum_quantity,
-          lead_time_days,
-          is_preferred,
-          suppliers (
-            id,
-            name,
-            status
-          )
-        `)
-        .eq('product_id', material.product_id)
-        .eq('suppliers.status', 'ACTIVE')
-        .order('is_preferred', { ascending: false })
-        .order('unit_price', { ascending: true });
-
-      if (suppliersError) {
-        console.warn(
-          `Erro ao buscar fornecedores para ${material.product_code}: ${suppliersError.message}`
-        );
-      }
+      const suppliersQuery = `
+        SELECT
+          ps.id,
+          ps.supplier_id,
+          ps.unit_price,
+          ps.minimum_quantity,
+          ps.lead_time_days,
+          ps.is_preferred,
+          s.id as supplier_id_data,
+          s.name as supplier_name,
+          s.status as supplier_status
+        FROM product_suppliers ps
+        LEFT JOIN suppliers s ON ps.supplier_id = s.id
+        WHERE ps.product_id = $1 AND s.status = 'ACTIVE'
+        ORDER BY ps.is_preferred DESC, ps.unit_price ASC
+      `;
+      const suppliersResult = await db.query(suppliersQuery, [material.product_id]);
+      const suppliers = suppliersResult.rows;
 
       // Pegar fornecedor preferencial ou o mais barato
-      const preferredSupplier = (suppliers || []).find(s => s.is_preferred);
-      const supplier = preferredSupplier || (suppliers && suppliers[0]);
+      const preferredSupplier = suppliers.find(s => s.is_preferred);
+      const supplier = preferredSupplier || suppliers[0];
 
       if (supplier) {
-        const supplierData = supplier.suppliers as any;
-
         // Calcular quantidade sugerida (considerando quantidade mínima do fornecedor)
         let suggestedQuantity = material.quantity_missing;
 
@@ -349,7 +348,7 @@ export class BOMAnalysisService {
         suggestions.push({
           material,
           supplier_id: supplier.supplier_id,
-          supplier_name: supplierData?.name,
+          supplier_name: supplier.supplier_name,
           unit_price: supplier.unit_price,
           suggested_quantity: suggestedQuantity,
         });
@@ -363,6 +362,17 @@ export class BOMAnalysisService {
     }
 
     return suggestions;
+  }
+
+  /**
+   * Alias para checkMaterialAvailability (compatibilidade com controller)
+   */
+  async checkAvailability(
+    productId: string,
+    quantity: number,
+    versionId?: string
+  ): Promise<MaterialAvailability[]> {
+    return this.checkMaterialAvailability(productId, quantity, versionId);
   }
 
   /**
@@ -408,13 +418,10 @@ export class BOMAnalysisService {
 
     for (const material of materials) {
       // Buscar custo do produto
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('cost_price')
-        .eq('id', material.product_id)
-        .single();
+      const productQuery = `SELECT cost_price FROM products WHERE id = $1`;
+      const productResult = await db.query(productQuery, [material.product_id]);
 
-      if (productError || !product) {
+      if (productResult.rows.length === 0) {
         throw new AppError(
           `Produto ${material.product_code} não encontrado`,
           404,
@@ -422,7 +429,7 @@ export class BOMAnalysisService {
         );
       }
 
-      const unitCost = product.cost_price || 0;
+      const unitCost = productResult.rows[0].cost_price || 0;
       const materialTotalCost = unitCost * material.quantity_needed;
       totalCost += materialTotalCost;
 

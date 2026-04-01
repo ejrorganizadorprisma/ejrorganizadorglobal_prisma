@@ -1,0 +1,2 @@
+ALTER TABLE production_material_consumption ADD CONSTRAINT production_material_consumption_product_id_fkey FOREIGN KEY (product_id) REFERENCES products(id);
+ALTER TABLE production_material_consumption ADD CONSTRAINT production_material_consumption_production_order_id_fkey FOREIGN KEY (production_order_id) REFERENCES production_orders(id);

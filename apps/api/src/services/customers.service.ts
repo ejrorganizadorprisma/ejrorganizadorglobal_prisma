@@ -58,30 +58,34 @@ export class CustomersService {
   }
 
   async create(data: CreateCustomerDTO) {
-    // Verificar se já existe cliente com o mesmo documento
-    const existingCustomer = await this.repository.findByDocument(data.document);
-    if (existingCustomer) {
-      throw new AppError('Já existe um cliente com este documento', 409, 'DUPLICATE_DOCUMENT');
-    }
+    let cleanDocument: string | undefined;
 
-    // Validar documento (CPF ou CNPJ)
-    const cleanDocument = data.document.replace(/\D/g, '');
+    // Validação de documento BR (CPF/CNPJ) - só quando documento é fornecido
+    if (data.document) {
+      cleanDocument = data.document.replace(/\D/g, '');
 
-    if (data.type === 'INDIVIDUAL') {
-      // CPF deve ter 11 dígitos
-      if (cleanDocument.length !== 11) {
-        throw new AppError('CPF inválido', 400, 'INVALID_CPF');
+      // Verificar se já existe cliente com o mesmo documento
+      const existingCustomer = await this.repository.findByDocument(cleanDocument);
+      if (existingCustomer) {
+        throw new AppError('Já existe um cliente com este documento', 409, 'DUPLICATE_DOCUMENT');
       }
-      if (!this.isValidCPF(cleanDocument)) {
-        throw new AppError('CPF inválido', 400, 'INVALID_CPF');
-      }
-    } else {
-      // CNPJ deve ter 14 dígitos
-      if (cleanDocument.length !== 14) {
-        throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
-      }
-      if (!this.isValidCNPJ(cleanDocument)) {
-        throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
+
+      if (data.type === 'INDIVIDUAL') {
+        // CPF deve ter 11 dígitos
+        if (cleanDocument.length !== 11) {
+          throw new AppError('CPF inválido', 400, 'INVALID_CPF');
+        }
+        if (!this.isValidCPF(cleanDocument)) {
+          throw new AppError('CPF inválido', 400, 'INVALID_CPF');
+        }
+      } else {
+        // CNPJ deve ter 14 dígitos
+        if (cleanDocument.length !== 14) {
+          throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
+        }
+        if (!this.isValidCNPJ(cleanDocument)) {
+          throw new AppError('CNPJ inválido', 400, 'INVALID_CNPJ');
+        }
       }
     }
 
@@ -93,9 +97,14 @@ export class CustomersService {
       }
     }
 
+    // Se CREDIT_CARD não está em allowedPaymentMethods, limpar creditMaxDays
+    if (data.allowedPaymentMethods && !data.allowedPaymentMethods.includes('CREDIT_CARD')) {
+      data.creditMaxDays = null;
+    }
+
     return this.repository.create({
       ...data,
-      document: cleanDocument,
+      document: cleanDocument || data.document,
     });
   }
 
@@ -106,7 +115,7 @@ export class CustomersService {
       throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
     }
 
-    // Se documento foi alterado, verificar se já existe outro cliente com o novo documento
+    // Se documento BR foi alterado, verificar se já existe outro cliente com o novo documento
     if (data.document) {
       const cleanDocument = data.document.replace(/\D/g, '');
 
@@ -117,7 +126,7 @@ export class CustomersService {
         }
       }
 
-      // Validar novo documento
+      // Validar novo documento (CPF/CNPJ)
       const customerType = data.type ?? existingCustomer.type;
       if (customerType === 'INDIVIDUAL') {
         if (cleanDocument.length !== 11 || !this.isValidCPF(cleanDocument)) {
@@ -130,6 +139,13 @@ export class CustomersService {
       }
 
       data.document = cleanDocument;
+    }
+
+    // CI e RUC (Paraguay) - sem validação complexa, são strings simples
+
+    // Se CREDIT_CARD não está em allowedPaymentMethods, limpar creditMaxDays
+    if (data.allowedPaymentMethods && !data.allowedPaymentMethods.includes('CREDIT_CARD')) {
+      data.creditMaxDays = null;
     }
 
     // Validar e-mail se fornecido

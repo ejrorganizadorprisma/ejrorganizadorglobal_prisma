@@ -1,536 +1,559 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useCreateGoodsReceipt, useGoodsReceipt, useUpdateGoodsReceipt } from '../hooks/useGoodsReceipts';
-import { usePurchaseOrders, usePurchaseOrder, usePurchaseOrderItems } from '../hooks/usePurchaseOrders';
-import { useSuppliers } from '../hooks/useSuppliers';
-import { useProducts } from '../hooks/useProducts';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useCreateGoodsReceipt, useGoodsReceipt, useApproveGoodsReceipt } from '../hooks/useGoodsReceipts';
+import { useSupplierOrder, useSupplierOrderItems } from '../hooks/useSupplierOrders';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 import { toast } from 'sonner';
+import {
+  ArrowLeft, CheckCircle, AlertTriangle, XCircle,
+  ClipboardCheck, FileText, ChevronDown, ChevronUp,
+} from 'lucide-react';
 
-const QUALITY_STATUS_OPTIONS = [
-  { value: 'PENDING', label: 'Pendente', color: 'text-yellow-600' },
-  { value: 'APPROVED', label: 'Aprovado', color: 'text-green-600' },
-  { value: 'REJECTED', label: 'Rejeitado', color: 'text-red-600' },
-  { value: 'QUARANTINE', label: 'Quarentena', color: 'text-orange-600' },
-];
+type ConferenceStatus = 'CONFORME' | 'DIVERGENCIA' | 'REJEITADO';
+
+interface ConferenceItem {
+  supplierOrderItemId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  factoryCode: string;
+  quantityOrdered: number;
+  quantityAlreadyReceived: number;
+  quantityPending: number;
+  quantityReceived: number;
+  unitPrice: number;
+  status: ConferenceStatus;
+  notes: string;
+}
 
 export function GoodsReceiptFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEditing = !!id;
+  const { formatPrice: formatCurrency } = useFormatPrice();
+
+  const supplierOrderIdFromUrl = searchParams.get('supplierOrderId');
 
   const { data: receipt } = useGoodsReceipt(id);
   const createReceipt = useCreateGoodsReceipt();
-  const updateReceipt = useUpdateGoodsReceipt();
+  const approveReceipt = useApproveGoodsReceipt();
 
-  const { data: suppliersData } = useSuppliers({ page: 1, limit: 100 });
-  const { data: purchaseOrdersData } = usePurchaseOrders({ page: 1, limit: 100, status: 'CONFIRMED' });
-  const { data: productsData } = useProducts({ page: 1, limit: 1000 });
+  const { data: supplierOrder, isLoading } = useSupplierOrder(supplierOrderIdFromUrl || undefined);
+  const { data: supplierOrderItems } = useSupplierOrderItems(supplierOrderIdFromUrl || undefined);
 
-  const [formData, setFormData] = useState({
-    purchaseOrderId: '',
-    supplierId: '',
-    receiptDate: new Date().toISOString().split('T')[0],
-    invoiceNumber: '',
-    invoiceDate: '',
-    invoiceAmount: 0,
-    notes: '',
-    items: [] as Array<{
-      purchaseOrderItemId?: string;
-      productId: string;
-      quantityOrdered: number;
-      quantityReceived: number;
-      quantityAccepted: number;
-      quantityRejected: number;
-      unitPrice: number;
-      qualityStatus: 'PENDING' | 'APPROVED' | 'REJECTED' | 'QUARANTINE';
-      rejectionReason: string;
-      lotNumber: string;
-      expiryDate: string;
-      notes: string;
-    }>,
-  });
-
-  const [selectedPOId, setSelectedPOId] = useState('');
-  const { data: selectedPO } = usePurchaseOrder(selectedPOId);
-  const { data: selectedPOItems } = usePurchaseOrderItems(selectedPOId);
+  const [conferenceItems, setConferenceItems] = useState<ConferenceItem[]>([]);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
+  const [generalNotes, setGeneralNotes] = useState('');
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (receipt) {
-      setFormData({
-        purchaseOrderId: receipt.purchaseOrderId || '',
-        supplierId: receipt.supplierId,
-        receiptDate: new Date(receipt.receiptDate).toISOString().split('T')[0],
-        invoiceNumber: receipt.invoiceNumber || '',
-        invoiceDate: receipt.invoiceDate ? new Date(receipt.invoiceDate).toISOString().split('T')[0] : '',
-        invoiceAmount: receipt.invoiceAmount || 0,
-        notes: receipt.notes || '',
-        items: [],
-      });
+    if (receipt && isEditing) {
+      setReceiptDate(new Date(receipt.receiptDate).toISOString().split('T')[0]);
+      setInvoiceNumber(receipt.invoiceNumber || '');
+      setInvoiceDate(receipt.invoiceDate ? new Date(receipt.invoiceDate).toISOString().split('T')[0] : '');
+      setInvoiceAmount(receipt.invoiceAmount ? String(receipt.invoiceAmount / 100) : '');
+      setGeneralNotes(receipt.notes || '');
     }
-  }, [receipt]);
-
-  const handlePOSelection = (poId: string) => {
-    setSelectedPOId(poId);
-    setFormData(prev => ({
-      ...prev,
-      purchaseOrderId: poId,
-    }));
-  };
+  }, [receipt, isEditing]);
 
   useEffect(() => {
-    if (selectedPO && selectedPOItems) {
-      setFormData(prev => ({
-        ...prev,
-        supplierId: selectedPO.supplierId,
-        items: selectedPOItems.map((item: any) => ({
-          purchaseOrderItemId: item.id,
+    if (supplierOrderItems && supplierOrderItems.length > 0) {
+      setConferenceItems(supplierOrderItems.map((item: any) => {
+        const alreadyReceived = item.quantityReceived || 0;
+        const pending = Math.max(0, item.quantity - alreadyReceived);
+        return {
+          supplierOrderItemId: item.id,
           productId: item.productId,
+          productCode: item.product?.code || '',
+          productName: item.product?.name || '',
+          factoryCode: item.product?.factoryCode || '',
           quantityOrdered: item.quantity,
-          quantityReceived: item.quantityPending,
-          quantityAccepted: 0,
-          quantityRejected: 0,
+          quantityAlreadyReceived: alreadyReceived,
+          quantityPending: pending,
+          quantityReceived: pending,
           unitPrice: item.unitPrice,
-          qualityStatus: 'PENDING' as const,
-          rejectionReason: '',
-          lotNumber: '',
-          expiryDate: '',
+          status: 'CONFORME' as ConferenceStatus,
           notes: '',
-        })),
+        };
       }));
     }
-  }, [selectedPO, selectedPOItems]);
+  }, [supplierOrderItems]);
 
-  const addItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        {
-          productId: '',
-          quantityOrdered: 0,
-          quantityReceived: 0,
-          quantityAccepted: 0,
-          quantityRejected: 0,
-          unitPrice: 0,
-          qualityStatus: 'PENDING' as const,
-          rejectionReason: '',
-          lotNumber: '',
-          expiryDate: '',
-          notes: '',
-        },
-      ],
-    }));
-  };
+  const summary = useMemo(() => {
+    const conformes = conferenceItems.filter(i => i.status === 'CONFORME').length;
+    const divergentes = conferenceItems.filter(i => i.status === 'DIVERGENCIA').length;
+    const rejeitados = conferenceItems.filter(i => i.status === 'REJEITADO').length;
+    const totalReceived = conferenceItems.reduce((sum, i) => sum + (i.status !== 'REJEITADO' ? i.quantityReceived * i.unitPrice : 0), 0);
+    return { total: conferenceItems.length, conformes, divergentes, rejeitados, totalReceived };
+  }, [conferenceItems]);
 
-  const removeItem = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }));
-  };
+  const updateItem = (index: number, field: keyof ConferenceItem, value: any) => {
+    setConferenceItems(prev => prev.map((item, i) => {
+      if (i !== index) return item;
+      const updated = { ...item, [field]: value };
 
-  const updateItem = (index: number, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => {
-        if (i !== index) return item;
-
-        const updatedItem = { ...item, [field]: value };
-
-        // Auto-calculate accepted/rejected quantities
-        if (field === 'quantityReceived' || field === 'qualityStatus') {
-          if (updatedItem.qualityStatus === 'APPROVED') {
-            updatedItem.quantityAccepted = updatedItem.quantityReceived;
-            updatedItem.quantityRejected = 0;
-          } else if (updatedItem.qualityStatus === 'REJECTED') {
-            updatedItem.quantityAccepted = 0;
-            updatedItem.quantityRejected = updatedItem.quantityReceived;
-          } else if (updatedItem.qualityStatus === 'PENDING') {
-            updatedItem.quantityAccepted = 0;
-            updatedItem.quantityRejected = 0;
-          }
+      if (field === 'quantityReceived') {
+        const qty = Number(value) || 0;
+        if (qty !== item.quantityPending && updated.status === 'CONFORME') {
+          updated.status = 'DIVERGENCIA';
+        } else if (qty === item.quantityPending && updated.status === 'DIVERGENCIA' && !updated.notes) {
+          updated.status = 'CONFORME';
         }
+      }
 
-        return updatedItem;
-      }),
+      if (field === 'status' && value === 'CONFORME') {
+        updated.notes = '';
+        updated.quantityReceived = item.quantityPending;
+      }
+      if (field === 'status' && value === 'REJEITADO') {
+        updated.quantityReceived = 0;
+      }
+
+      return updated;
     }));
   };
 
-  const handleProductChange = (index: number, productId: string) => {
-    const product = productsData?.data.find((p: any) => p.id === productId);
-    if (product) {
-      updateItem(index, 'productId', productId);
-      updateItem(index, 'unitPrice', product.costPrice || 0);
-    }
+  const markAllConforme = () => {
+    setConferenceItems(prev => prev.map(item => ({
+      ...item,
+      quantityReceived: item.quantityPending,
+      status: 'CONFORME' as ConferenceStatus,
+      notes: '',
+    })));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleConfirmReceipt = async () => {
+    if (!supplierOrder) return;
 
-    if (!formData.supplierId) {
-      toast.error('Selecione um fornecedor');
+    const hasReceivedItems = conferenceItems.some(i => i.quantityReceived > 0 && i.status !== 'REJEITADO');
+    if (!hasReceivedItems) {
+      toast.error('Pelo menos um item deve ser recebido.');
       return;
     }
 
-    if (formData.items.length === 0) {
-      toast.error('Adicione pelo menos um item');
+    const divergent = conferenceItems.filter(i => i.status === 'DIVERGENCIA' && !i.notes);
+    if (divergent.length > 0) {
+      toast.error('Preencha as observações dos itens com divergência.');
       return;
     }
 
-    for (const item of formData.items) {
-      if (!item.productId) {
-        toast.error('Todos os itens devem ter um produto selecionado');
-        return;
-      }
-      if (item.quantityReceived <= 0) {
-        toast.error('A quantidade recebida deve ser maior que zero');
-        return;
-      }
-    }
+    if (!window.confirm('Confirmar o recebimento? O estoque será atualizado automaticamente.')) return;
 
+    setIsSubmitting(true);
     try {
       const payload = {
-        purchaseOrderId: formData.purchaseOrderId || undefined,
-        supplierId: formData.supplierId,
-        receiptDate: formData.receiptDate,
-        invoiceNumber: formData.invoiceNumber || undefined,
-        invoiceDate: formData.invoiceDate || undefined,
-        invoiceAmount: formData.invoiceAmount || undefined,
-        notes: formData.notes || undefined,
-        items: formData.items.map(item => ({
-          purchaseOrderItemId: item.purchaseOrderItemId || undefined,
+        supplierOrderId: supplierOrder.id,
+        supplierId: supplierOrder.supplierId,
+        receiptDate,
+        invoiceNumber: invoiceNumber || undefined,
+        invoiceDate: invoiceDate || undefined,
+        invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        notes: generalNotes || undefined,
+        items: conferenceItems.map(item => ({
+          supplierOrderItemId: item.supplierOrderItemId,
           productId: item.productId,
-          quantityOrdered: item.quantityOrdered || undefined,
-          quantityReceived: item.quantityReceived,
-          quantityAccepted: item.quantityAccepted,
-          quantityRejected: item.quantityRejected,
-          unitPrice: item.unitPrice || undefined,
-          qualityStatus: item.qualityStatus,
-          rejectionReason: item.rejectionReason || undefined,
-          lotNumber: item.lotNumber || undefined,
-          expiryDate: item.expiryDate || undefined,
+          quantityOrdered: item.quantityOrdered,
+          quantityReceived: item.status === 'REJEITADO' ? 0 : item.quantityReceived,
+          quantityAccepted: item.status === 'CONFORME' || item.status === 'DIVERGENCIA' ? item.quantityReceived : 0,
+          quantityRejected: item.status === 'REJEITADO' ? item.quantityOrdered : 0,
+          unitPrice: item.unitPrice,
+          qualityStatus: (item.status === 'CONFORME' ? 'APPROVED' : item.status === 'REJEITADO' ? 'REJECTED' : 'PENDING') as 'APPROVED' | 'REJECTED' | 'PENDING',
           notes: item.notes || undefined,
         })),
       };
 
-      if (isEditing) {
-        await updateReceipt.mutateAsync({ id: id!, data: payload });
-        toast.success('Recebimento atualizado!');
-      } else {
-        await createReceipt.mutateAsync(payload);
-        toast.success('Recebimento criado!');
-      }
+      const newReceipt = await createReceipt.mutateAsync(payload);
+      await approveReceipt.mutateAsync(newReceipt.id);
 
+      toast.success('Recebimento confirmado! Estoque atualizado.');
       navigate('/goods-receipts');
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Erro ao salvar');
+      toast.error(error.response?.data?.error?.message || error.response?.data?.error || 'Erro ao confirmar recebimento.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const getProductName = (productId: string) => {
-    const product = productsData?.data.find((p: any) => p.id === productId);
-    return product ? `${product.name} (${product.sku})` : 'Produto não encontrado';
+  const handleSavePending = async () => {
+    if (!supplierOrder) return;
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        supplierOrderId: supplierOrder.id,
+        supplierId: supplierOrder.supplierId,
+        receiptDate,
+        invoiceNumber: invoiceNumber || undefined,
+        invoiceDate: invoiceDate || undefined,
+        invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        notes: generalNotes || undefined,
+        items: conferenceItems.map(item => ({
+          supplierOrderItemId: item.supplierOrderItemId,
+          productId: item.productId,
+          quantityOrdered: item.quantityOrdered,
+          quantityReceived: item.quantityReceived,
+          unitPrice: item.unitPrice,
+          notes: item.notes || undefined,
+        })),
+      };
+
+      await createReceipt.mutateAsync(payload);
+      toast.success('Recebimento salvo como pendente.');
+      navigate('/goods-receipts');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao salvar recebimento.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  if (!supplierOrder && supplierOrderIdFromUrl) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-16 text-gray-500">
+          <ClipboardCheck className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>Pedido do fornecedor não encontrado.</p>
+          <button onClick={() => navigate('/goods-receipts')} className="mt-4 text-blue-600 hover:underline text-sm">Voltar</button>
+        </div>
+      </div>
+    );
+  }
+
+  const hasPartialReceipt = conferenceItems.some(i => i.quantityAlreadyReceived > 0);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-      <div className="mb-6">
-        <button onClick={() => navigate('/goods-receipts')} className="text-blue-600 hover:text-blue-800 mb-4">
-          Voltar para Recebimentos
-        </button>
-        <h1 className="text-3xl font-bold">{isEditing ? 'Editar Recebimento' : 'Novo Recebimento de Mercadoria'}</h1>
+    <div className="container mx-auto px-4 py-6 max-w-5xl">
+      {/* ===== HEADER ===== */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-lg">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="w-6 h-6 text-indigo-600" />
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
+                {isEditing ? 'Editar Recebimento' : 'Conferência de Recebimento'}
+              </h1>
+            </div>
+            {supplierOrder && (
+              <p className="text-sm text-gray-500 mt-0.5">
+                Pedido <span className="font-mono font-medium">{supplierOrder.orderNumber}</span>
+                {supplierOrder.supplier && <> — {supplierOrder.supplier.name}</>}
+              </p>
+            )}
+          </div>
+        </div>
+        {supplierOrder && (
+          <div className="text-right">
+            <p className="text-sm text-gray-500">Total do pedido</p>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(supplierOrder.totalAmount)}</p>
+          </div>
+        )}
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <label className="block text-sm font-medium mb-1">Ordem de Compra (opcional)</label>
-            <select
-              value={formData.purchaseOrderId}
-              onChange={(e) => handlePOSelection(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Selecione uma ordem de compra (ou deixe em branco)</option>
-              {purchaseOrdersData?.data.map((po: any) => (
-                <option key={po.id} value={po.id}>
-                  {po.orderNumber} - {po.supplier?.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Selecionar uma OC preencherá automaticamente os itens
-            </p>
+      {/* ===== DATA RECEBIMENTO ===== */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-600">Data do recebimento:</label>
+          <input
+            type="date"
+            value={receiptDate}
+            onChange={(e) => setReceiptDate(e.target.value)}
+            max={new Date().toISOString().split('T')[0]}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+          />
+        </div>
+        <button
+          onClick={markAllConforme}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100"
+        >
+          <CheckCircle className="w-4 h-4" />
+          Marcar todos conforme
+        </button>
+      </div>
+
+      {/* ===== NF / INVOICE (colapsável) ===== */}
+      <div className="bg-white rounded-lg shadow-sm border mb-4">
+        <button
+          onClick={() => setShowInvoice(!showInvoice)}
+          className="w-full flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg"
+        >
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-gray-400" />
+            <span className="text-sm font-medium text-gray-700">Nota Fiscal / Recibo</span>
+            {invoiceNumber && !showInvoice && (
+              <span className="text-xs text-gray-400">— NF {invoiceNumber}</span>
+            )}
+          </div>
+          {showInvoice ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
+        </button>
+        {showInvoice && (
+          <div className="px-4 pb-4 border-t">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Número NF</label>
+                <input
+                  type="text"
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="Ex: 001234"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Data NF</label>
+                <input
+                  type="date"
+                  value={invoiceDate}
+                  onChange={(e) => setInvoiceDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Valor NF</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={invoiceAmount}
+                  onChange={(e) => setInvoiceAmount(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="0,00"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
+                <input
+                  type="text"
+                  value={generalNotes}
+                  onChange={(e) => setGeneralNotes(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="Obs. gerais..."
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ===== TABELA DE CONFERÊNCIA ===== */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="overflow-x-auto">
+          {/* Header da tabela */}
+          <div className={`grid gap-2 px-4 py-2.5 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b min-w-[800px] ${hasPartialReceipt ? 'grid-cols-13' : 'grid-cols-12'}`} style={{ gridTemplateColumns: hasPartialReceipt ? 'minmax(80px,1fr) 3fr 1fr 1fr 1fr 2fr 1fr 1fr 40px' : 'minmax(80px,1fr) 3fr 1fr 1fr 2fr 1fr 1fr 40px' }}>
+            <div>Cód. Fáb.</div>
+            <div>Produto</div>
+            <div className="text-center">Pedido</div>
+            {hasPartialReceipt && <div className="text-center">Recebido</div>}
+            <div className="text-center">Receber</div>
+            <div className="text-center">Conferência</div>
+            <div className="text-right">Unit.</div>
+            <div className="text-right">Subtotal</div>
+            <div></div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Fornecedor *</label>
-            <select
-              value={formData.supplierId}
-              onChange={(e) => setFormData({ ...formData, supplierId: e.target.value })}
-              required
-              disabled={!!formData.purchaseOrderId}
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
-            >
-              <option value="">Selecione um fornecedor</option>
-              {suppliersData?.data.map((supplier: any) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Itens */}
+          <div className="divide-y divide-gray-100 min-w-[800px]">
+            {conferenceItems.map((item, index) => {
+              const subtotal = item.status !== 'REJEITADO' ? item.quantityReceived * item.unitPrice : 0;
+              const rowBg = item.status === 'CONFORME' ? 'bg-green-50/40' : item.status === 'DIVERGENCIA' ? 'bg-yellow-50/60' : 'bg-red-50/40';
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Data de Recebimento *</label>
-            <input
-              type="date"
-              value={formData.receiptDate}
-              onChange={(e) => setFormData({ ...formData, receiptDate: e.target.value })}
-              required
-              max={new Date().toISOString().split('T')[0]}
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+              return (
+                <div key={item.supplierOrderItemId}>
+                  <div className={`grid gap-2 px-4 py-3 items-center ${rowBg}`} style={{ gridTemplateColumns: hasPartialReceipt ? 'minmax(80px,1fr) 3fr 1fr 1fr 1fr 2fr 1fr 1fr 40px' : 'minmax(80px,1fr) 3fr 1fr 1fr 2fr 1fr 1fr 40px' }}>
+                    {/* Cód. Fáb. */}
+                    <div>
+                      <span className="text-xs text-gray-500 font-mono">{item.factoryCode || '-'}</span>
+                    </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Número da NF-e</label>
-            <input
-              type="text"
-              value={formData.invoiceNumber}
-              onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-              placeholder="Número da nota fiscal..."
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+                    {/* Produto */}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{item.productName}</p>
+                      {item.productCode && (
+                        <p className="text-xs text-gray-400 font-mono">{item.productCode}</p>
+                      )}
+                    </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Data da NF-e</label>
-            <input
-              type="date"
-              value={formData.invoiceDate}
-              onChange={(e) => setFormData({ ...formData, invoiceDate: e.target.value })}
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
+                    {/* Qtd Pedida */}
+                    <div className="text-center">
+                      <span className="text-sm font-medium text-gray-600">{item.quantityOrdered}</span>
+                    </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Valor da NF-e (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.invoiceAmount / 100}
-              onChange={(e) => setFormData({ ...formData, invoiceAmount: Math.round(parseFloat(e.target.value || '0') * 100) })}
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-              placeholder="0.00"
-            />
-          </div>
+                    {/* Qtd Já Recebida (se parcial) */}
+                    {hasPartialReceipt && (
+                      <div className="text-center">
+                        <span className="text-sm text-blue-600 font-medium">{item.quantityAlreadyReceived}</span>
+                      </div>
+                    )}
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium mb-1">Observações</label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={2}
-              placeholder="Observações gerais do recebimento..."
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
+                    {/* Qtd Receber */}
+                    <div className="text-center">
+                      <input
+                        type="number"
+                        min={0}
+                        value={item.quantityReceived}
+                        onChange={(e) => updateItem(index, 'quantityReceived', parseInt(e.target.value) || 0)}
+                        disabled={item.status === 'REJEITADO'}
+                        className={`w-full px-2 py-1.5 border rounded-lg text-sm text-center font-medium ${
+                          item.status === 'REJEITADO' ? 'bg-gray-100 text-gray-400' :
+                          item.quantityReceived !== item.quantityPending ? 'border-yellow-400 text-yellow-700' :
+                          'border-gray-300 text-gray-900'
+                        }`}
+                      />
+                    </div>
+
+                    {/* Status buttons */}
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => updateItem(index, 'status', 'CONFORME')}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          item.status === 'CONFORME'
+                            ? 'bg-green-600 text-white shadow-sm'
+                            : 'text-gray-400 hover:bg-green-50 hover:text-green-600'
+                        }`}
+                        title="Conforme"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateItem(index, 'status', 'DIVERGENCIA')}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          item.status === 'DIVERGENCIA'
+                            ? 'bg-yellow-500 text-white shadow-sm'
+                            : 'text-gray-400 hover:bg-yellow-50 hover:text-yellow-600'
+                        }`}
+                        title="Divergência"
+                      >
+                        <AlertTriangle className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updateItem(index, 'status', 'REJEITADO')}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          item.status === 'REJEITADO'
+                            ? 'bg-red-600 text-white shadow-sm'
+                            : 'text-gray-400 hover:bg-red-50 hover:text-red-600'
+                        }`}
+                        title="Rejeitado"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Preço unitário */}
+                    <div className="text-right">
+                      <span className="text-sm text-gray-600">{formatCurrency(item.unitPrice)}</span>
+                    </div>
+
+                    {/* Subtotal */}
+                    <div className="text-right">
+                      <span className={`text-sm font-semibold ${item.status === 'REJEITADO' ? 'text-gray-300 line-through' : 'text-gray-900'}`}>
+                        {formatCurrency(subtotal)}
+                      </span>
+                    </div>
+
+                    {/* Expand indicator */}
+                    <div className="text-center">
+                      {item.status !== 'CONFORME' && (
+                        <span className="text-xs text-gray-400">
+                          {item.notes ? '...' : '!'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notes row */}
+                  {item.status !== 'CONFORME' && (
+                    <div className={`px-4 pb-3 ${rowBg}`}>
+                      <div className="ml-4">
+                        <input
+                          type="text"
+                          value={item.notes}
+                          onChange={(e) => updateItem(index, 'notes', e.target.value)}
+                          placeholder={item.status === 'REJEITADO' ? 'Motivo da rejeição...' : 'Descreva a divergência...'}
+                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Itens Recebidos</h2>
-            {!formData.purchaseOrderId && (
-              <button
-                type="button"
-                onClick={addItem}
-                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-              >
-                + Adicionar Item
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-6">
-            {formData.items.map((item, index) => (
-              <div key={index} className="p-4 border-2 rounded-lg bg-gray-50">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Produto *</label>
-                    {item.purchaseOrderItemId ? (
-                      <div className="px-3 py-2 bg-white border rounded">
-                        {getProductName(item.productId)}
-                      </div>
-                    ) : (
-                      <select
-                        value={item.productId}
-                        onChange={(e) => handleProductChange(index, e.target.value)}
-                        className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      >
-                        <option value="">Selecione...</option>
-                        {productsData?.data.map((product: any) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} (SKU: {product.sku})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Qtd Solicitada</label>
-                    <input
-                      type="number"
-                      value={item.quantityOrdered}
-                      disabled
-                      className="w-full px-3 py-2 border rounded bg-gray-100"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Qtd Recebida *</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={item.quantityReceived}
-                      onChange={(e) => updateItem(index, 'quantityReceived', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Status de Qualidade *</label>
-                    <select
-                      value={item.qualityStatus}
-                      onChange={(e) => updateItem(index, 'qualityStatus', e.target.value)}
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    >
-                      {QUALITY_STATUS_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Qtd Aceita</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.quantityReceived}
-                      value={item.quantityAccepted}
-                      onChange={(e) => updateItem(index, 'quantityAccepted', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Qtd Rejeitada</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max={item.quantityReceived}
-                      value={item.quantityRejected}
-                      onChange={(e) => updateItem(index, 'quantityRejected', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Lote</label>
-                    <input
-                      type="text"
-                      value={item.lotNumber}
-                      onChange={(e) => updateItem(index, 'lotNumber', e.target.value)}
-                      placeholder="Número do lote..."
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Data de Validade</label>
-                    <input
-                      type="date"
-                      value={item.expiryDate}
-                      onChange={(e) => updateItem(index, 'expiryDate', e.target.value)}
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Motivo de Rejeição / Observações</label>
-                    <input
-                      type="text"
-                      value={item.rejectionReason || item.notes}
-                      onChange={(e) => {
-                        if (item.qualityStatus === 'REJECTED') {
-                          updateItem(index, 'rejectionReason', e.target.value);
-                        } else {
-                          updateItem(index, 'notes', e.target.value);
-                        }
-                      }}
-                      placeholder={item.qualityStatus === 'REJECTED' ? 'Motivo da rejeição...' : 'Observações do item...'}
-                      className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {!item.purchaseOrderItemId && (
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                    >
-                      Remover Item
-                    </button>
-                  </div>
+        {/* ===== RESUMO ===== */}
+        <div className="border-t-2 border-gray-200 bg-gray-50 px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">{summary.total} itens</span>
+              <div className="flex items-center gap-3">
+                {summary.conformes > 0 && (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 bg-green-100 text-green-700 rounded-full">
+                    <CheckCircle className="w-3 h-3" /> {summary.conformes} conforme{summary.conformes !== 1 && 's'}
+                  </span>
+                )}
+                {summary.divergentes > 0 && (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 bg-yellow-100 text-yellow-700 rounded-full">
+                    <AlertTriangle className="w-3 h-3" /> {summary.divergentes} divergência{summary.divergentes !== 1 && 's'}
+                  </span>
+                )}
+                {summary.rejeitados > 0 && (
+                  <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 bg-red-100 text-red-700 rounded-full">
+                    <XCircle className="w-3 h-3" /> {summary.rejeitados} rejeitado{summary.rejeitados !== 1 && 's'}
+                  </span>
                 )}
               </div>
-            ))}
-
-            {formData.items.length === 0 && (
-              <div className="text-center py-8 text-gray-500 border-2 border-dashed rounded">
-                {formData.purchaseOrderId
-                  ? 'Selecione uma ordem de compra para carregar os itens automaticamente.'
-                  : 'Nenhum item adicionado. Clique em "Adicionar Item" para começar.'}
-              </div>
-            )}
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-400 uppercase font-medium">Total recebido</p>
+              <p className="text-lg font-bold text-gray-900">{formatCurrency(summary.totalReceived)}</p>
+            </div>
           </div>
         </div>
+      </div>
 
-        <div className="mt-6 flex gap-4">
+      {/* ===== AÇÕES ===== */}
+      <div className="mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+        >
+          Voltar
+        </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <button
-            type="submit"
-            disabled={createReceipt.isPending || updateReceipt.isPending}
-            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleSavePending}
+            disabled={isSubmitting || conferenceItems.length === 0}
+            className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium disabled:opacity-50"
           >
-            {createReceipt.isPending || updateReceipt.isPending
-              ? 'Salvando...'
-              : isEditing
-              ? 'Atualizar Recebimento'
-              : 'Criar Recebimento'}
+            Salvar Pendente
           </button>
-
           <button
-            type="button"
-            onClick={() => navigate('/goods-receipts')}
-            className="bg-gray-200 px-6 py-2 rounded hover:bg-gray-300"
+            onClick={handleConfirmReceipt}
+            disabled={isSubmitting || conferenceItems.length === 0}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 shadow-sm"
           >
-            Cancelar
+            <CheckCircle className="w-4 h-4" />
+            {isSubmitting ? 'Processando...' : 'Confirmar Recebimento'}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

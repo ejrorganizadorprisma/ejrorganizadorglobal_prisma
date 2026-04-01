@@ -28,6 +28,7 @@ export interface BOMExplosion {
   partName: string;
   quantity: number;
   isOptional: boolean;
+  isAssembly?: boolean; // Indica se a peça é um sub-assembly (BOM aninhado)
   unitCost: number;
   totalCost: number;
   availableStock: number;

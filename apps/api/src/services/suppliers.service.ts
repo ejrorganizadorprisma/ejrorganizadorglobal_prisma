@@ -103,7 +103,10 @@ export class SuppliersService {
       throw new Error('Nome é obrigatório');
     }
 
-    this.validateTaxId(data.taxId);
+    // Only validate taxId if ci/ruc are not provided (BR mode)
+    if (!data.ci && !data.ruc) {
+      this.validateTaxId(data.taxId);
+    }
     this.validateRating(data.rating);
 
     return this.repository.create(data);
@@ -121,7 +124,10 @@ export class SuppliersService {
       await this.validateUniqueCode(data.code, id);
     }
 
-    this.validateTaxId(data.taxId);
+    // Only validate taxId if ci/ruc are not provided (BR mode)
+    if (!data.ci && !data.ruc) {
+      this.validateTaxId(data.taxId);
+    }
     this.validateRating(data.rating);
 
     return this.repository.update(id, data);
@@ -205,5 +211,10 @@ export class SuppliersService {
     await this.findById(supplierId);
 
     return this.repository.getProductSuppliers(supplierId);
+  }
+
+  // Método para buscar fabricantes únicos
+  async getUniqueManufacturers(search?: string): Promise<string[]> {
+    return this.repository.getUniqueManufacturers(search);
   }
 }

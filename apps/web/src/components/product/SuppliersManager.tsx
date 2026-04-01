@@ -7,12 +7,15 @@ import {
   useRemoveProductSupplier,
 } from '../../hooks/useProductSuppliers';
 import { useSuppliers } from '../../hooks/useSuppliers';
+import { CurrencyInput } from '../CurrencyInput';
+import { useFormatPrice } from '../../hooks/useFormatPrice';
 
 interface SuppliersManagerProps {
   productId: string;
 }
 
 export function SuppliersManager({ productId }: SuppliersManagerProps) {
+  const { formatPrice } = useFormatPrice();
   const { data: suppliers, isLoading } = useProductSuppliers(productId);
   const { data: allSuppliersData } = useSuppliers({ page: 1, limit: 100 });
   const addSupplier = useAddProductSupplier();
@@ -50,10 +53,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
     try {
       await addSupplier.mutateAsync({
         productId,
-        data: {
-          ...newSupplier,
-          unitPrice: Math.round(newSupplier.unitPrice * 100),
-        },
+        data: newSupplier, // unitPrice já está em centavos do CurrencyInput
       });
       toast.success('Fornecedor vinculado!');
       setIsAdding(false);
@@ -75,7 +75,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
     setEditingId(supplier.id);
     setEditData({
       supplierSku: supplier.supplierSku || '',
-      unitPrice: supplier.unitPrice / 100,
+      unitPrice: supplier.unitPrice, // Já vem em centavos do backend
       minimumQuantity: supplier.minimumQuantity,
       leadTimeDays: supplier.leadTimeDays,
       isPreferred: supplier.isPreferred,
@@ -88,10 +88,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
       await updateSupplier.mutateAsync({
         id,
         productId,
-        data: {
-          ...editData,
-          unitPrice: Math.round(editData.unitPrice * 100),
-        },
+        data: editData, // unitPrice já está em centavos do CurrencyInput
       });
       toast.success('Fornecedor atualizado!');
       setEditingId(null);
@@ -117,12 +114,12 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h2 className="text-2xl font-bold">Fornecedores</h2>
         <button
           type="button"
           onClick={() => setIsAdding(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full sm:w-auto"
         >
           + Adicionar Fornecedor
         </button>
@@ -131,8 +128,8 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
       {isAdding && (
         <div className="border rounded-lg p-4 bg-gray-50">
           <h3 className="font-semibold mb-4">Novo Fornecedor</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium mb-1">Fornecedor *</label>
               <select
                 value={newSupplier.supplierId}
@@ -160,14 +157,11 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Preço Unitário (R$) *</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
+              <CurrencyInput
+                label="Preço Unitário"
                 value={newSupplier.unitPrice}
-                onChange={(e) => setNewSupplier({ ...newSupplier, unitPrice: parseFloat(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border rounded"
+                onChange={(cents) => setNewSupplier({ ...newSupplier, unitPrice: cents })}
+                required
               />
             </div>
 
@@ -178,6 +172,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                 min="1"
                 value={newSupplier.minimumQuantity}
                 onChange={(e) => setNewSupplier({ ...newSupplier, minimumQuantity: parseInt(e.target.value) || 1 })}
+                onFocus={(e) => e.target.select()}
                 className="w-full px-3 py-2 border rounded"
               />
             </div>
@@ -189,11 +184,12 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                 min="0"
                 value={newSupplier.leadTimeDays}
                 onChange={(e) => setNewSupplier({ ...newSupplier, leadTimeDays: parseInt(e.target.value) || 0 })}
+                onFocus={(e) => e.target.select()}
                 className="w-full px-3 py-2 border rounded"
               />
             </div>
 
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -205,7 +201,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
               </label>
             </div>
 
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium mb-1">Observações</label>
               <textarea
                 value={newSupplier.notes}
@@ -241,8 +237,8 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
           suppliers.map((supplier: any) => (
             <div key={supplier.id} className="border rounded-lg p-4">
               {editingId === supplier.id ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
                     <strong>{supplier.supplier.name}</strong>
                     {supplier.isPreferred && (
                       <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
@@ -262,14 +258,10 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">Preço Unitário (R$)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                    <CurrencyInput
+                      label="Preço Unitário"
                       value={editData.unitPrice}
-                      onChange={(e) => setEditData({ ...editData, unitPrice: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border rounded"
+                      onChange={(cents) => setEditData({ ...editData, unitPrice: cents })}
                     />
                   </div>
 
@@ -280,6 +272,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                       min="1"
                       value={editData.minimumQuantity}
                       onChange={(e) => setEditData({ ...editData, minimumQuantity: parseInt(e.target.value) || 1 })}
+                      onFocus={(e) => e.target.select()}
                       className="w-full px-3 py-2 border rounded"
                     />
                   </div>
@@ -291,11 +284,12 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                       min="0"
                       value={editData.leadTimeDays}
                       onChange={(e) => setEditData({ ...editData, leadTimeDays: parseInt(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
                       className="w-full px-3 py-2 border rounded"
                     />
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -307,7 +301,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                     </label>
                   </div>
 
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <label className="block text-sm font-medium mb-1">Observações</label>
                     <textarea
                       value={editData.notes}
@@ -317,7 +311,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                     />
                   </div>
 
-                  <div className="col-span-2 flex gap-2">
+                  <div className="sm:col-span-2 flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleUpdate(supplier.id)}
@@ -336,9 +330,9 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <strong className="text-lg">{supplier.supplier.name}</strong>
                       {supplier.isPreferred && (
                         <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
@@ -346,14 +340,14 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                         </span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                       {supplier.supplierSku && (
                         <div>
                           <span className="font-medium">SKU:</span> {supplier.supplierSku}
                         </div>
                       )}
                       <div>
-                        <span className="font-medium">Preço:</span> R$ {(supplier.unitPrice / 100).toFixed(2)}
+                        <span className="font-medium">Preço:</span> {formatPrice(supplier.unitPrice)}
                       </div>
                       <div>
                         <span className="font-medium">Qtd Mín:</span> {supplier.minimumQuantity}

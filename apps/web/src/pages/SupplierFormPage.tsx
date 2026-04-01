@@ -18,20 +18,34 @@ import {
   SupplierContact,
   ProductSupplier,
 } from '../hooks/useSuppliers';
+import { useSupplierOrders, SupplierOrder } from '../hooks/useSupplierOrders';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { useSystemSettings } from '../hooks/useSystemSettings';
+import { useFormatPrice } from '../hooks/useFormatPrice';
+import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
+import { api } from '../lib/api';
 import { toast } from 'sonner';
+import { ManufacturerAutocomplete } from '../components/ManufacturerAutocomplete';
 
-type TabType = 'general' | 'addresses' | 'contacts' | 'products';
+type TabType = 'general' | 'addresses' | 'contacts' | 'products' | 'orders';
 
 export function SupplierFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = !!id;
+  const { formatPrice, defaultCurrency } = useFormatPrice();
 
   const [activeTab, setActiveTab] = useState<TabType>('general');
+
+  const { data: systemSettings } = useSystemSettings();
+  const country = systemSettings?.country || 'PY';
 
   const { data: supplier, isLoading: loadingSupplier } = useSupplier(id);
   const createSupplier = useCreateSupplier();
   const updateSupplier = useUpdateSupplier();
+
+  const [ci, setCi] = useState('');
+  const [ruc, setRuc] = useState('');
 
   // Nested resources
   const { data: addresses = [] } = useSupplierAddresses(id);
@@ -46,12 +60,23 @@ export function SupplierFormPage() {
 
   const { data: products = [] } = useSupplierProducts(id);
 
+  // Pedidos do fornecedor
+  const { data: ordersData, isLoading: loadingOrders } = useSupplierOrders({
+    supplierId: id,
+    limit: 100,
+  });
+  const supplierOrders = ordersData?.data || [];
+
+  // Configurações de documento para PDF
+  const { data: documentSettings } = useDefaultDocumentSettings();
+
   // General form data
   const [formData, setFormData] = useState<Partial<Supplier>>({
     // code is auto-generated, not needed in form state for new suppliers
     name: '',
     legalName: '',
     taxId: '',
+    manufacturer: '',
     email: '',
     phone: '',
     website: '',
@@ -99,6 +124,7 @@ export function SupplierFormPage() {
         name: supplier.name,
         legalName: supplier.legalName || '',
         taxId: supplier.taxId || '',
+        manufacturer: supplier.manufacturer || '',
         email: supplier.email || '',
         phone: supplier.phone || '',
         website: supplier.website || '',
@@ -109,6 +135,8 @@ export function SupplierFormPage() {
         rating: supplier.rating,
         notes: supplier.notes || '',
       });
+      setCi(supplier.ci || '');
+      setRuc(supplier.ruc || '');
     }
   }, [supplier]);
 
@@ -122,11 +150,18 @@ export function SupplierFormPage() {
     }
 
     try {
+      const payload: any = { ...formData };
+
+      if (country === 'PY') {
+        payload.ci = ci || undefined;
+        payload.ruc = ruc || undefined;
+      }
+
       if (isEditing) {
-        await updateSupplier.mutateAsync({ id: id!, data: formData });
+        await updateSupplier.mutateAsync({ id: id!, data: payload });
         toast.success('Fornecedor atualizado com sucesso!');
       } else {
-        const newSupplier = await createSupplier.mutateAsync(formData);
+        const newSupplier = await createSupplier.mutateAsync(payload);
         toast.success('Fornecedor criado com sucesso!');
         navigate(`/suppliers/${newSupplier.id}/edit`);
         return;
@@ -271,7 +306,7 @@ export function SupplierFormPage() {
       <div className="max-w-6xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <button
                 onClick={() => navigate('/suppliers')}
@@ -279,7 +314,7 @@ export function SupplierFormPage() {
               >
                 ← Voltar para Fornecedores
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
                 {isEditing ? 'Editar Fornecedor' : 'Novo Fornecedor'}
               </h1>
             </div>
@@ -287,7 +322,7 @@ export function SupplierFormPage() {
 
           {/* Tabs */}
           <div className="border-b border-gray-200 mb-6">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('general')}
                 className={`${
@@ -329,6 +364,16 @@ export function SupplierFormPage() {
                     } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
                   >
                     Produtos ({products.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('orders')}
+                    className={`${
+                      activeTab === 'orders'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+                  >
+                    Pedidos ({supplierOrders.length})
                   </button>
                 </>
               )}
@@ -402,14 +447,59 @@ export function SupplierFormPage() {
                       />
                     </div>
 
+                    {country === 'PY' ? (
+                      <div className="sm:col-span-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">
+                              CI (Cédula de Identidad)
+                            </label>
+                            <input
+                              type="text"
+                              value={ci}
+                              onChange={(e) => setCi(e.target.value.replace(/[^\d.]/g, ''))}
+                              placeholder="Ej: 1.234.567"
+                              maxLength={15}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700">
+                              RUC
+                            </label>
+                            <input
+                              type="text"
+                              value={ruc}
+                              onChange={(e) => setRuc(e.target.value.replace(/[^\d\-]/g, ''))}
+                              placeholder="Ej: 80012345-6"
+                              maxLength={20}
+                              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          CNPJ/CPF
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.taxId}
+                          onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700">
-                        CNPJ/CPF
+                        Fabricante
                       </label>
-                      <input
-                        type="text"
-                        value={formData.taxId}
-                        onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
+                      <ManufacturerAutocomplete
+                        value={formData.manufacturer || ''}
+                        onChange={(value) => setFormData({ ...formData, manufacturer: value })}
+                        placeholder="Digite o nome do fabricante..."
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -424,6 +514,7 @@ export function SupplierFormPage() {
                         max="5"
                         value={formData.rating || ''}
                         onChange={(e) => setFormData({ ...formData, rating: e.target.value ? Number(e.target.value) : undefined })}
+                        onFocus={(e) => e.target.select()}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -479,6 +570,7 @@ export function SupplierFormPage() {
                         min="0"
                         value={formData.leadTimeDays}
                         onChange={(e) => setFormData({ ...formData, leadTimeDays: Number(e.target.value) })}
+                        onFocus={(e) => e.target.select()}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
@@ -493,6 +585,7 @@ export function SupplierFormPage() {
                         min="0"
                         value={formData.minimumOrderValue / 100}
                         onChange={(e) => setFormData({ ...formData, minimumOrderValue: Math.round(parseFloat(e.target.value || '0') * 100) })}
+                        onFocus={(e) => e.target.select()}
                         className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0.00"
                       />
@@ -525,18 +618,18 @@ export function SupplierFormPage() {
                 </div>
               </div>
 
-              <div className="px-4 py-3 bg-gray-50 text-right sm:px-6 space-x-3">
+              <div className="px-4 lg:px-6 py-3 bg-gray-50 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => navigate('/suppliers')}
-                  className="inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                >
+                  className="w-full sm:w-auto inline-flex justify-center py-2 px-4 min-h-[44px] border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+>
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={createSupplier.isPending || updateSupplier.isPending}
-                  className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex justify-center py-2 px-4 min-h-[44px] border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
                 >
                   {createSupplier.isPending || updateSupplier.isPending
                     ? 'Salvando...'
@@ -970,6 +1063,162 @@ export function SupplierFormPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'orders' && isEditing && (
+            <div className="bg-white shadow sm:rounded-lg">
+              <div className="px-4 py-5 sm:p-6">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Histórico de Pedidos
+                </h3>
+
+                {loadingOrders ? (
+                  <div className="text-center py-8">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : supplierOrders.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-gray-500 mb-4">
+                      Nenhum pedido encontrado para este fornecedor.
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      Os pedidos são gerados através das ordens de compra.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Pedido
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Ordem de Compra
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Data
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Total
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                            Ações
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {supplierOrders.map((order: SupplierOrder) => (
+                          <tr key={order.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                {order.orderNumber}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Grupo: {order.groupCode?.split('-').slice(-1)[0] || '-'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">
+                                {order.purchaseOrder?.orderNumber || '-'}
+                              </div>
+                              {order.purchaseOrder?.name && (
+                                <div className="text-xs text-gray-500 truncate max-w-[150px]" title={order.purchaseOrder.name}>
+                                  {order.purchaseOrder.name}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(order.orderDate).toLocaleDateString('pt-BR')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatPrice(order.totalAmount)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                  order.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                  order.status === 'SENT' ? 'bg-blue-100 text-blue-800' :
+                                  order.status === 'CONFIRMED' ? 'bg-green-100 text-green-800' :
+                                  order.status === 'PARTIAL' ? 'bg-orange-100 text-orange-800' :
+                                  order.status === 'RECEIVED' ? 'bg-emerald-100 text-emerald-800' :
+                                  order.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {order.status === 'PENDING' ? 'Pendente' :
+                                 order.status === 'SENT' ? 'Enviado' :
+                                 order.status === 'CONFIRMED' ? 'Confirmado' :
+                                 order.status === 'PARTIAL' ? 'Parcial' :
+                                 order.status === 'RECEIVED' ? 'Recebido' :
+                                 order.status === 'CANCELLED' ? 'Cancelado' :
+                                 order.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => navigate(`/supplier-orders/${order.id}`)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                  title="Ver detalhes"
+                                >
+                                  Ver
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const { data } = await api.get(`/supplier-orders/${order.id}`);
+                                      const pdfSettings: DocumentSettingsForPdf | undefined = documentSettings ? {
+                                        companyLogo: documentSettings.companyLogo || undefined,
+                                        companyName: documentSettings.companyName || undefined,
+                                        footerText: documentSettings.footerText || undefined,
+                                        footerAddress: documentSettings.footerAddress || undefined,
+                                        footerPhone: documentSettings.footerPhone || undefined,
+                                        footerEmail: documentSettings.footerEmail || undefined,
+                                        footerWebsite: documentSettings.footerWebsite || undefined,
+                                        primaryColor: documentSettings.primaryColor || undefined,
+                                        secondaryColor: documentSettings.secondaryColor || undefined,
+                                      } : undefined;
+                                      generateSupplierOrderPdf(data.data, pdfSettings, defaultCurrency);
+                                      toast.success('PDF gerado com sucesso!');
+                                    } catch (error: any) {
+                                      toast.error('Erro ao gerar PDF');
+                                    }
+                                  }}
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Gerar PDF"
+                                >
+                                  PDF
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Totalizadores */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex justify-end gap-8 text-sm">
+                        <div className="text-right">
+                          <span className="text-gray-500">Total de Pedidos:</span>{' '}
+                          <span className="font-medium text-gray-900">{supplierOrders.length}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-gray-500">Valor Total:</span>{' '}
+                          <span className="font-bold text-gray-900">
+                            {formatPrice(supplierOrders.reduce((sum: number, o: SupplierOrder) => sum + o.totalAmount, 0))}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

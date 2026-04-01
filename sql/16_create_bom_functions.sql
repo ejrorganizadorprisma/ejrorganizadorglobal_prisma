@@ -17,6 +17,7 @@ BEGIN
       'part_name', p.name,
       'quantity', pp.quantity,
       'is_optional', pp.is_optional,
+      'is_assembly', p.is_assembly,
       'unit_cost', p.cost_price,
       'total_cost', pp.quantity * p.cost_price,
       'available_stock', p.current_stock

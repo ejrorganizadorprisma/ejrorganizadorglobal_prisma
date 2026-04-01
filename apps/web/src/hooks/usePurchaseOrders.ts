@@ -82,7 +82,8 @@ interface CreatePurchaseOrderDTO {
 }
 
 interface UpdatePurchaseOrderDTO {
-  supplierId?: string;
+  name?: string;
+  supplierId?: string | null;
   expectedDeliveryDate?: string;
   subtotal?: number;
   taxAmount?: number;
@@ -92,6 +93,18 @@ interface UpdatePurchaseOrderDTO {
   paymentTerms?: string;
   notes?: string;
   internalNotes?: string;
+  items?: Array<{
+    productId: string;
+    supplierId?: string;
+    setAsPreferredSupplier?: boolean;
+    quantity: number;
+    unitPrice: number;
+    taxRate?: number;
+    discountPercentage?: number;
+    totalPrice?: number;
+    expectedDeliveryDate?: string;
+    notes?: string;
+  }>;
 }
 
 export function usePurchaseOrders(params: FindManyParams = {}) {

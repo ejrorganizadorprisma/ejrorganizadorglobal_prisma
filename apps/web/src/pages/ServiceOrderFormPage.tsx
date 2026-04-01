@@ -130,13 +130,13 @@ export function ServiceOrderFormPage() {
           >
             ← Voltar para Ordens de Serviço
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">
             {isEditing ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
           </h1>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow">
-          <div className="p-6 space-y-6">
+          <div className="p-4 lg:p-6 space-y-6">
             {/* Informações Básicas */}
             <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -339,6 +339,7 @@ export function ServiceOrderFormPage() {
                           ...formData,
                           laborCost: Math.round(parseFloat(e.target.value || '0') * 100)
                         })}
+                        onFocus={(e) => e.target.select()}
                         min="0"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="0.00"
@@ -365,17 +366,17 @@ export function ServiceOrderFormPage() {
           </div>
 
           {/* Botões */}
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-lg">
+          <div className="px-4 lg:px-6 py-4 bg-gray-50 border-t border-gray-200 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 rounded-b-lg">
             <button
               type="button"
               onClick={() => navigate('/service-orders')}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              className="w-full sm:w-auto px-4 py-2 min-h-[44px] text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               disabled={createOrder.isPending || updateOrder.isPending}
             >
               {createOrder.isPending || updateOrder.isPending
