@@ -17,7 +17,7 @@ try {
 
   // Step 3: Bundle API serverless function with esbuild
   console.log('=== Bundling API serverless function ===');
-  run('npx esbuild apps/api/src/app.ts --bundle --platform=node --target=node18 --format=cjs --outfile=api/app.bundle.cjs --external:pg-native');
+  run('./node_modules/.bin/esbuild apps/api/src/app.ts --bundle --platform=node --target=node18 --format=cjs --outfile=api/app.bundle.cjs --external:pg-native');
 
   // Step 4: Copy web output to root dist
   console.log('=== Copying output to dist/ ===');
