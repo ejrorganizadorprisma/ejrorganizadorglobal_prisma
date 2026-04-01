@@ -1,13 +1,9 @@
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-// ES modules compatibility
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load .env from the api directory
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// Load .env only in non-serverless environments
+if (!process.env.VERCEL) {
+  dotenv.config();
+}
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
