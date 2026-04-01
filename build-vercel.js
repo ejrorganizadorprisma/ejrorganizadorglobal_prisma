@@ -22,10 +22,11 @@ try {
     entryPoints: ['apps/api/src/app.ts'],
     bundle: true,
     platform: 'node',
-    target: 'node18',
+    target: 'node20',
     format: 'cjs',
     outfile: 'api/app.bundle.cjs',
     external: ['pg-native'],
+    supported: { 'export-star-as': true },
   });
   console.log('API bundle created: api/app.bundle.cjs');
 
