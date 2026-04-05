@@ -27,6 +27,7 @@ import {
   Book,
   Printer,
   Globe,
+  Smartphone,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -208,6 +209,7 @@ const menuItems: MenuItem[] = [
       { name: 'Localização de Estoque', path: '/storage-locations', icon: <Package className="w-4 h-4" />, page: 'storage_locations' as AppPage },
       { name: 'Ajuste de Estoque', path: '/stock-adjustment', icon: <ClipboardEdit className="w-4 h-4" />, page: 'stock_adjustment' as AppPage },
       { name: 'Backup', path: '/backup', icon: <Database className="w-4 h-4" />, page: 'backup' as AppPage },
+      { name: 'Aplicativo Celular', path: '/settings/mobile-app', icon: <Smartphone className="w-4 h-4" />, page: 'users' as AppPage },
     ],
   },
 ];

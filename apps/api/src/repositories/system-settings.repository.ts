@@ -104,6 +104,18 @@ export class SystemSettingsRepository {
       paramIndex++;
     }
 
+    if (dto.mobileAppEnabled !== undefined) {
+      updateFields.push(`mobile_app_enabled = $${paramIndex}`);
+      values.push(dto.mobileAppEnabled);
+      paramIndex++;
+    }
+
+    if (dto.mobileAppApiKey !== undefined) {
+      updateFields.push(`mobile_app_api_key = $${paramIndex}`);
+      values.push(dto.mobileAppApiKey);
+      paramIndex++;
+    }
+
     // Adicionar updated_at
     updateFields.push(`updated_at = NOW()`);
 
@@ -156,6 +168,8 @@ export class SystemSettingsRepository {
       exchangeRateBrlToPyg: parseFloat(data.exchange_rate_brl_to_pyg),
       exchangeRateUsdToPyg: parseFloat(data.exchange_rate_usd_to_pyg),
       enabledCurrencies: data.enabled_currencies as Currency[],
+      mobileAppEnabled: data.mobile_app_enabled ?? false,
+      mobileAppApiKey: data.mobile_app_api_key ?? null,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };

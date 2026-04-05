@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,20 +15,41 @@ import { useAuthStore } from '../store/authStore';
 
 const DEFAULT_URL = 'https://ejr-organizador.vercel.app';
 const STORAGE_KEY_URL = '@ejr_api_url';
+const STORAGE_KEY_API_KEY = '@ejr_mobile_api_key';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [connectionKey, setConnectionKey] = useState('');
   const [serverUrl, setServerUrl] = useState(DEFAULT_URL);
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuthStore();
+  const { login, mobileAccessDenied, mobileAccessError } = useAuthStore();
+
+  // Load saved connection key
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_API_KEY).then(key => {
+      if (key) setConnectionKey(key);
+    });
+  }, []);
+
+  // Show mobile access errors
+  useEffect(() => {
+    if (mobileAccessDenied && mobileAccessError) {
+      setError(mobileAccessError);
+    }
+  }, [mobileAccessDenied, mobileAccessError]);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Preencha e-mail e senha.');
+      return;
+    }
+
+    if (!connectionKey.trim()) {
+      setError('Informe a chave de conexão fornecida pelo administrador.');
       return;
     }
 
@@ -39,11 +60,12 @@ export default function LoginScreen() {
       if (serverUrl !== DEFAULT_URL) {
         await AsyncStorage.setItem(STORAGE_KEY_URL, serverUrl);
       }
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password, connectionKey.trim());
+      if (!result.success) {
+        setError(result.error || 'Erro ao fazer login. Verifique suas credenciais.');
+      }
     } catch (err: any) {
-      const message =
-        err?.message || 'Erro ao fazer login. Verifique suas credenciais.';
-      setError(message);
+      setError(err?.message || 'Erro ao fazer login.');
     } finally {
       setLoading(false);
     }
@@ -97,6 +119,21 @@ export default function LoginScreen() {
             secureTextEntry
             editable={!loading}
           />
+
+          <Text style={styles.label}>Chave de Conexão</Text>
+          <TextInput
+            style={styles.input}
+            value={connectionKey}
+            onChangeText={setConnectionKey}
+            placeholder="Chave fornecida pelo administrador"
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!loading}
+          />
+          <Text style={styles.hint}>
+            Solicite a chave ao administrador do sistema
+          </Text>
 
           {/* Server config toggle */}
           <TouchableOpacity
@@ -208,6 +245,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     color: '#111827',
+  },
+  hint: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 4,
   },
 
   /* Error */

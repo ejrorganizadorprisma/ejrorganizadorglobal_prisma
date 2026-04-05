@@ -74,6 +74,7 @@ import { DigitalFabricationPage } from './pages/DigitalFabricationPage';
 import { DigitalFabricationNewPage } from './pages/DigitalFabricationNewPage';
 import { DigitalFabricationDetailPage } from './pages/DigitalFabricationDetailPage';
 import { FabricationMachinesPage } from './pages/FabricationMachinesPage';
+import { MobileAppPage } from './pages/MobileAppPage';
 
 // Financial Pages
 import { FinancialDashboardPage } from './pages/FinancialDashboardPage';
@@ -798,6 +799,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <SystemSettingsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/mobile-app"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <MobileAppPage />
             </MainLayout>
           </ProtectedRoute>
         }

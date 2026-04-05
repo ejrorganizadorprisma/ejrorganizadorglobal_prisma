@@ -16,6 +16,10 @@ export interface SystemSettings {
   // Formatação de moeda
   enabledCurrencies: Currency[]; // Quais moedas estão habilitadas
 
+  // Aplicativo celular
+  mobileAppEnabled: boolean;
+  mobileAppApiKey: string | null;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +32,8 @@ export interface UpdateSystemSettingsDTO {
   exchangeRateBrlToPyg?: number;
   exchangeRateUsdToPyg?: number;
   enabledCurrencies?: Currency[];
+  mobileAppEnabled?: boolean;
+  mobileAppApiKey?: string | null;
 }
 
 export const COUNTRY_CONFIG = {
