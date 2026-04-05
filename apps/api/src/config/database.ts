@@ -1,14 +1,32 @@
 import { Pool, QueryResult } from 'pg';
 import { env } from './env';
 
-// Create a connection pool (smaller for serverless)
+// Create a connection pool (optimized for serverless)
 const isServerless = !!process.env.VERCEL;
+
+// For serverless + Supabase pooler: switch from Session mode (port 5432) to Transaction mode (port 6543)
+function getConnectionString(): string {
+  let url = env.DATABASE_URL;
+  if (isServerless && url?.includes('pooler.supabase.com')) {
+    // Switch to transaction mode pooler (port 6543)
+    url = url.replace(/pooler\.supabase\.com:5432/, 'pooler.supabase.com:6543');
+    // Add pgbouncer param to disable prepared statements (required for transaction mode)
+    if (!url.includes('pgbouncer=true')) {
+      url += (url.includes('?') ? '&' : '?') + 'pgbouncer=true';
+    }
+    console.log('🔄 Switched to Supabase Transaction mode pooler (port 6543)');
+  }
+  return url;
+}
+
+const connectionString = getConnectionString();
 const pool = new Pool({
-  connectionString: env.DATABASE_URL,
-  max: isServerless ? 2 : 20,
-  idleTimeoutMillis: isServerless ? 10000 : 30000,
-  connectionTimeoutMillis: 5000,
-  ssl: (env.DATABASE_URL?.includes('supabase') || env.DATABASE_URL?.includes('sslmode=require')) ? { rejectUnauthorized: false } : undefined,
+  connectionString,
+  max: isServerless ? 1 : 20,
+  idleTimeoutMillis: isServerless ? 1000 : 30000,
+  connectionTimeoutMillis: isServerless ? 10000 : 5000,
+  allowExitOnIdle: isServerless,
+  ssl: (connectionString?.includes('supabase') || connectionString?.includes('sslmode=require')) ? { rejectUnauthorized: false } : undefined,
 });
 
 // Test the connection
@@ -30,7 +48,9 @@ export const query = async <T = any>(
   try {
     const result = await pool.query<T>(text, params);
     const duration = Date.now() - start;
-    console.log('📊 Query executed', { text, duration, rows: result.rowCount });
+    if (!isServerless) {
+      console.log('📊 Query executed', { text, duration, rows: result.rowCount });
+    }
     return result;
   } catch (error) {
     console.error('❌ Query error', { text, error });
