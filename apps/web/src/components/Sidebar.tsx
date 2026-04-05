@@ -370,10 +370,10 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
       <div className="px-6 py-4 border-t border-blue-700 bg-[#0B5C9A]">
         <p className="text-xs text-blue-100">
-          Versão 2.0.0
+          Versão 2.5.1
         </p>
         <p className="text-xs text-blue-200 mt-1">
-          © 2025 EJR Organizador
+          © 2026 EJR Organizador Global
         </p>
       </div>
     </aside>
