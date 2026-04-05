@@ -85,7 +85,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
           platform: 'Android',
           fileSize: fileSize || 74_000_000,
           available: !!(externalUrl || localExists),
-          url: externalUrl || (localExists ? '/api/v1/mobile-app/download' : null),
+          url: externalUrl || (localExists ? '/mobile-app/download' : null),
         },
       },
     });
