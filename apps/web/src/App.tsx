@@ -59,6 +59,7 @@ import { SystemSettingsPage } from './pages/SystemSettingsPage';
 import { SalesPage } from './pages/SalesPage';
 import { SaleDetailPage } from './pages/SaleDetailPage';
 import { SaleFormPage } from './pages/SaleFormPage';
+import { SellersPage } from './pages/SellersPage';
 import { ProductCategoriesPage } from './pages/ProductCategoriesPage';
 import { SupplierOrdersPage } from './pages/SupplierOrdersPage';
 import { SupplierOrderDetailPage } from './pages/SupplierOrderDetailPage';
@@ -110,6 +111,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       { path: '/customers', page: AppPage.CUSTOMERS },
       { path: '/quotes', page: AppPage.QUOTES },
       { path: '/sales', page: AppPage.SALES },
+      { path: '/sellers', page: 'sellers' as AppPage },
       { path: '/service-orders', page: AppPage.SERVICE_ORDERS },
       { path: '/suppliers', page: AppPage.SUPPLIERS },
       { path: '/purchase-budgets', page: AppPage.PURCHASE_BUDGETS },
@@ -327,6 +329,17 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <SaleDetailPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Sellers (Vendedores) */}
+      <Route
+        path="/sellers"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SellersPage />
             </MainLayout>
           </ProtectedRoute>
         }

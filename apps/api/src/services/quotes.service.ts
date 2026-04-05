@@ -11,6 +11,7 @@ export class QuotesService {
     search?: string;
     status?: QuoteStatus;
     customerId?: string;
+    responsibleUserId?: string;
   }) {
     return this.repository.findMany(params);
   }

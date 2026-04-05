@@ -145,6 +145,7 @@ export interface SaleFilters {
   search?: string;
   page?: number;
   limit?: number;
+  sellerId?: string;
 }
 
 export interface SaleStats {

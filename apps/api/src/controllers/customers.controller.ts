@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import type { AuthRequest } from '../middleware/auth';
 import { CustomersService } from '../services/customers.service';
 import { CreateCustomerSchema, UpdateCustomerSchema } from '@ejr/shared-types';
 
@@ -9,7 +10,7 @@ export class CustomersController {
     this.service = new CustomersService();
   }
 
-  findMany = async (req: Request, res: Response) => {
+  findMany = async (req: AuthRequest, res: Response) => {
     const pageParam = req.query.page as string;
     const limitParam = req.query.limit as string;
 
@@ -18,11 +19,15 @@ export class CustomersController {
     const search = req.query.search as string | undefined;
     const type = req.query.type as any;
 
+    // SALESPERSON can only see customers they created
+    const createdBy = req.user?.role === 'SALESPERSON' ? req.user.id : undefined;
+
     const result = await this.service.findMany({
       page,
       limit,
       search,
       type,
+      createdBy,
     });
 
     res.json({
@@ -52,9 +57,10 @@ export class CustomersController {
     });
   };
 
-  create = async (req: Request, res: Response) => {
+  create = async (req: AuthRequest, res: Response) => {
     const data = CreateCustomerSchema.parse(req.body);
-    const customer = await this.service.create(data);
+    const userId = req.user?.id;
+    const customer = await this.service.create(data, userId);
 
     res.status(201).json({
       success: true,

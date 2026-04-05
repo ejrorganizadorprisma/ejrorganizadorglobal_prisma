@@ -28,6 +28,11 @@ export class SalesController {
         search: req.query.search as string,
       };
 
+      // SALESPERSON can only see their own sales
+      if (req.user!.role === 'SALESPERSON') {
+        filters.sellerId = req.user!.id;
+      }
+
       const result = await this.service.list(filters);
 
       res.json({
@@ -53,6 +58,11 @@ export class SalesController {
         startDate: req.query.startDate as string,
         endDate: req.query.endDate as string,
       };
+
+      // SALESPERSON can only see their own sales stats
+      if (req.user!.role === 'SALESPERSON') {
+        filters.sellerId = req.user!.id;
+      }
 
       const stats = await this.service.getStats(filters);
 

@@ -28,6 +28,7 @@ export enum AppPage {
   MY_PRODUCTION = 'my_production',
   DIGITAL_FABRICATION = 'digital_fabrication',
   PURCHASE_BUDGETS = 'purchase_budgets',
+  SELLERS = 'sellers',
 }
 
 // Available actions for each page

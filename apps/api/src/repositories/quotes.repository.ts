@@ -8,8 +8,9 @@ export class QuotesRepository {
     search?: string;
     status?: QuoteStatus;
     customerId?: string;
+    responsibleUserId?: string;
   }) {
-    const { page, limit, search, status, customerId } = params;
+    const { page, limit, search, status, customerId, responsibleUserId } = params;
 
     const offset = (page - 1) * limit;
     const queryParams: any[] = [];
@@ -31,6 +32,12 @@ export class QuotesRepository {
     if (customerId) {
       conditions.push(`q.customer_id = $${paramIndex}`);
       queryParams.push(customerId);
+      paramIndex++;
+    }
+
+    if (responsibleUserId) {
+      conditions.push(`q.responsible_user_id = $${paramIndex}`);
+      queryParams.push(responsibleUserId);
       paramIndex++;
     }
 

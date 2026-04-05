@@ -14,12 +14,16 @@ export class QuotesController {
       const status = req.query.status as any;
       const customerId = req.query.customerId as string | undefined;
 
+      // SALESPERSON can only see their own quotes
+      const responsibleUserId = req.user!.role === 'SALESPERSON' ? req.user!.id : undefined;
+
       const { data, total } = await this.service.list({
         page,
         limit,
         search,
         status,
         customerId,
+        responsibleUserId,
       });
 
       res.json({

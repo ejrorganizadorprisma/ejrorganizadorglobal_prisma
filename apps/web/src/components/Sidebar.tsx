@@ -107,6 +107,12 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
+    name: 'Vendedores',
+    path: '/sellers',
+    icon: <Users className="w-5 h-5" />,
+    page: 'sellers' as AppPage,
+  },
+  {
     name: 'Financeiro',
     icon: <Wallet className="w-5 h-5" />,
     page: 'sales' as AppPage,

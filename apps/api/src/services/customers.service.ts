@@ -14,16 +14,17 @@ export class CustomersService {
     limit: number;
     search?: string;
     type?: CustomerType;
+    createdBy?: string;
   }) {
-    const { page, limit, search, type } = params;
+    const { page, limit, search, type, createdBy } = params;
 
     if (page < 1 || limit < 1 || limit > 100) {
       throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
     const [customers, total] = await Promise.all([
-      this.repository.findMany({ page, limit, search, type }),
-      this.repository.count({ search, type }),
+      this.repository.findMany({ page, limit, search, type, createdBy }),
+      this.repository.count({ search, type, createdBy }),
     ]);
 
     return {
@@ -57,7 +58,7 @@ export class CustomersService {
     return customer;
   }
 
-  async create(data: CreateCustomerDTO) {
+  async create(data: CreateCustomerDTO, userId?: string) {
     let cleanDocument: string | undefined;
 
     // Validação de documento BR (CPF/CNPJ) - só quando documento é fornecido
@@ -105,7 +106,7 @@ export class CustomersService {
     return this.repository.create({
       ...data,
       document: cleanDocument || data.document,
-    });
+    }, userId);
   }
 
   async update(id: string, data: UpdateCustomerDTO) {

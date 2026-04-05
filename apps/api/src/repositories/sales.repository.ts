@@ -63,6 +63,12 @@ export class SalesRepository {
       paramIndex++;
     }
 
+    if (filters.sellerId) {
+      conditions.push(`s.created_by = $${paramIndex}`);
+      queryParams.push(filters.sellerId);
+      paramIndex++;
+    }
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Count query
@@ -577,6 +583,12 @@ export class SalesRepository {
     if (filters?.customerId) {
       conditions.push(`customer_id = $${paramIndex}`);
       queryParams.push(filters.customerId);
+      paramIndex++;
+    }
+
+    if (filters?.sellerId) {
+      conditions.push(`created_by = $${paramIndex}`);
+      queryParams.push(filters.sellerId);
       paramIndex++;
     }
 

@@ -7,8 +7,9 @@ export class CustomersRepository {
     limit: number;
     search?: string;
     type?: CustomerType;
+    createdBy?: string;
   }) {
-    const { page, limit, search, type } = params;
+    const { page, limit, search, type, createdBy } = params;
 
     // Build WHERE clauses
     const whereClauses: string[] = [];
@@ -26,6 +27,13 @@ export class CustomersRepository {
     if (type) {
       whereClauses.push(`type = $${paramIndex}`);
       queryParams.push(type);
+      paramIndex++;
+    }
+
+    // Filtro de criador (vendedor)
+    if (createdBy) {
+      whereClauses.push(`created_by = $${paramIndex}`);
+      queryParams.push(createdBy);
       paramIndex++;
     }
 
@@ -57,13 +65,14 @@ export class CustomersRepository {
       address: customer.address,
       allowedPaymentMethods: customer.allowed_payment_methods,
       creditMaxDays: customer.credit_max_days,
+      createdBy: customer.created_by,
       createdAt: customer.created_at,
       updatedAt: customer.updated_at,
     }));
   }
 
-  async count(params: { search?: string; type?: CustomerType }) {
-    const { search, type } = params;
+  async count(params: { search?: string; type?: CustomerType; createdBy?: string }) {
+    const { search, type, createdBy } = params;
 
     // Build WHERE clauses
     const whereClauses: string[] = [];
@@ -81,6 +90,13 @@ export class CustomersRepository {
     if (type) {
       whereClauses.push(`type = $${paramIndex}`);
       queryParams.push(type);
+      paramIndex++;
+    }
+
+    // Filtro de criador (vendedor)
+    if (createdBy) {
+      whereClauses.push(`created_by = $${paramIndex}`);
+      queryParams.push(createdBy);
       paramIndex++;
     }
 
@@ -119,6 +135,7 @@ export class CustomersRepository {
       address: data.address,
       allowedPaymentMethods: data.allowed_payment_methods,
       creditMaxDays: data.credit_max_days,
+      createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -147,18 +164,19 @@ export class CustomersRepository {
       address: data.address,
       allowedPaymentMethods: data.allowed_payment_methods,
       creditMaxDays: data.credit_max_days,
+      createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
   }
 
-  async create(customerData: CreateCustomerDTO) {
+  async create(customerData: CreateCustomerDTO, userId?: string) {
     // Generate a unique ID for the customer
     const id = `cust-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
     const sql = `
-      INSERT INTO customers (id, name, email, phone, document, ci, ruc, type, address, allowed_payment_methods, credit_max_days)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      INSERT INTO customers (id, name, email, phone, document, ci, ruc, type, address, allowed_payment_methods, credit_max_days, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `;
 
@@ -174,6 +192,7 @@ export class CustomersRepository {
       customerData.address,
       customerData.allowedPaymentMethods || null,
       customerData.creditMaxDays || null,
+      userId || null,
     ]);
 
     const data = result.rows[0];
@@ -191,6 +210,7 @@ export class CustomersRepository {
       address: data.address,
       allowedPaymentMethods: data.allowed_payment_methods,
       creditMaxDays: data.credit_max_days,
+      createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -290,6 +310,7 @@ export class CustomersRepository {
       address: data.address,
       allowedPaymentMethods: data.allowed_payment_methods,
       creditMaxDays: data.credit_max_days,
+      createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };

@@ -33,6 +33,7 @@ import purchaseBudgetsRoutes from './purchase-budgets.routes';
 import approvalDelegationsRoutes from './approval-delegations.routes';
 import inventoryMovementsRoutes from './inventory-movements.routes';
 import financialRoutes from './financial.routes';
+import sellersRoutes from './sellers.routes';
 
 const router = Router();
 
@@ -80,5 +81,6 @@ router.use('/purchase-budgets', purchaseBudgetsRoutes);
 router.use('/approval-delegations', approvalDelegationsRoutes);
 router.use('/inventory-movements', inventoryMovementsRoutes);
 router.use('/financial', financialRoutes);
+router.use('/sellers', sellersRoutes);
 
 export default router;
