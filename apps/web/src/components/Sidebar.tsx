@@ -31,6 +31,7 @@ import {
 import { useState, useMemo } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useAuth } from '../hooks/useAuth';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import type { AppPage } from '@ejr/shared-types';
 
 interface MenuItem {
@@ -285,6 +286,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const [openMenus, setOpenMenus] = useState<{ [key: string]: boolean }>({});
   const { hasPermission } = usePagePermissions();
   const { user } = useAuth();
+  const { data: docSettings } = useDefaultDocumentSettings();
 
   // Check if user is admin (OWNER or DIRECTOR)
   const isAdmin = user?.role === 'OWNER' || user?.role === 'DIRECTOR';
@@ -380,6 +382,15 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       </nav>
 
       <div className="px-6 py-4 border-t border-blue-700 bg-[#0B5C9A]">
+        {docSettings?.companyLogo && (
+          <div className="flex justify-center mb-2">
+            <img
+              src={docSettings.companyLogo}
+              alt={docSettings.companyName || 'Logomarca'}
+              className="h-[6.4rem] w-auto object-contain"
+            />
+          </div>
+        )}
         <p className="text-xs text-blue-100">
           Versão 2.5.1
         </p>
