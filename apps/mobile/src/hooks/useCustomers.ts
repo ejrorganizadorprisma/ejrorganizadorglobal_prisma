@@ -3,7 +3,7 @@ import { getDatabase } from '../db/migrations';
 import { apiRequest } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import NetInfo from '@react-native-community/netinfo';
-import { v4 as uuidv4 } from 'uuid';
+import { generateId } from '../utils/generateId';
 
 export interface Customer {
   id: string;
@@ -58,7 +58,7 @@ export function useCustomers(search?: string) {
 
   const createCustomer = useCallback(async (data: Omit<Customer, 'id' | 'synced'>) => {
     const db = await getDatabase();
-    const id = `local-${uuidv4()}`;
+    const id = `local-${generateId()}`;
     const customer = { ...data, id };
     await db.runAsync(
       "INSERT INTO customers (id, data, synced, updated_at) VALUES (?, ?, 0, datetime('now'))",

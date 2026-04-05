@@ -3,7 +3,7 @@ import { getDatabase } from '../db/migrations';
 import { apiRequest } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import NetInfo from '@react-native-community/netinfo';
-import { v4 as uuidv4 } from 'uuid';
+import { generateId } from '../utils/generateId';
 
 export interface QuoteItem {
   itemType: 'PRODUCT' | 'SERVICE';
@@ -77,7 +77,7 @@ export function useQuotes(search?: string) {
     notes?: string;
   }) => {
     const db = await getDatabase();
-    const id = `local-${uuidv4()}`;
+    const id = `local-${generateId()}`;
     const subtotal = data.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0);
     const quote: Quote = {
       id,
