@@ -1,6 +1,7 @@
 import { getDatabase } from './migrations';
 import { apiRequest } from '../api/client';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface SyncStatus {
   pendingCustomers: number;
@@ -109,67 +110,79 @@ export async function pullServerData(): Promise<{ pulled: number }> {
   const token = await getToken();
   if (!token) return { pulled: 0 };
 
+  // Get permissions from AsyncStorage
+  const permsStr = await AsyncStorage.getItem('@ejr_mobile_permissions');
+  const perms = permsStr ? JSON.parse(permsStr) : { customers: true, quotes: true, sales: true, products: true };
+
   let pulled = 0;
 
   // Pull products (read-only cache)
-  try {
-    const productsResult = await apiRequest<any[]>('/products?limit=1000', { token });
-    if (productsResult.success && productsResult.data) {
-      const products = Array.isArray(productsResult.data) ? productsResult.data : [];
-      for (const product of products) {
-        await db.runAsync(
-          "INSERT OR REPLACE INTO products (id, data, updated_at) VALUES (?, ?, datetime('now'))",
-          [product.id, JSON.stringify(product)]
-        );
+  if (perms.products !== false) {
+    try {
+      const productsResult = await apiRequest<any[]>('/products?limit=1000', { token });
+      if (productsResult.success && productsResult.data) {
+        const products = Array.isArray(productsResult.data) ? productsResult.data : [];
+        for (const product of products) {
+          await db.runAsync(
+            "INSERT OR REPLACE INTO products (id, data, updated_at) VALUES (?, ?, datetime('now'))",
+            [product.id, JSON.stringify(product)]
+          );
+        }
+        pulled += products.length;
       }
-      pulled += products.length;
-    }
-  } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore */ }
+  }
 
   // Pull customers
-  try {
-    const customersResult = await apiRequest<any[]>('/customers?limit=1000', { token });
-    if (customersResult.success && customersResult.data) {
-      const customers = Array.isArray(customersResult.data) ? customersResult.data : [];
-      for (const customer of customers) {
-        await db.runAsync(
-          "INSERT OR REPLACE INTO customers (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-          [customer.id, JSON.stringify(customer)]
-        );
+  if (perms.customers !== false) {
+    try {
+      const customersResult = await apiRequest<any[]>('/customers?limit=1000', { token });
+      if (customersResult.success && customersResult.data) {
+        const customers = Array.isArray(customersResult.data) ? customersResult.data : [];
+        for (const customer of customers) {
+          await db.runAsync(
+            "INSERT OR REPLACE INTO customers (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
+            [customer.id, JSON.stringify(customer)]
+          );
+        }
+        pulled += customers.length;
       }
-      pulled += customers.length;
-    }
-  } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore */ }
+  }
 
   // Pull quotes
-  try {
-    const quotesResult = await apiRequest<any[]>('/quotes?limit=1000', { token });
-    if (quotesResult.success && quotesResult.data) {
-      const quotes = Array.isArray(quotesResult.data) ? quotesResult.data : [];
-      for (const quote of quotes) {
-        await db.runAsync(
-          "INSERT OR REPLACE INTO quotes (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-          [quote.id, JSON.stringify(quote)]
-        );
+  if (perms.quotes !== false) {
+    try {
+      const quotesResult = await apiRequest<any[]>('/quotes?limit=1000', { token });
+      if (quotesResult.success && quotesResult.data) {
+        const quotes = Array.isArray(quotesResult.data) ? quotesResult.data : [];
+        for (const quote of quotes) {
+          await db.runAsync(
+            "INSERT OR REPLACE INTO quotes (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
+            [quote.id, JSON.stringify(quote)]
+          );
+        }
+        pulled += quotes.length;
       }
-      pulled += quotes.length;
-    }
-  } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore */ }
+  }
 
   // Pull sales
-  try {
-    const salesResult = await apiRequest<any[]>('/sales?limit=1000', { token });
-    if (salesResult.success && salesResult.data) {
-      const sales = Array.isArray(salesResult.data) ? salesResult.data : [];
-      for (const sale of sales) {
-        await db.runAsync(
-          "INSERT OR REPLACE INTO sales (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-          [sale.id, JSON.stringify(sale)]
-        );
+  if (perms.sales !== false) {
+    try {
+      const salesResult = await apiRequest<any[]>('/sales?limit=1000', { token });
+      if (salesResult.success && salesResult.data) {
+        const sales = Array.isArray(salesResult.data) ? salesResult.data : [];
+        for (const sale of sales) {
+          await db.runAsync(
+            "INSERT OR REPLACE INTO sales (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
+            [sale.id, JSON.stringify(sale)]
+          );
+        }
+        pulled += sales.length;
       }
-      pulled += sales.length;
-    }
-  } catch (e) { /* ignore */ }
+    } catch (e) { /* ignore */ }
+  }
 
   // Log sync
   await db.runAsync(
@@ -183,6 +196,15 @@ export async function pullServerData(): Promise<{ pulled: number }> {
 export async function fullSync(): Promise<{ pushed: number; pulled: number; errors: number }> {
   const pushResult = await pushPendingChanges();
   const pullResult = await pullServerData();
+
+  // Notify server of completed sync
+  try {
+    const token = await getToken();
+    if (token) {
+      await apiRequest('/mobile-app/sync-done', { method: 'POST', token });
+    }
+  } catch { /* ignore */ }
+
   return {
     pushed: pushResult.pushed,
     pulled: pullResult.pulled,

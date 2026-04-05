@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
+import { useAuthStore } from '../store/authStore';
 
 import LoginScreen from '../screens/LoginScreen';
 import DashboardScreen from '../screens/DashboardScreen';
@@ -38,6 +39,8 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 }
 
 function HomeTabs() {
+  const { mobilePermissions } = useAuthStore();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -55,10 +58,18 @@ function HomeTabs() {
       })}
     >
       <Tab.Screen name="Home" component={DashboardScreen} />
-      <Tab.Screen name="Clientes" component={CustomersScreen} />
-      <Tab.Screen name="Produtos" component={ProductsScreen} />
-      <Tab.Screen name="Orçamentos" component={QuotesScreen} />
-      <Tab.Screen name="Vendas" component={SalesScreen} />
+      {mobilePermissions?.customers !== false && (
+        <Tab.Screen name="Clientes" component={CustomersScreen} />
+      )}
+      {mobilePermissions?.products !== false && (
+        <Tab.Screen name="Produtos" component={ProductsScreen} />
+      )}
+      {mobilePermissions?.quotes !== false && (
+        <Tab.Screen name="Orçamentos" component={QuotesScreen} />
+      )}
+      {mobilePermissions?.sales !== false && (
+        <Tab.Screen name="Vendas" component={SalesScreen} />
+      )}
     </Tab.Navigator>
   );
 }

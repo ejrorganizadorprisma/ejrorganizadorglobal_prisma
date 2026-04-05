@@ -14,6 +14,9 @@ export interface SellerStats {
   total_quotes: number;
   total_quote_value: number;
   converted_quotes: number;
+  mobile_app_authorized?: boolean;
+  mobile_app_last_login?: string | null;
+  mobile_app_last_sync?: string | null;
 }
 
 export interface SellerTimeSeries {

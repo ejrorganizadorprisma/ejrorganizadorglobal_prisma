@@ -4,7 +4,7 @@ import { useRequirePermission } from '../hooks/useRequirePermission';
 import { AppPage } from '@ejr/shared-types';
 import { useSellerStats, useSellerTimeSeries } from '../hooks/useSellers';
 import { SimpleBarChart } from '../components/reports/SimpleBarChart';
-import { Users, TrendingUp, ShoppingCart, Target, X, Loader2 } from 'lucide-react';
+import { Users, TrendingUp, ShoppingCart, Target, X, Loader2, Smartphone } from 'lucide-react';
 
 type ChartMetric = 'total_revenue' | 'total_sales' | 'avg_ticket';
 
@@ -296,6 +296,9 @@ function SellersPageContent() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vendedor
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12" title="App Celular">
+                    <Smartphone className="w-4 h-4 inline-block" />
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Vendas
                   </th>
@@ -344,6 +347,22 @@ function SellersPageContent() {
                           <p className="text-sm font-medium text-gray-900">{seller.name}</p>
                           <p className="text-xs text-gray-500">{seller.email}</p>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                        {seller.mobile_app_authorized ? (
+                          seller.mobile_app_last_login &&
+                          Date.now() - new Date(seller.mobile_app_last_login).getTime() < 24 * 60 * 60 * 1000 ? (
+                            <span title="App ativo">
+                              <Smartphone className="w-4 h-4 text-green-500 inline-block" />
+                            </span>
+                          ) : (
+                            <span title="App autorizado (inativo)">
+                              <Smartphone className="w-4 h-4 text-gray-400 inline-block" />
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-gray-300">-</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-gray-900">

@@ -11,18 +11,29 @@ async function validateMobileAccess(req: Request): Promise<void> {
   const clientType = req.headers['x-client-type'];
   if (clientType !== 'mobile') return;
 
-  const result = await db.query(
-    'SELECT mobile_app_enabled, mobile_app_api_key FROM system_settings LIMIT 1'
-  );
-  const settings = result.rows[0];
-
-  if (!settings || !settings.mobile_app_enabled) {
+  // Check global toggle
+  const settingsResult = await db.query('SELECT mobile_app_enabled FROM system_settings LIMIT 1');
+  if (!settingsResult.rows[0]?.mobile_app_enabled) {
     throw new UnauthorizedError('Acesso via aplicativo desabilitado pelo administrador');
   }
 
+  // Check seller's individual token
   const apiKey = req.headers['x-mobile-api-key'] as string;
-  if (!apiKey || apiKey !== settings.mobile_app_api_key) {
+  if (!apiKey) {
+    throw new UnauthorizedError('Chave de conexão não fornecida');
+  }
+
+  const userResult = await db.query(
+    'SELECT id, mobile_app_authorized, mobile_app_token, mobile_app_permissions FROM users WHERE mobile_app_token = $1 LIMIT 1',
+    [apiKey]
+  );
+
+  if (!userResult.rows[0]) {
     throw new UnauthorizedError('Chave de conexão inválida');
+  }
+
+  if (!userResult.rows[0].mobile_app_authorized) {
+    throw new UnauthorizedError('Vendedor não autorizado para o aplicativo');
   }
 }
 
@@ -34,6 +45,16 @@ export class AuthController {
 
       const data: LoginDTO = req.body;
       const result = await authService.login(data);
+
+      // If mobile login, update last_login and include permissions
+      if (req.headers['x-client-type'] === 'mobile') {
+        const apiKey = req.headers['x-mobile-api-key'] as string;
+        if (apiKey) {
+          await db.query('UPDATE users SET mobile_app_last_login = NOW() WHERE mobile_app_token = $1', [apiKey]);
+          const permResult = await db.query('SELECT mobile_app_permissions FROM users WHERE mobile_app_token = $1', [apiKey]);
+          (result as any).mobilePermissions = permResult.rows[0]?.mobile_app_permissions || { customers: true, quotes: true, sales: true, products: true };
+        }
+      }
 
       // Set HTTP-only cookie
       res.cookie('token', result.token, {
@@ -94,6 +115,15 @@ export class AuthController {
       await validateMobileAccess(req);
 
       const user = await authService.getCurrentUser(req.user!.id);
+
+      if (req.headers['x-client-type'] === 'mobile') {
+        const apiKey = req.headers['x-mobile-api-key'] as string;
+        if (apiKey) {
+          const permResult = await db.query('SELECT mobile_app_permissions FROM users WHERE mobile_app_token = $1', [apiKey]);
+          (user as any).mobilePermissions = permResult.rows[0]?.mobile_app_permissions || { customers: true, quotes: true, sales: true, products: true };
+        }
+      }
+
       res.json({
         success: true,
         data: user,
