@@ -82,7 +82,7 @@ export default function LoginScreen() {
       >
         {/* Blue header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>EJR Vendedor</Text>
+          <Text style={styles.headerTitle}>EJR OrGlobal</Text>
           <Text style={styles.headerSubtitle}>Plataforma de Vendas</Text>
         </View>
 

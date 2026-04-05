@@ -80,7 +80,7 @@ export default function AppNavigator() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B5C9A' }}>
-        <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold' }}>EJR Vendedor</Text>
+        <Text style={{ color: '#FFF', fontSize: 24, fontWeight: 'bold' }}>EJR OrGlobal</Text>
         <Text style={{ color: '#FFF', fontSize: 14, marginTop: 8 }}>Carregando...</Text>
       </View>
     );
