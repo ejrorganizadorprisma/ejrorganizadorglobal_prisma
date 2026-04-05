@@ -357,11 +357,19 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     <aside className="w-64 bg-[#0B5C9A] border-r border-blue-700 h-screen sticky top-0 overflow-y-auto">
       <div className="p-6 border-b border-blue-700 bg-[#0B5C9A]">
         <div className="flex items-center justify-center mb-3">
-          <img
-            src="/logo.jpeg"
-            alt="EJR Organizador"
-            className="h-32 w-auto object-contain"
-          />
+          {docSettings?.companyLogo ? (
+            <img
+              src={docSettings.companyLogo}
+              alt={docSettings.companyName || 'Logomarca'}
+              className="h-32 w-auto object-contain"
+            />
+          ) : (
+            <img
+              src="/logo.jpeg"
+              alt="EJR Organizador"
+              className="h-32 w-auto object-contain"
+            />
+          )}
         </div>
         <p className="text-sm text-blue-50 text-center font-medium">ERP de Manufatura</p>
       </div>
@@ -382,15 +390,13 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       </nav>
 
       <div className="px-6 py-4 border-t border-blue-700 bg-[#0B5C9A]">
-        {docSettings?.companyLogo && (
-          <div className="flex justify-center mb-2">
-            <img
-              src={docSettings.companyLogo}
-              alt={docSettings.companyName || 'Logomarca'}
-              className="h-[6.4rem] w-auto object-contain"
-            />
-          </div>
-        )}
+        <div className="flex justify-center mb-2">
+          <img
+            src="/logo.jpeg"
+            alt="EJR Organizador"
+            className="h-[6.4rem] w-auto object-contain"
+          />
+        </div>
         <p className="text-xs text-blue-100">
           Versão 2.5.1
         </p>
