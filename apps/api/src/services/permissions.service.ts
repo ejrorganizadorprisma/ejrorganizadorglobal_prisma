@@ -1,90 +1,47 @@
-import { promises as fs } from 'fs';
-import { join } from 'path';
-import type { PermissionsConfig, RolePermissions, AppPage, UserRole } from '@ejr/shared-types';
+import { db } from '../config/database';
+import type { PermissionsConfig, AppPage, UserRole } from '@ejr/shared-types';
 
-const PERMISSIONS_FILE = join(process.cwd(), 'data', 'permissions.json');
-
-// Default permissions for each role
+// Default permissions (fallback if database is empty)
 const DEFAULT_PERMISSIONS: PermissionsConfig = {
   permissions: [
-    {
-      role: 'OWNER' as UserRole,
-      pages: [
-        'dashboard', 'overview', 'manufacturing', 'products', 'customers',
-        'quotes', 'suppliers', 'reports', 'users', 'service_orders',
-        'stock_reservations', 'purchase_orders', 'goods_receipts', 'production_orders',
-        'storage_locations', 'stock_adjustment', 'document_settings', 'backup'
-      ] as AppPage[],
-    },
-    {
-      role: 'DIRECTOR' as UserRole,
-      pages: [
-        'dashboard', 'overview', 'manufacturing', 'products', 'customers',
-        'quotes', 'suppliers', 'reports', 'service_orders',
-        'stock_reservations', 'purchase_orders', 'goods_receipts', 'production_orders',
-        'storage_locations', 'stock_adjustment', 'document_settings', 'backup'
-      ] as AppPage[],
-    },
-    {
-      role: 'MANAGER' as UserRole,
-      pages: [
-        'dashboard', 'overview', 'products', 'customers',
-        'quotes', 'suppliers', 'reports', 'service_orders'
-      ] as AppPage[],
-    },
-    {
-      role: 'COORDINATOR' as UserRole,
-      pages: [
-        'dashboard', 'manufacturing', 'production_orders', 'reports'
-      ] as AppPage[],
-    },
-    {
-      role: 'SALESPERSON' as UserRole,
-      pages: ['dashboard', 'customers', 'quotes'] as AppPage[],
-    },
-    {
-      role: 'STOCK' as UserRole,
-      pages: [
-        'dashboard', 'products', 'stock_reservations', 'goods_receipts',
-        'storage_locations', 'stock_adjustment'
-      ] as AppPage[],
-    },
-    {
-      role: 'PRODUCTION' as UserRole,
-      pages: ['dashboard', 'manufacturing', 'production_orders', 'products'] as AppPage[],
-    },
-    {
-      role: 'TECHNICIAN' as UserRole,
-      pages: ['dashboard', 'service_orders'] as AppPage[],
-    },
-    {
-      role: 'MONITOR' as UserRole,
-      pages: ['dashboard', 'reports'] as AppPage[],
-    },
+    { role: 'OWNER' as UserRole, pages: ['dashboard', 'overview', 'manufacturing', 'products', 'customers', 'quotes', 'suppliers', 'reports', 'users', 'service_orders', 'stock_reservations', 'purchase_budgets', 'goods_receipts', 'production_orders', 'production_batches', 'my_production', 'storage_locations', 'stock_adjustment', 'document_settings', 'backup', 'sales', 'supplier_orders'] as AppPage[] },
+    { role: 'DIRECTOR' as UserRole, pages: ['dashboard', 'overview', 'manufacturing', 'products', 'customers', 'quotes', 'suppliers', 'reports', 'service_orders', 'stock_reservations', 'purchase_budgets', 'goods_receipts', 'production_orders', 'production_batches', 'my_production', 'storage_locations', 'stock_adjustment', 'document_settings', 'backup', 'supplier_orders'] as AppPage[] },
+    { role: 'MANAGER' as UserRole, pages: ['products', 'service_orders', 'stock_reservations', 'purchase_budgets', 'goods_receipts', 'production_orders', 'production_batches', 'my_production', 'storage_locations', 'backup', 'supplier_orders', 'stock_adjustment'] as AppPage[] },
+    { role: 'COORDINATOR' as UserRole, pages: ['manufacturing', 'production_orders', 'production_batches', 'my_production', 'reports', 'products'] as AppPage[] },
+    { role: 'SALESPERSON' as UserRole, pages: ['customers', 'quotes'] as AppPage[] },
+    { role: 'STOCK' as UserRole, pages: ['products', 'stock_reservations', 'goods_receipts', 'storage_locations', 'stock_adjustment', 'purchase_budgets'] as AppPage[] },
+    { role: 'PRODUCTION' as UserRole, pages: ['my_production', 'products', 'purchase_budgets', 'storage_locations', 'goods_receipts'] as AppPage[] },
+    { role: 'TECHNICIAN' as UserRole, pages: ['service_orders'] as AppPage[] },
+    { role: 'MONITOR' as UserRole, pages: ['reports'] as AppPage[] },
   ],
 };
 
 export class PermissionsService {
-  private async ensurePermissionsFile(): Promise<void> {
-    try {
-      await fs.access(PERMISSIONS_FILE);
-    } catch {
-      // File doesn't exist, create it with default permissions
-      const dataDir = join(process.cwd(), 'data');
-      await fs.mkdir(dataDir, { recursive: true });
-      await fs.writeFile(PERMISSIONS_FILE, JSON.stringify(DEFAULT_PERMISSIONS, null, 2));
-    }
-  }
-
   async getPermissions(): Promise<PermissionsConfig> {
-    await this.ensurePermissionsFile();
-    const data = await fs.readFile(PERMISSIONS_FILE, 'utf-8');
-    return JSON.parse(data);
+    try {
+      const result = await db.query('SELECT config FROM permissions_config ORDER BY updated_at DESC LIMIT 1');
+      if (result.rows.length > 0) {
+        return result.rows[0].config as PermissionsConfig;
+      }
+    } catch (error) {
+      console.error('Error reading permissions from DB, using defaults:', error);
+    }
+    return DEFAULT_PERMISSIONS;
   }
 
   async updatePermissions(config: PermissionsConfig): Promise<PermissionsConfig> {
-    await this.ensurePermissionsFile();
-    await fs.writeFile(PERMISSIONS_FILE, JSON.stringify(config, null, 2));
+    const result = await db.query('SELECT id FROM permissions_config LIMIT 1');
+    if (result.rows.length > 0) {
+      await db.query(
+        'UPDATE permissions_config SET config = $1, updated_at = NOW() WHERE id = $2',
+        [JSON.stringify(config), result.rows[0].id]
+      );
+    } else {
+      await db.query(
+        'INSERT INTO permissions_config (config) VALUES ($1)',
+        [JSON.stringify(config)]
+      );
+    }
     return config;
   }
 
