@@ -8,7 +8,7 @@ const pool = new Pool({
   max: isServerless ? 2 : 20,
   idleTimeoutMillis: isServerless ? 10000 : 30000,
   connectionTimeoutMillis: 5000,
-  ssl: env.DATABASE_URL?.includes('supabase') ? { rejectUnauthorized: false } : undefined,
+  ssl: (env.DATABASE_URL?.includes('supabase') || env.DATABASE_URL?.includes('sslmode=require')) ? { rejectUnauthorized: false } : undefined,
 });
 
 // Test the connection
