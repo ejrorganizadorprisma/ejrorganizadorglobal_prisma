@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { queryClient } from './lib/queryClient';
 import { useAuth } from './hooks/useAuth';
 import { usePagePermissions } from './hooks/usePagePermissions';
+import { AppPage } from '@ejr/shared-types';
 import { MainLayout } from './components/MainLayout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -92,30 +93,30 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!hasRoutePermission(location.pathname)) {
     // Find the first page the user has access to
     const accessiblePages = [
-      { path: '/dashboard', page: 'dashboard' as const },
-      { path: '/overview', page: 'overview' as const },
-      { path: '/manufacturing', page: 'manufacturing' as const },
-      { path: '/products', page: 'products' as const },
-      { path: '/services', page: 'products' as const }, // Services use products permission
-      { path: '/customers', page: 'customers' as const },
-      { path: '/quotes', page: 'quotes' as const },
-      { path: '/sales', page: 'sales' as const },
-      { path: '/service-orders', page: 'service_orders' as const },
-      { path: '/suppliers', page: 'suppliers' as const },
-      { path: '/purchase-budgets', page: 'purchase_budgets' as const },
-      { path: '/supplier-orders', page: 'supplier_orders' as const },
-      { path: '/goods-receipts', page: 'goods_receipts' as const },
-      { path: '/production-orders', page: 'production_orders' as const },
-      { path: '/production-batches', page: 'production_batches' as const },
-      { path: '/my-production', page: 'my_production' as const },
-      { path: '/stock-reservations', page: 'stock_reservations' as const },
-      { path: '/reports', page: 'reports' as const },
-      { path: '/users', page: 'users' as const },
-      { path: '/permissions', page: 'users' as const }, // Permissions use users permission
-      { path: '/storage-locations', page: 'storage_locations' as const },
-      { path: '/stock-adjustment', page: 'stock_adjustment' as const },
-      { path: '/settings/document-settings', page: 'document_settings' as const },
-      { path: '/backup', page: 'backup' as const },
+      { path: '/dashboard', page: AppPage.DASHBOARD },
+      { path: '/overview', page: AppPage.OVERVIEW },
+      { path: '/manufacturing', page: AppPage.MANUFACTURING },
+      { path: '/products', page: AppPage.PRODUCTS },
+      { path: '/services', page: AppPage.PRODUCTS }, // Services use products permission
+      { path: '/customers', page: AppPage.CUSTOMERS },
+      { path: '/quotes', page: AppPage.QUOTES },
+      { path: '/sales', page: AppPage.SALES },
+      { path: '/service-orders', page: AppPage.SERVICE_ORDERS },
+      { path: '/suppliers', page: AppPage.SUPPLIERS },
+      { path: '/purchase-budgets', page: AppPage.PURCHASE_BUDGETS },
+      { path: '/supplier-orders', page: AppPage.SUPPLIER_ORDERS },
+      { path: '/goods-receipts', page: AppPage.GOODS_RECEIPTS },
+      { path: '/production-orders', page: AppPage.PRODUCTION_ORDERS },
+      { path: '/production-batches', page: AppPage.PRODUCTION_BATCHES },
+      { path: '/my-production', page: AppPage.MY_PRODUCTION },
+      { path: '/stock-reservations', page: AppPage.STOCK_RESERVATIONS },
+      { path: '/reports', page: AppPage.REPORTS },
+      { path: '/users', page: AppPage.USERS },
+      { path: '/permissions', page: AppPage.USERS }, // Permissions use users permission
+      { path: '/storage-locations', page: AppPage.STORAGE_LOCATIONS },
+      { path: '/stock-adjustment', page: AppPage.STOCK_ADJUSTMENT },
+      { path: '/settings/document-settings', page: AppPage.DOCUMENT_SETTINGS },
+      { path: '/backup', page: AppPage.BACKUP },
     ];
 
     const firstAccessiblePage = accessiblePages.find(p => hasPermission(p.page));

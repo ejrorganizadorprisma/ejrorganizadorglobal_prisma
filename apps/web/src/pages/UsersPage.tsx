@@ -4,8 +4,7 @@ import { UserCog, Mail, Shield, Clock, Check, X, Edit2, Trash2 } from 'lucide-re
 import { useUsers, useToggleUserStatus, useDeleteUser } from '../hooks/useUsers';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
-import { AppPage } from '@ejr/shared-types';
-import { toast } from 'sonner';
+import { AppPage, PageAction, UserRole } from '@ejr/shared-types';
 
 const roleLabels: Record<string, string> = {
   OWNER: 'Proprietário',
@@ -68,26 +67,26 @@ export function UsersPage() {
   if (permissionCheck) return permissionCheck;
 
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
+  const [_page, _setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const { hasActionPermission } = usePagePermissions();
 
   const { data, isLoading, error } = useUsers({
-    page,
+    page: _page,
     limit: 10,
     search: search || undefined,
-    role: roleFilter || undefined,
+    role: (roleFilter || undefined) as UserRole | undefined,
     isActive: statusFilter === 'active' ? true : statusFilter === 'inactive' ? false : undefined,
   });
 
   const toggleStatus = useToggleUserStatus();
   const deleteUser = useDeleteUser();
 
-  const canCreate = hasActionPermission('users', 'create');
-  const canEdit = hasActionPermission('users', 'edit');
-  const canDelete = hasActionPermission('users', 'delete');
+  const canCreate = hasActionPermission(AppPage.USERS, PageAction.CREATE);
+  const canEdit = hasActionPermission(AppPage.USERS, PageAction.EDIT);
+  const canDelete = hasActionPermission(AppPage.USERS, PageAction.DELETE);
 
   // Show actions column only if user has any action permission
   const showActions = canEdit || canDelete;
@@ -230,7 +229,7 @@ export function UsersPage() {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
+            {filteredUsers.map((user: any) => (
               <tr key={user.id} className={!user.isActive ? 'bg-gray-50' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -259,7 +258,7 @@ export function UsersPage() {
                         <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                         <div>
                           {user.allowedHours.timeRanges ? (
-                            user.allowedHours.timeRanges.map((range, idx) => (
+                            user.allowedHours.timeRanges.map((range: { start: string; end: string }, idx: number) => (
                               <div key={idx} className="text-sm">
                                 {range.start} - {range.end}
                               </div>

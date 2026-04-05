@@ -2,6 +2,8 @@ import { ProductsRepository } from '../repositories/products.repository';
 import { AppError } from '../utils/errors';
 import type { CreateProductDTO, UpdateProductDTO, ProductStatus } from '@ejr/shared-types';
 import { db } from '../config/database';
+import { supabase } from '../config/supabase';
+import { env } from '../config/env';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -228,25 +230,38 @@ export class ProductsService {
   }
 
   async uploadImage(file: Express.Multer.File): Promise<string> {
-    // Criar pasta de uploads se não existir
-    const uploadsDir = path.join(process.cwd(), 'uploads', 'products');
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
     // Gerar nome único para o arquivo
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(7);
     const extension = path.extname(file.originalname);
     const filename = `product-${timestamp}-${randomString}${extension}`;
 
-    // Salvar arquivo
+    // Upload para Supabase Storage se configurado
+    if (supabase && env.SUPABASE_URL) {
+      const { error } = await supabase.storage
+        .from('product-images')
+        .upload(filename, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+
+      if (error) {
+        throw new AppError(`Erro ao enviar imagem: ${error.message}`, 500, 'STORAGE_UPLOAD_ERROR');
+      }
+
+      return `${env.SUPABASE_URL}/storage/v1/object/public/product-images/${filename}`;
+    }
+
+    // Fallback: filesystem local (desenvolvimento sem Supabase)
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'products');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
     const filePath = path.join(uploadsDir, filename);
     fs.writeFileSync(filePath, file.buffer);
 
-    // Retornar URL relativa
-    const fileUrl = `/uploads/products/${filename}`;
-    return fileUrl;
+    return `/uploads/products/${filename}`;
   }
 
   // Métodos para gerenciar BOM (Bill of Materials)

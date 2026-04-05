@@ -54,5 +54,10 @@ apps/api/uploads/
 apps/api/backups/
 apps/api/data/
 
+# Credenciais
+CREDENCIAIS_PLATAFORMAS.md
+VERCEL_ENV_BACKEND.txt
+VERCEL_ENV_FRONTEND.txt
+
 # Vercel
 .vercel
