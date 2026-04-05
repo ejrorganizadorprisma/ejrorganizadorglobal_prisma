@@ -32,7 +32,7 @@ export function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">EJR Organizador</h1>
+              <h1 className="text-xl font-bold text-gray-900">EJR Organizador Global - Prisma</h1>
             </div>
             <div className="flex items-center gap-4">
               <NotificationDropdown />
@@ -86,29 +86,6 @@ export function DashboardPage() {
                 <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
                   <div className="text-sm text-gray-500 mb-1">Estoque Baixo</div>
                   <div className="text-2xl lg:text-3xl font-bold text-red-600">{metrics.lowStockProducts?.length || 0}</div>
-                </div>
-              </div>
-
-              {/* Métricas de Ordens de Serviço */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Ordens de Serviço</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
-                    <div className="text-sm text-gray-500 mb-1">Total</div>
-                    <div className="text-2xl font-bold text-gray-900">{metrics.totalServiceOrders}</div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
-                    <div className="text-sm text-gray-500 mb-1">Abertas</div>
-                    <div className="text-2xl font-bold text-yellow-600">{metrics.openServiceOrders}</div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
-                    <div className="text-sm text-gray-500 mb-1">Em Andamento</div>
-                    <div className="text-2xl font-bold text-purple-600">{metrics.inProgressServiceOrders}</div>
-                  </div>
-                  <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
-                    <div className="text-sm text-gray-500 mb-1">Aguardando Peças</div>
-                    <div className="text-2xl font-bold text-orange-600">{metrics.awaitingPartsServiceOrders}</div>
-                  </div>
                 </div>
               </div>
 
