@@ -17,7 +17,16 @@ import { QuotesPage } from './pages/QuotesPage';
 import { QuoteFormPage } from './pages/QuoteFormPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { SupplierFormPage } from './pages/SupplierFormPage';
-import { ReportsPage } from './pages/ReportsPage';
+import { ReportsHubPage } from './pages/ReportsHubPage';
+import { ReportSuppliersPage } from './pages/reports/ReportSuppliersPage';
+import { ReportProductsPage } from './pages/reports/ReportProductsPage';
+import { ReportCustomersPage } from './pages/reports/ReportCustomersPage';
+import { ReportSalesPage } from './pages/reports/ReportSalesPage';
+import { ReportFinancialPage } from './pages/reports/ReportFinancialPage';
+import { ReportPurchasesPage } from './pages/reports/ReportPurchasesPage';
+import { ReportOrdersPage } from './pages/reports/ReportOrdersPage';
+import { ReportProductionPage } from './pages/reports/ReportProductionPage';
+import { ReportServiceOrdersPage } from './pages/reports/ReportServiceOrdersPage';
 import { ServiceOrdersPage } from './pages/ServiceOrdersPage';
 import { ServiceOrderFormPage } from './pages/ServiceOrderFormPage';
 import { ServiceOrderDetailPage } from './pages/ServiceOrderDetailPage';
@@ -408,11 +417,20 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MainLayout>
-              <ReportsPage />
+              <ReportsHubPage />
             </MainLayout>
           </ProtectedRoute>
         }
       />
+      <Route path="/reports/suppliers" element={<ProtectedRoute><MainLayout><ReportSuppliersPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/products" element={<ProtectedRoute><MainLayout><ReportProductsPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/customers" element={<ProtectedRoute><MainLayout><ReportCustomersPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/sales" element={<ProtectedRoute><MainLayout><ReportSalesPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/financial" element={<ProtectedRoute><MainLayout><ReportFinancialPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/purchases" element={<ProtectedRoute><MainLayout><ReportPurchasesPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/orders" element={<ProtectedRoute><MainLayout><ReportOrdersPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/production" element={<ProtectedRoute><MainLayout><ReportProductionPage /></MainLayout></ProtectedRoute>} />
+      <Route path="/reports/service-orders" element={<ProtectedRoute><MainLayout><ReportServiceOrdersPage /></MainLayout></ProtectedRoute>} />
       <Route
         path="/users"
         element={

@@ -173,9 +173,20 @@ const menuItems: MenuItem[] = [
   },
   {
     name: 'Relatórios',
-    path: '/reports',
     icon: <TrendingUp className="w-5 h-5" />,
     page: 'reports' as AppPage,
+    submenu: [
+      { name: 'Central de Relatórios', path: '/reports', icon: <TrendingUp className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Fornecedores', path: '/reports/suppliers', icon: <Users className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Produtos', path: '/reports/products', icon: <Package className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Clientes', path: '/reports/customers', icon: <Users className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Vendas', path: '/reports/sales', icon: <DollarSign className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Financeiro', path: '/reports/financial', icon: <Wallet className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Orç. de Compra', path: '/reports/purchases', icon: <ShoppingCart className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Pedidos', path: '/reports/orders', icon: <Truck className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Produção', path: '/reports/production', icon: <Factory className="w-4 h-4" />, page: 'reports' as AppPage },
+      { name: 'Ordens de Serviço', path: '/reports/service-orders', icon: <Wrench className="w-4 h-4" />, page: 'reports' as AppPage },
+    ],
   },
   {
     name: 'Configurações',
