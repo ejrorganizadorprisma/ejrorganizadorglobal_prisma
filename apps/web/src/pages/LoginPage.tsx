@@ -20,17 +20,6 @@ export function LoginPage() {
     }
   };
 
-  const quickLogin = async (userEmail: string, userPassword: string) => {
-    try {
-      setEmail(userEmail);
-      setPassword(userPassword);
-      await login({ email: userEmail, password: userPassword });
-      navigate('/dashboard');
-    } catch (error) {
-      // Erro já tratado no hook
-    }
-  };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 px-4">
       <div className="max-w-md w-full space-y-8 p-6 sm:p-8 bg-white rounded-xl shadow-lg">
@@ -108,54 +97,6 @@ export function LoginPage() {
           </div>
         </form>
 
-        {/* Botões de Login Rápido - Apenas para Desenvolvimento */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <p className="text-xs text-center text-gray-500 mb-3">Login Rápido (Dev)</p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => quickLogin('admin@ejr.com', 'admin123')}
-              disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50 transition-colors"
-            >
-              Admin
-            </button>
-            <button
-              onClick={() => quickLogin('leo@ejr.com', 'leo123')}
-              disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-md disabled:opacity-50 transition-colors"
-            >
-              Leonardo
-            </button>
-            <button
-              onClick={() => quickLogin('vendedor@ejr.com', 'venda123')}
-              disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-md disabled:opacity-50 transition-colors"
-            >
-              Vendedor
-            </button>
-            <button
-              onClick={() => quickLogin('producao@ejr.com', 'prod123')}
-              disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors"
-            >
-              Produção
-            </button>
-            <button
-              onClick={() => quickLogin('almoxarife@ejr.com', 'almox123')}
-              disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-md disabled:opacity-50 transition-colors"
-            >
-              Almoxarife
-            </button>
-            <button
-              onClick={() => quickLogin('compras@ejr.com', 'compras123')}
-              disabled={isLoading}
-              className="px-3 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-md disabled:opacity-50 transition-colors"
-            >
-              Compras
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
