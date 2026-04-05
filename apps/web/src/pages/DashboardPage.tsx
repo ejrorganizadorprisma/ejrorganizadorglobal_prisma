@@ -6,7 +6,8 @@ import { NotificationDropdown } from '../components/NotificationDropdown';
 import { AppPage } from '@ejr/shared-types';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useFinancialSummary } from '../hooks/useFinancial';
-import { Wallet } from 'lucide-react';
+import { useSaleStats } from '../hooks/useSales';
+import { Wallet, ShoppingCart } from 'lucide-react';
 
 export function DashboardPage() {
   const { formatPrice } = useFormatPrice();
@@ -20,6 +21,7 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { data: metrics, isLoading } = useDashboardMetrics();
   const { data: financialSummary } = useFinancialSummary();
+  const { data: saleStats } = useSaleStats();
 
   const handleLogout = async () => {
     await logout();
@@ -88,6 +90,46 @@ export function DashboardPage() {
                   <div className="text-2xl lg:text-3xl font-bold text-red-600">{metrics.lowStockProducts?.length || 0}</div>
                 </div>
               </div>
+
+              {/* Métricas de Vendas */}
+              {saleStats && (
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <ShoppingCart className="w-5 h-5 text-indigo-600" />
+                      Vendas
+                    </h3>
+                    <button
+                      onClick={() => navigate('/sales')}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Ver todas →
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="bg-white p-4 rounded-lg shadow border-l-4 border-indigo-500">
+                      <div className="text-sm text-gray-500 mb-1">Total de Vendas</div>
+                      <div className="text-2xl font-bold text-gray-900">{saleStats.totalSales}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow border-l-4 border-emerald-500">
+                      <div className="text-sm text-gray-500 mb-1">Faturamento</div>
+                      <div className="text-xl font-bold text-emerald-600">{formatPrice(saleStats.totalRevenue)}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+                      <div className="text-sm text-gray-500 mb-1">Recebido</div>
+                      <div className="text-xl font-bold text-green-600">{formatPrice(saleStats.totalPaid)}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow border-l-4 border-yellow-500">
+                      <div className="text-sm text-gray-500 mb-1">Pendente</div>
+                      <div className="text-xl font-bold text-yellow-600">{formatPrice(saleStats.totalPending)}</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+                      <div className="text-sm text-gray-500 mb-1">Ticket Médio</div>
+                      <div className="text-xl font-bold text-blue-600">{formatPrice(saleStats.averageTicket)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Métricas de Orçamentos */}
               <div className="mb-8">
