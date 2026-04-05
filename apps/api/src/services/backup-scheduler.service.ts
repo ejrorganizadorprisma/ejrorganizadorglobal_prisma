@@ -37,8 +37,8 @@ export interface BackupHistoryEntry {
 
 const BACKUPS_DIR = path.join(process.cwd(), 'backups');
 
-// Ensure backups directory exists
-if (!fs.existsSync(BACKUPS_DIR)) {
+// Ensure backups directory exists (skip on serverless - filesystem is read-only)
+if (!process.env.VERCEL && !fs.existsSync(BACKUPS_DIR)) {
   fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 }
 
