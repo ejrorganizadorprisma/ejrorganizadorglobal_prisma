@@ -33,6 +33,15 @@ router.post('/check', async (req: Request, res: Response) => {
   }
 });
 
+// PUBLIC: download APK (opened via window.open, no auth header)
+router.get('/download', (_req: Request, res: Response) => {
+  const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL;
+  if (externalUrl) return res.redirect(externalUrl);
+  const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-vendedor.apk');
+  if (fs.existsSync(localPath)) return res.download(localPath, 'ejr-vendedor.apk');
+  res.status(404).json({ error: 'APK não disponível' });
+});
+
 // Protected routes
 router.use(authenticate);
 
@@ -165,15 +174,6 @@ router.post('/sync-done', async (req: AuthRequest, res: Response) => {
   } catch {
     res.status(500).json({ error: 'Erro ao registrar sync' });
   }
-});
-
-// GET /download
-router.get('/download', (_req: Request, res: Response) => {
-  const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL;
-  if (externalUrl) return res.redirect(externalUrl);
-  const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-vendedor.apk');
-  if (fs.existsSync(localPath)) return res.download(localPath, 'ejr-vendedor.apk');
-  res.status(404).json({ error: 'APK não disponível' });
 });
 
 export default router;
