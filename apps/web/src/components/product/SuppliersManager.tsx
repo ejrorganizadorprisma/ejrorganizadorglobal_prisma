@@ -160,6 +160,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
               <CurrencyInput
                 label="Preço Unitário"
                 value={newSupplier.unitPrice}
+                currency="PYG"
                 onChange={(cents) => setNewSupplier({ ...newSupplier, unitPrice: cents })}
                 required
               />
@@ -261,6 +262,7 @@ export function SuppliersManager({ productId }: SuppliersManagerProps) {
                     <CurrencyInput
                       label="Preço Unitário"
                       value={editData.unitPrice}
+                      currency="PYG"
                       onChange={(cents) => setEditData({ ...editData, unitPrice: cents })}
                     />
                   </div>

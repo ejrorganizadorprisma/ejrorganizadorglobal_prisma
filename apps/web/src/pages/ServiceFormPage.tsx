@@ -202,6 +202,7 @@ export function ServiceFormPage() {
               <CurrencyInput
                 label="Preço Padrão"
                 value={formData.defaultPrice}
+                currency="PYG"
                 onChange={(cents) => setFormData({ ...formData, defaultPrice: cents })}
                 required
               />

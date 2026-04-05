@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Shield, Save, ChevronDown, ChevronRight } from 'lucide-react';
 import { usePermissions, useUpdatePermissions } from '../hooks/usePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
-import type { PermissionsConfig, UserRole, AppPage, PageAction, PagePermissions } from '@ejr/shared-types';
+import { AppPage } from '@ejr/shared-types';
+import type { PermissionsConfig, UserRole, PageAction, PagePermissions } from '@ejr/shared-types';
 
 const roleLabels: Record<UserRole, string> = {
   OWNER: 'Proprietário',
@@ -40,6 +41,8 @@ const pageLabels: Record<AppPage, string> = {
   storage_locations: 'Localização de Estoque',
   stock_adjustment: 'Ajuste de Estoque',
   backup: 'Backup',
+  digital_fabrication: 'Fabricação Digital',
+  purchase_budgets: 'Orç. de Compra',
 };
 
 const actionLabels: Record<PageAction, string> = {
@@ -48,6 +51,8 @@ const actionLabels: Record<PageAction, string> = {
   edit: 'Editar',
   delete: 'Excluir',
   convert: 'Converter',
+  approve: 'Aprovar',
+  purchase: 'Comprar',
 };
 
 const allPages: AppPage[] = Object.keys(pageLabels) as AppPage[];
