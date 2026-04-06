@@ -11,6 +11,9 @@ import routes from './routes';
 
 export const app = express();
 
+// Trust proxy (Vercel runs behind a reverse proxy)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 
@@ -41,7 +44,7 @@ app.use(
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: env.NODE_ENV === 'production' ? 100 : 1000, // 1000 requests em dev, 100 em prod
+  max: env.NODE_ENV === 'production' ? 300 : 1000, // 1000 requests em dev, 300 em prod
   message: 'Muitas requisições deste IP, tente novamente mais tarde.',
   skip: (req) => {
     // Skip rate limiting para localhost em desenvolvimento
