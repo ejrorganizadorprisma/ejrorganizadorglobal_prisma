@@ -37,8 +37,8 @@ router.post('/check', async (req: Request, res: Response) => {
 router.get('/download', (_req: Request, res: Response) => {
   const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL;
   if (externalUrl) return res.redirect(externalUrl);
-  const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-vendedor.apk');
-  if (fs.existsSync(localPath)) return res.download(localPath, 'ejr-vendedor.apk');
+  const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-orglobal.apk');
+  if (fs.existsSync(localPath)) return res.download(localPath, 'ejr-orglobal.apk');
   res.status(404).json({ error: 'APK não disponível' });
 });
 
@@ -68,7 +68,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
 
     // Download info
     const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL;
-    const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-vendedor.apk');
+    const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-orglobal.apk');
     const localExists = fs.existsSync(localPath);
     let fileSize: number | null = null;
     if (localExists) fileSize = fs.statSync(localPath).size;
@@ -90,7 +90,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
         stats: { authorizedCount, activeToday, totalSellers: sellers.length },
         download: {
           appVersion: '1.0.0',
-          appName: 'EJR Vendedor',
+          appName: 'EJR OrGlobal',
           platform: 'Android',
           fileSize: fileSize || 74_000_000,
           available: !!(externalUrl || localExists),

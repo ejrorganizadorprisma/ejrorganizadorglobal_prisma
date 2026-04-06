@@ -606,7 +606,7 @@ function MobileAppPageContent() {
             </div>
             <div>
               <h2 className="text-lg font-bold">
-                {download?.appName || 'EJR Vendedor'}
+                {download?.appName || 'EJR OrGlobal'}
               </h2>
               <p className="text-blue-100 text-sm">
                 v{download?.appVersion || '1.0.0'} &middot;{' '}
