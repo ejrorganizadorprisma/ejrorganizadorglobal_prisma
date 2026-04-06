@@ -20,12 +20,10 @@ const STORAGE_KEY_URL = '@ejr_api_url';
 
 interface SyncLogEntry {
   id: number;
-  entity: string;
   action: string;
-  entity_id: string;
   status: string;
+  message: string;
   created_at: string;
-  error?: string;
 }
 
 export default function SyncScreen() {
@@ -41,7 +39,8 @@ export default function SyncScreen() {
   const pendingCustomers = syncStatus?.pendingCustomers || 0;
   const pendingQuotes = syncStatus?.pendingQuotes || 0;
   const pendingSales = syncStatus?.pendingSales || 0;
-  const totalPending = pendingCustomers + pendingQuotes + pendingSales;
+  const pendingCollections = syncStatus?.pendingCollections || 0;
+  const totalPending = pendingCustomers + pendingQuotes + pendingSales + pendingCollections;
   const lastSync = syncStatus?.lastSync || null;
 
   const loadData = useCallback(async () => {
@@ -189,6 +188,13 @@ export default function SyncScreen() {
         </View>
         <View style={styles.divider} />
         <View style={styles.pendingRow}>
+          <Text style={styles.pendingLabel}>Cobrancas pendentes</Text>
+          <Text style={[styles.pendingValue, pendingCollections > 0 && styles.pendingActive]}>
+            {pendingCollections}
+          </Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.pendingRow}>
           <Text style={[styles.pendingLabel, { fontWeight: '600' }]}>Total</Text>
           <View
             style={[
@@ -295,12 +301,12 @@ export default function SyncScreen() {
                       ]}
                     />
                     <Text style={styles.logEntity}>
-                      {entry.entity} - {entry.action}
+                      {entry.action}
                     </Text>
                   </View>
-                  {entry.error && (
-                    <Text style={styles.logError} numberOfLines={2}>
-                      {entry.error}
+                  {entry.message && (
+                    <Text style={entry.status === 'ERROR' ? styles.logError : styles.logMessage} numberOfLines={3}>
+                      {entry.message}
                     </Text>
                   )}
                 </View>
@@ -536,6 +542,12 @@ const styles = StyleSheet.create({
   logError: {
     fontSize: 11,
     color: '#EF4444',
+    marginTop: 4,
+    marginLeft: 16,
+  },
+  logMessage: {
+    fontSize: 11,
+    color: '#6B7280',
     marginTop: 4,
     marginLeft: 16,
   },

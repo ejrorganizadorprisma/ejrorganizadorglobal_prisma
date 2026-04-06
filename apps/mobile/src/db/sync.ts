@@ -158,11 +158,21 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
         await db.runAsync("DELETE FROM sync_queue WHERE id = ?", [item.id]);
         pushed++;
       } else {
+        const errMsg = result?.error?.message || 'Erro desconhecido';
         await db.runAsync("UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?", [item.id]);
+        await db.runAsync(
+          "INSERT INTO sync_log (action, status, message) VALUES (?, 'ERROR', ?)",
+          [`PUSH:${item.entity}:${item.action}`, `${item.entity}/${item.entity_id}: ${errMsg}`]
+        );
         errors++;
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errMsg = error?.message || 'Erro de rede';
       await db.runAsync("UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?", [item.id]);
+      await db.runAsync(
+        "INSERT INTO sync_log (action, status, message) VALUES (?, 'ERROR', ?)",
+        [`PUSH:${item.entity}:${item.action}`, `${item.entity}/${item.entity_id}: ${errMsg}`]
+      );
       errors++;
     }
   }
