@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/migrations';
-import { apiRequest } from '../api/client';
-import { useAuthStore } from '../store/authStore';
-import NetInfo from '@react-native-community/netinfo';
 import { generateId } from '../utils/generateId';
 
 export interface QuoteItem {
@@ -33,41 +30,26 @@ export interface Quote {
 export function useQuotes(search?: string) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
-  const { token } = useAuthStore();
 
   const loadFromDb = useCallback(async () => {
-    const db = await getDatabase();
-    const rows = await db.getAllAsync<{ id: string; data: string; synced: number }>(
-      'SELECT id, data, synced FROM quotes ORDER BY rowid DESC'
-    );
-    let items = rows.map(r => ({ ...JSON.parse(r.data), synced: r.synced === 1 } as Quote));
-    if (search) {
-      const s = search.toLowerCase();
-      items = items.filter(q => (q.quoteNumber || '').toLowerCase().includes(s) || (q.customerName || '').toLowerCase().includes(s));
-    }
-    setQuotes(items);
+    try {
+      const db = await getDatabase();
+      const rows = await db.getAllAsync<{ id: string; data: string; synced: number }>(
+        'SELECT id, data, synced FROM quotes ORDER BY rowid DESC'
+      );
+      let items = rows.map(r => ({ ...JSON.parse(r.data), synced: r.synced === 1 } as Quote));
+      if (search) {
+        const s = search.toLowerCase();
+        items = items.filter(q => (q.quoteNumber || '').toLowerCase().includes(s) || (q.customerName || '').toLowerCase().includes(s));
+      }
+      setQuotes(items);
+    } catch { /* ignore */ }
     setLoading(false);
   }, [search]);
 
   const refresh = useCallback(async () => {
-    const net = await NetInfo.fetch();
-    if (net.isConnected && token) {
-      try {
-        const result = await apiRequest('/quotes?limit=1000', { token });
-        if (result.success && result.data) {
-          const db = await getDatabase();
-          const list = Array.isArray(result.data) ? result.data : [];
-          for (const q of list) {
-            await db.runAsync(
-              "INSERT OR REPLACE INTO quotes (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-              [q.id, JSON.stringify(q)]
-            );
-          }
-        }
-      } catch (e) {}
-    }
     await loadFromDb();
-  }, [token, loadFromDb]);
+  }, [loadFromDb]);
 
   const createQuote = useCallback(async (data: {
     customerId: string;
@@ -95,7 +77,6 @@ export function useQuotes(search?: string) {
       "INSERT INTO quotes (id, data, synced, updated_at) VALUES (?, ?, 0, datetime('now'))",
       [id, JSON.stringify(quote)]
     );
-    // Clean items: strip extra fields (productName) and fix date format before storing
     const cleanItems = data.items.map(({ productName, ...item }) => item);
     const cleanValidUntil = data.validUntil.includes('T') ? data.validUntil : `${data.validUntil}T23:59:59.000Z`;
     await db.runAsync(
@@ -106,7 +87,7 @@ export function useQuotes(search?: string) {
     return quote;
   }, [loadFromDb]);
 
-  useEffect(() => { refresh(); }, [search]);
+  useEffect(() => { loadFromDb(); }, [loadFromDb]);
 
   return { quotes, loading, refresh, createQuote };
 }

@@ -3,6 +3,7 @@ import { DEFAULT_API_URL } from '../utils/constants';
 
 const STORAGE_KEY_URL = '@ejr_api_url';
 const STORAGE_KEY_API_KEY = '@ejr_mobile_api_key';
+const REQUEST_TIMEOUT_MS = 15000;
 
 let cachedBaseUrl: string | null = null;
 let cachedApiKey: string | null = null;
@@ -39,11 +40,12 @@ export async function apiRequest<T = any>(
     method?: string;
     body?: any;
     token?: string;
+    timeoutMs?: number;
   } = {}
 ): Promise<{ success: boolean; data?: T; error?: any; total?: number; pagination?: any }> {
   const baseUrl = await getBaseUrl();
   const apiKey = await getApiKey();
-  const { method = 'GET', body, token } = options;
+  const { method = 'GET', body, token, timeoutMs = REQUEST_TIMEOUT_MS } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -56,12 +58,17 @@ export async function apiRequest<T = any>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     const response = await fetch(`${baseUrl}${endpoint}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const json = await response.json();
 
@@ -71,6 +78,10 @@ export async function apiRequest<T = any>(
 
     return json;
   } catch (error: any) {
-    return { success: false, error: { message: error.message || 'Network error' } };
+    clearTimeout(timeoutId);
+    const message = error.name === 'AbortError'
+      ? 'Tempo limite excedido'
+      : (error.message || 'Erro de rede');
+    return { success: false, error: { message } };
   }
 }

@@ -40,18 +40,12 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   };
 }
 
-/**
- * Sanitize payload before sending to backend.
- * Strips extra fields that backend schemas reject and fixes date formats.
- */
 function sanitizePayload(entity: string, payload: any): any {
   if (entity === 'quotes') {
     const clean = { ...payload };
-    // Fix validUntil: backend requires ISO datetime, mobile may send date-only
     if (clean.validUntil && !clean.validUntil.includes('T')) {
       clean.validUntil = `${clean.validUntil}T23:59:59.000Z`;
     }
-    // Clean items: strip extra fields like productName that Zod rejects
     if (Array.isArray(clean.items)) {
       clean.items = clean.items.map((item: any) => {
         if (item.itemType === 'PRODUCT') {
@@ -66,7 +60,6 @@ function sanitizePayload(entity: string, payload: any): any {
 
   if (entity === 'sales') {
     const clean = { ...payload };
-    // Clean items: strip extra fields like productName
     if (Array.isArray(clean.items)) {
       clean.items = clean.items.map((item: any) => ({
         itemType: item.itemType,
@@ -83,14 +76,12 @@ function sanitizePayload(entity: string, payload: any): any {
 
   if (entity === 'collections') {
     const clean = { ...payload };
-    // Strip display-only fields
     delete clean.saleNumber;
     delete clean.customerName;
     delete clean.collectionNumber;
     delete clean.status;
     delete clean.synced;
     delete clean.createdAt;
-    // Fix checkDate format if needed
     if (clean.checkDate && !clean.checkDate.includes('T')) {
       clean.checkDate = `${clean.checkDate}T00:00:00.000Z`;
     }
@@ -107,7 +98,7 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
 
   const queue = await db.getAllAsync<{
     id: number; entity: string; action: string; entity_id: string; payload: string; attempts: number;
-  }>("SELECT * FROM sync_queue ORDER BY id ASC");
+  }>("SELECT * FROM sync_queue WHERE attempts < 5 ORDER BY id ASC");
 
   let pushed = 0;
   let errors = 0;
@@ -136,7 +127,6 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
       }
 
       if (result?.success) {
-        // Update local record with server data if CREATE
         if (item.action === 'CREATE' && result.data) {
           const serverData = result.data;
           const serverId = (serverData as any).id || item.entity_id;
@@ -144,12 +134,8 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
             `INSERT OR REPLACE INTO ${item.entity} (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))`,
             [serverId, JSON.stringify(serverData)]
           );
-          // Remove old local ID record if different
           if (serverId !== item.entity_id) {
             await db.runAsync(`DELETE FROM ${item.entity} WHERE id = ?`, [item.entity_id]);
-
-            // CRITICAL: If a customer just synced and got a new server ID,
-            // update all pending sales/quotes that reference the old local customer ID
             if (item.entity === 'customers') {
               const remaining = await db.getAllAsync<{ id: number; payload: string }>(
                 "SELECT id, payload FROM sync_queue WHERE entity IN ('sales','quotes','collections')"
@@ -184,103 +170,63 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
   return { pushed, errors };
 }
 
+async function pullEntity(
+  db: any,
+  token: string,
+  endpoint: string,
+  table: string,
+  hasSynced: boolean
+): Promise<number> {
+  const result = await apiRequest<any[]>(`${endpoint}?limit=1000`, { token, timeoutMs: 30000 });
+  if (!result.success || !result.data) return 0;
+
+  const items = Array.isArray(result.data) ? result.data : [];
+  if (items.length === 0) return 0;
+
+  await db.withTransactionAsync(async () => {
+    for (const item of items) {
+      const cols = hasSynced
+        ? "(id, data, synced, updated_at)"
+        : "(id, data, updated_at)";
+      const vals = hasSynced
+        ? "VALUES (?, ?, 1, datetime('now'))"
+        : "VALUES (?, ?, datetime('now'))";
+      await db.runAsync(
+        `INSERT OR REPLACE INTO ${table} ${cols} ${vals}`,
+        [item.id, JSON.stringify(item)]
+      );
+    }
+  });
+
+  return items.length;
+}
+
 export async function pullServerData(): Promise<{ pulled: number }> {
   const db = await getDatabase();
   const token = await getToken();
   if (!token) return { pulled: 0 };
 
-  // Get permissions from AsyncStorage
   const permsStr = await AsyncStorage.getItem('@ejr_mobile_permissions');
-  const perms = permsStr ? JSON.parse(permsStr) : { customers: true, quotes: true, sales: true, products: true };
+  const perms = permsStr ? JSON.parse(permsStr) : { customers: true, quotes: true, sales: true, products: true, collections: true };
 
   let pulled = 0;
 
-  // Pull products (read-only cache)
   if (perms.products !== false) {
-    try {
-      const productsResult = await apiRequest<any[]>('/products?limit=1000', { token });
-      if (productsResult.success && productsResult.data) {
-        const products = Array.isArray(productsResult.data) ? productsResult.data : [];
-        for (const product of products) {
-          await db.runAsync(
-            "INSERT OR REPLACE INTO products (id, data, updated_at) VALUES (?, ?, datetime('now'))",
-            [product.id, JSON.stringify(product)]
-          );
-        }
-        pulled += products.length;
-      }
-    } catch (e) { /* ignore */ }
+    try { pulled += await pullEntity(db, token, '/products', 'products', false); } catch { /* skip */ }
   }
-
-  // Pull customers
   if (perms.customers !== false) {
-    try {
-      const customersResult = await apiRequest<any[]>('/customers?limit=1000', { token });
-      if (customersResult.success && customersResult.data) {
-        const customers = Array.isArray(customersResult.data) ? customersResult.data : [];
-        for (const customer of customers) {
-          await db.runAsync(
-            "INSERT OR REPLACE INTO customers (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-            [customer.id, JSON.stringify(customer)]
-          );
-        }
-        pulled += customers.length;
-      }
-    } catch (e) { /* ignore */ }
+    try { pulled += await pullEntity(db, token, '/customers', 'customers', true); } catch { /* skip */ }
   }
-
-  // Pull quotes
   if (perms.quotes !== false) {
-    try {
-      const quotesResult = await apiRequest<any[]>('/quotes?limit=1000', { token });
-      if (quotesResult.success && quotesResult.data) {
-        const quotes = Array.isArray(quotesResult.data) ? quotesResult.data : [];
-        for (const quote of quotes) {
-          await db.runAsync(
-            "INSERT OR REPLACE INTO quotes (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-            [quote.id, JSON.stringify(quote)]
-          );
-        }
-        pulled += quotes.length;
-      }
-    } catch (e) { /* ignore */ }
+    try { pulled += await pullEntity(db, token, '/quotes', 'quotes', true); } catch { /* skip */ }
   }
-
-  // Pull sales
   if (perms.sales !== false) {
-    try {
-      const salesResult = await apiRequest<any[]>('/sales?limit=1000', { token });
-      if (salesResult.success && salesResult.data) {
-        const sales = Array.isArray(salesResult.data) ? salesResult.data : [];
-        for (const sale of sales) {
-          await db.runAsync(
-            "INSERT OR REPLACE INTO sales (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-            [sale.id, JSON.stringify(sale)]
-          );
-        }
-        pulled += sales.length;
-      }
-    } catch (e) { /* ignore */ }
+    try { pulled += await pullEntity(db, token, '/sales', 'sales', true); } catch { /* skip */ }
   }
-
-  // Pull collections
   if (perms.collections !== false) {
-    try {
-      const collectionsResult = await apiRequest<any[]>('/collections?limit=1000', { token });
-      if (collectionsResult.success && collectionsResult.data) {
-        const collections = Array.isArray(collectionsResult.data) ? collectionsResult.data : [];
-        for (const collection of collections) {
-          await db.runAsync(
-            "INSERT OR REPLACE INTO collections (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-            [collection.id, JSON.stringify(collection)]
-          );
-        }
-        pulled += collections.length;
-      }
-    } catch (e) { /* ignore */ }
+    try { pulled += await pullEntity(db, token, '/collections', 'collections', true); } catch { /* skip */ }
   }
 
-  // Log sync
   await db.runAsync(
     "INSERT INTO sync_log (action, status, message) VALUES ('PULL', 'SUCCESS', ?)",
     [`Pulled ${pulled} records`]
@@ -293,7 +239,6 @@ export async function fullSync(): Promise<{ pushed: number; pulled: number; erro
   const pushResult = await pushPendingChanges();
   const pullResult = await pullServerData();
 
-  // Notify server of completed sync
   try {
     const token = await getToken();
     if (token) {

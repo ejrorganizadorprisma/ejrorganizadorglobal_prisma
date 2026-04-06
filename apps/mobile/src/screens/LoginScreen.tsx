@@ -9,11 +9,12 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
 
-const DEFAULT_URL = 'https://ejr-organizador.vercel.app';
+const DEFAULT_URL = 'https://ejrorganizadorglobal-prisma.vercel.app';
 const STORAGE_KEY_URL = '@ejr_api_url';
 const STORAGE_KEY_API_KEY = '@ejr_mobile_api_key';
 
@@ -82,6 +83,11 @@ export default function LoginScreen() {
       >
         {/* Blue header */}
         <View style={styles.header}>
+          <Image
+            source={require('../../assets/adaptive-icon.png')}
+            style={{ width: 72, height: 72, borderRadius: 14, marginBottom: 12 }}
+            resizeMode="contain"
+          />
           <Text style={styles.headerTitle}>EJR OrGlobal</Text>
           <Text style={styles.headerSubtitle}>Plataforma de Vendas</Text>
         </View>
@@ -178,7 +184,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.footer}>EJR Organizador v1.0</Text>
+        <Text style={styles.footer}>EJR OrGlobal v1.2.0</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

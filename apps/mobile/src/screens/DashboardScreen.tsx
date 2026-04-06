@@ -21,8 +21,8 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
   const { isOnline, isSyncing, syncStatus, triggerSync, refreshStatus } = useSync();
-  const { sales, getStats } = useSales();
-  const { customers } = useCustomers();
+  const { getStats, refresh: refreshSales } = useSales();
+  const { customers, refresh: refreshCustomers } = useCustomers();
 
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
@@ -48,21 +48,29 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     loadStats();
-    refreshStatus();
   }, []);
+
+  // Reload stats after sync finishes
+  useEffect(() => {
+    if (!isSyncing) {
+      loadStats();
+      refreshCustomers();
+    }
+  }, [isSyncing]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await triggerSync();
       await loadStats();
+      await refreshCustomers();
       await refreshStatus();
     } catch {
       // ignore
     } finally {
       setRefreshing(false);
     }
-  }, [triggerSync, loadStats, refreshStatus]);
+  }, [triggerSync, loadStats, refreshCustomers, refreshStatus]);
 
   const firstName = user?.name?.split(' ')[0] || 'Vendedor';
 
@@ -212,7 +220,7 @@ const styles = StyleSheet.create({
   /* Header */
   header: {
     backgroundColor: '#0B5C9A',
-    paddingTop: 56,
+    paddingTop: 16,
     paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 20,

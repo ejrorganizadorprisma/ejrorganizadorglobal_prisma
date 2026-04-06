@@ -54,7 +54,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   login: async (email: string, password: string, connectionKey: string) => {
     try {
-      // Save the connection key before making the request
       await setApiKey(connectionKey);
 
       const result = await apiRequest<{ user: User; token: string; mobilePermissions?: MobilePermissions }>('/auth/login', {
@@ -69,7 +68,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (mobilePermissions) {
           await AsyncStorage.setItem('@ejr_mobile_permissions', JSON.stringify(mobilePermissions));
         }
-        set({ user, token, isAuthenticated: true, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions });
+        set({ user, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions });
         return { success: true };
       }
 
@@ -88,40 +87,54 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await SecureStore.deleteItemAsync('auth_token');
     await AsyncStorage.removeItem('@ejr_mobile_permissions');
-    set({ user: null, token: null, isAuthenticated: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions: null });
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions: null });
   },
 
   loadToken: async () => {
     try {
       const token = await SecureStore.getItemAsync('auth_token');
       if (token) {
-        set({ token, isLoading: true });
-        const result = await apiRequest<User & { mobilePermissions?: MobilePermissions }>('/auth/me', { token });
+        // Try to validate token with a timeout
+        const result = await apiRequest<User & { mobilePermissions?: MobilePermissions }>('/auth/me', { token, timeoutMs: 10000 });
         if (result.success && result.data) {
           let mobilePermissions: MobilePermissions | null = result.data.mobilePermissions || null;
           if (mobilePermissions) {
             await AsyncStorage.setItem('@ejr_mobile_permissions', JSON.stringify(mobilePermissions));
           } else {
-            // Fallback: load from AsyncStorage
             const stored = await AsyncStorage.getItem('@ejr_mobile_permissions');
             if (stored) {
               mobilePermissions = JSON.parse(stored);
             }
           }
-          set({ user: result.data, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
+          set({ user: result.data, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
           return;
         }
 
-        // Check if it's a mobile access error (admin disabled or key changed)
+        // If API call failed but not a mobile access error, still allow offline access
         const errorMsg = result.error?.message;
         if (isMobileAccessError(errorMsg)) {
           await SecureStore.deleteItemAsync('auth_token');
           set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: true, mobileAccessError: errorMsg, mobilePermissions: null });
           return;
         }
+
+        // Network/timeout error: allow offline access with cached permissions
+        const storedPerms = await AsyncStorage.getItem('@ejr_mobile_permissions');
+        const mobilePermissions = storedPerms ? JSON.parse(storedPerms) : null;
+        set({ user: null, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
+        return;
       }
     } catch (error) {
-      // Token invalid or expired
+      // Token invalid or expired — allow offline access if token exists
+      try {
+        const token = await SecureStore.getItemAsync('auth_token');
+        if (token) {
+          const storedPerms = await AsyncStorage.getItem('@ejr_mobile_permissions');
+          const mobilePermissions = storedPerms ? JSON.parse(storedPerms) : null;
+          set({ user: null, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
+          return;
+        }
+      } catch { /* ignore */ }
     }
     set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobilePermissions: null });
   },
@@ -130,7 +143,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { token } = get();
     if (!token) return;
     try {
-      const result = await apiRequest<User & { mobilePermissions?: MobilePermissions }>('/auth/me', { token });
+      const result = await apiRequest<User & { mobilePermissions?: MobilePermissions }>('/auth/me', { token, timeoutMs: 10000 });
       if (result.success && result.data) {
         const mobilePermissions = result.data.mobilePermissions || null;
         if (mobilePermissions) {
@@ -144,7 +157,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ user: null, token: null, isAuthenticated: false, mobileAccessDenied: true, mobileAccessError: errorMsg, mobilePermissions: null });
         }
       }
-    } catch (error) {
+    } catch {
       // silently fail
     }
   },

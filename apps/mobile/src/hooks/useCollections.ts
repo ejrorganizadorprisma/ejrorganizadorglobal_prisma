@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/migrations';
-import { apiRequest } from '../api/client';
-import { useAuthStore } from '../store/authStore';
-import NetInfo from '@react-native-community/netinfo';
 import { generateId } from '../utils/generateId';
 
 export interface CollectionItem {
@@ -29,44 +26,29 @@ export interface CollectionItem {
 export function useCollections(search?: string) {
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const { token } = useAuthStore();
 
   const loadFromDb = useCallback(async () => {
-    const db = await getDatabase();
-    const rows = await db.getAllAsync<{ id: string; data: string; synced: number }>(
-      'SELECT id, data, synced FROM collections ORDER BY rowid DESC'
-    );
-    let items = rows.map(r => ({ ...JSON.parse(r.data), synced: r.synced === 1 } as CollectionItem));
-    if (search) {
-      const s = search.toLowerCase();
-      items = items.filter(c =>
-        (c.collectionNumber || '').toLowerCase().includes(s) ||
-        (c.customerName || '').toLowerCase().includes(s)
+    try {
+      const db = await getDatabase();
+      const rows = await db.getAllAsync<{ id: string; data: string; synced: number }>(
+        'SELECT id, data, synced FROM collections ORDER BY rowid DESC'
       );
-    }
-    setCollections(items);
+      let items = rows.map(r => ({ ...JSON.parse(r.data), synced: r.synced === 1 } as CollectionItem));
+      if (search) {
+        const s = search.toLowerCase();
+        items = items.filter(c =>
+          (c.collectionNumber || '').toLowerCase().includes(s) ||
+          (c.customerName || '').toLowerCase().includes(s)
+        );
+      }
+      setCollections(items);
+    } catch { /* ignore */ }
     setLoading(false);
   }, [search]);
 
   const refresh = useCallback(async () => {
-    const net = await NetInfo.fetch();
-    if (net.isConnected && token) {
-      try {
-        const result = await apiRequest('/collections?limit=1000', { token });
-        if (result.success && result.data) {
-          const db = await getDatabase();
-          const list = Array.isArray(result.data) ? result.data : [];
-          for (const c of list) {
-            await db.runAsync(
-              "INSERT OR REPLACE INTO collections (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
-              [c.id, JSON.stringify(c)]
-            );
-          }
-        }
-      } catch (e) { /* offline */ }
-    }
     await loadFromDb();
-  }, [token, loadFromDb]);
+  }, [loadFromDb]);
 
   const createCollection = useCallback(async (data: {
     saleId: string;
@@ -107,7 +89,6 @@ export function useCollections(search?: string) {
       "INSERT INTO collections (id, data, synced, updated_at) VALUES (?, ?, 0, datetime('now'))",
       [id, JSON.stringify(collection)]
     );
-    // Clean payload for sync: strip display-only fields
     const syncPayload = {
       saleId: data.saleId,
       customerId: data.customerId,
@@ -129,7 +110,7 @@ export function useCollections(search?: string) {
     return collection;
   }, [loadFromDb]);
 
-  useEffect(() => { refresh(); }, [search]);
+  useEffect(() => { loadFromDb(); }, [loadFromDb]);
 
   return { collections, loading, refresh, createCollection };
 }
