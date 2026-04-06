@@ -35,6 +35,9 @@ import inventoryMovementsRoutes from './inventory-movements.routes';
 import financialRoutes from './financial.routes';
 import sellersRoutes from './sellers.routes';
 import mobileAppRoutes from './mobile-app.routes';
+import collectionsRoutes from './collections.routes';
+import commissionsRoutes from './commissions.routes';
+import gpsRoutes from './gps.routes';
 
 const router = Router();
 
@@ -84,5 +87,8 @@ router.use('/inventory-movements', inventoryMovementsRoutes);
 router.use('/financial', financialRoutes);
 router.use('/sellers', sellersRoutes);
 router.use('/mobile-app', mobileAppRoutes);
+router.use('/collections', collectionsRoutes);
+router.use('/commissions', commissionsRoutes);
+router.use('/gps', gpsRoutes);
 
 export default router;

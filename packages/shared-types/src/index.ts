@@ -46,6 +46,15 @@ export * from './models/purchase-budget';
 // Financial (Financeiro)
 export * from './models/financial';
 
+// Collection (Cobrança)
+export * from './models/collection';
+
+// Commission (Comissão)
+export * from './models/commission';
+
+// GPS
+export * from './models/gps';
+
 // API Response types
 export interface ApiResponse<T = any> {
   success: boolean;

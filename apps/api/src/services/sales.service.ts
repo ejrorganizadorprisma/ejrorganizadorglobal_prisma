@@ -1,9 +1,11 @@
 import { SalesRepository } from '../repositories/sales.repository';
 import { QuotesRepository } from '../repositories/quotes.repository';
+import { CommissionsRepository } from '../repositories/commissions.repository';
 import { NotFoundError, BadRequestError } from '../utils/errors';
 import { db } from '../config/database';
 import {
   SaleStatus,
+  CommissionSourceType,
   type CreateSaleDTO,
   type UpdateSaleDTO,
   type SaleFilters,
@@ -17,6 +19,7 @@ export class SalesService {
   private repository = new SalesRepository();
   private quotesRepository = new QuotesRepository();
   private customersRepository = new CustomersRepository();
+  private commissionsRepository = new CommissionsRepository();
 
   /**
    * Listar vendas com filtros
@@ -112,7 +115,44 @@ export class SalesService {
       }
     }
 
-    return this.repository.create(data, userId);
+    const sale = await this.repository.create(data, userId);
+
+    // ─── Post-creation hooks (GPS + Commissions) ───
+    // These run after the sale is committed; failures are logged but do not rollback the sale.
+    try {
+      // GPS event
+      if (data.latitude != null && data.longitude != null) {
+        // Store coordinates on the sale record
+        await db.query(
+          'UPDATE sales SET latitude = $1, longitude = $2 WHERE id = $3',
+          [data.latitude, data.longitude, sale.id]
+        );
+
+        // Insert gps_event
+        const gpsId = `gps-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        await db.query(
+          `INSERT INTO gps_events (id, user_id, event_type, event_id, latitude, longitude)
+           VALUES ($1, $2, 'SALE', $3, $4, $5)`,
+          [gpsId, userId, sale.id, data.latitude, data.longitude]
+        );
+      }
+
+      // Commission entry
+      const config = await this.commissionsRepository.getConfig(userId);
+      if (config && config.active && config.commissionOnSales > 0) {
+        await this.commissionsRepository.createEntry(
+          userId,
+          CommissionSourceType.SALE,
+          sale.id,
+          sale.total,
+          config.commissionOnSales
+        );
+      }
+    } catch (hookError) {
+      console.error('Erro nos hooks pós-criação de venda (GPS/Comissão):', hookError);
+    }
+
+    return sale;
   }
 
   /**

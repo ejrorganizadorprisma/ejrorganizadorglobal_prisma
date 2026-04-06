@@ -11,6 +11,7 @@ router.use(authorize(['OWNER', 'DIRECTOR', 'MANAGER']));
 
 router.get('/stats', controller.getStats);
 router.get('/comparison', controller.getComparison);
+router.get('/:id/detail', controller.getSellerDetail);
 router.get('/:id/stats', controller.getSellerStats);
 
 export default router;

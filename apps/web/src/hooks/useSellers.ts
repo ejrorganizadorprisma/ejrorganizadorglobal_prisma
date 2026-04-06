@@ -64,6 +64,72 @@ export function useSellerTimeSeries(
   });
 }
 
+export interface SellerDetail {
+  seller: {
+    id: string;
+    name: string;
+    email: string;
+    is_active: boolean;
+    mobile_app_authorized: boolean;
+    mobile_app_last_login: string | null;
+    mobile_app_last_sync: string | null;
+  } | null;
+  sales: Array<{
+    id: string;
+    sale_number: string;
+    total: number;
+    status: string;
+    sale_date: string;
+    created_at: string;
+    customer_name: string;
+  }>;
+  quotes: Array<{
+    id: string;
+    quote_number: string;
+    total: number;
+    status: string;
+    created_at: string;
+    customer_name: string;
+  }>;
+  customers: Array<{
+    id: string;
+    name: string;
+    type: string;
+    phone: string;
+    created_at: string;
+  }>;
+  collections: Array<{
+    id: string;
+    collection_number: string;
+    amount: number;
+    payment_method: string;
+    status: string;
+    created_at: string;
+    customer_name: string;
+    sale_number: string;
+  }>;
+  commission: {
+    pending_amount: number;
+    settled_amount: number;
+    total_earned: number;
+    config: { commission_on_sales: number; commission_on_collections: number } | null;
+  };
+}
+
+export function useSellerDetail(
+  sellerId: string | null,
+  filters?: { startDate?: string; endDate?: string }
+) {
+  return useQuery({
+    queryKey: ['sellers', sellerId, 'detail', filters],
+    queryFn: async () => {
+      const { data } = await api.get(`/sellers/${sellerId}/detail`, { params: filters });
+      return data.data as SellerDetail;
+    },
+    enabled: !!sellerId,
+  });
+}
+
 export function useSellerComparison(filters?: { startDate?: string; endDate?: string; groupBy?: string }) {
   return useQuery({
     queryKey: ['sellers', 'comparison', filters],

@@ -16,6 +16,7 @@ export interface MobilePermissions {
   quotes: boolean;
   sales: boolean;
   products: boolean;
+  collections?: boolean;
 }
 
 interface AuthState {

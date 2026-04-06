@@ -1,5 +1,6 @@
 import { QuotesRepository } from '../repositories/quotes.repository';
 import { NotFoundError, BadRequestError } from '../utils/errors';
+import { db } from '../config/database';
 import type { CreateQuoteDTO, UpdateQuoteDTO, QuoteStatus } from '@ejr/shared-types';
 
 export class QuotesService {
@@ -34,7 +35,30 @@ export class QuotesService {
       throw new BadRequestError('Data de validade não pode ser anterior à data atual');
     }
 
-    return this.repository.create(data, userId);
+    const quote = await this.repository.create(data, userId);
+
+    // ─── GPS hook: store coordinates + log GPS event ───
+    try {
+      if (data.latitude != null && data.longitude != null) {
+        // Store coordinates on the quote record
+        await db.query(
+          'UPDATE quotes SET latitude = $1, longitude = $2 WHERE id = $3',
+          [data.latitude, data.longitude, quote.id]
+        );
+
+        // Insert gps_event
+        const gpsId = `gps-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        await db.query(
+          `INSERT INTO gps_events (id, user_id, event_type, event_id, latitude, longitude)
+           VALUES ($1, $2, 'QUOTE', $3, $4, $5)`,
+          [gpsId, userId, quote.id, data.latitude, data.longitude]
+        );
+      }
+    } catch (hookError) {
+      console.error('Erro no hook GPS pós-criação de orçamento:', hookError);
+    }
+
+    return quote;
   }
 
   async update(id: string, data: UpdateQuoteDTO) {

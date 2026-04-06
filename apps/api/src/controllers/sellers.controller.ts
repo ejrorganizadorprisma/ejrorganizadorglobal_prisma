@@ -46,4 +46,18 @@ export class SellersController {
       next(error);
     }
   };
+
+  getSellerDetail = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+      const data = await this.service.getSellerDetail(id, {
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

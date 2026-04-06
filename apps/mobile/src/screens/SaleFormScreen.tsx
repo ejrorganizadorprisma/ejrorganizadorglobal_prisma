@@ -6,6 +6,7 @@ import { Product } from '../hooks/useProducts';
 import CustomerPicker from '../components/CustomerPicker';
 import ProductPicker from '../components/ProductPicker';
 import { formatPrice } from '../utils/formatPrice';
+import { captureLocation } from '../utils/captureLocation';
 
 interface Props {
   navigation: any;
@@ -99,6 +100,7 @@ export default function SaleFormScreen({ navigation }: Props) {
 
     setSaving(true);
     try {
+      const location = await captureLocation();
       await createSale({
         customerId: customer.id,
         items: items.map(({ key, ...rest }) => rest),
@@ -107,7 +109,9 @@ export default function SaleFormScreen({ navigation }: Props) {
         installments: parseInt(installments, 10) || 1,
         saleDate: isoDate,
         notes: notes.trim() || undefined,
-      });
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+      } as any);
       Alert.alert('Sucesso', 'Venda registrada com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);

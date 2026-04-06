@@ -114,6 +114,8 @@ export interface CreateSaleDTO {
   paymentMethod: PaymentMethod;
   notes?: string;
   internalNotes?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdateSaleDTO {

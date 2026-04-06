@@ -186,4 +186,106 @@ export class SellersRepository {
 
     return Array.from(sellersMap.values());
   }
+
+  // Get detailed seller info with sales, quotes, customers, collections, commissions
+  async getSellerDetail(sellerId: string, filters: { startDate?: string; endDate?: string }) {
+    const values: any[] = [sellerId];
+    let idx = 2;
+
+    // Date conditions
+    let dateCondSales = '';
+    let dateCondQuotes = '';
+    let dateCondCollections = '';
+    if (filters.startDate) {
+      dateCondSales += ` AND s.sale_date >= $${idx}`;
+      dateCondQuotes += ` AND q.created_at >= $${idx}`;
+      dateCondCollections += ` AND col.created_at >= $${idx}`;
+      values.push(filters.startDate);
+      idx++;
+    }
+    if (filters.endDate) {
+      dateCondSales += ` AND s.sale_date <= $${idx}`;
+      dateCondQuotes += ` AND q.created_at <= $${idx}`;
+      dateCondCollections += ` AND col.created_at <= $${idx}`;
+      values.push(filters.endDate + 'T23:59:59');
+      idx++;
+    }
+
+    // Seller info
+    const sellerResult = await db.query(
+      'SELECT id, name, email, is_active, mobile_app_authorized, mobile_app_last_login, mobile_app_last_sync FROM users WHERE id = $1',
+      [sellerId]
+    );
+    const seller = sellerResult.rows[0] || null;
+
+    // Sales list
+    const salesResult = await db.query(`
+      SELECT s.id, s.sale_number, s.total, s.status, s.sale_date, s.created_at,
+        c.name AS customer_name
+      FROM sales s
+      LEFT JOIN customers c ON c.id = s.customer_id
+      WHERE s.created_by = $1 AND s.status != 'CANCELLED' ${dateCondSales}
+      ORDER BY s.created_at DESC
+      LIMIT 50
+    `, values);
+
+    // Quotes list
+    const quotesResult = await db.query(`
+      SELECT q.id, q.quote_number, q.total, q.status, q.created_at,
+        c.name AS customer_name
+      FROM quotes q
+      LEFT JOIN customers c ON c.id = q.customer_id
+      WHERE q.responsible_user_id = $1 ${dateCondQuotes}
+      ORDER BY q.created_at DESC
+      LIMIT 50
+    `, values);
+
+    // Customers created by seller
+    const customersResult = await db.query(`
+      SELECT c.id, c.name, c.type, c.phone, c.created_at
+      FROM customers c
+      WHERE c.created_by = $1
+      ORDER BY c.created_at DESC
+      LIMIT 50
+    `, [sellerId]);
+
+    // Collections
+    const collectionsResult = await db.query(`
+      SELECT col.id, col.collection_number, col.amount, col.payment_method, col.status,
+        col.created_at, c.name AS customer_name, s.sale_number
+      FROM collections col
+      LEFT JOIN customers c ON c.id = col.customer_id
+      LEFT JOIN sales s ON s.id = col.sale_id
+      WHERE col.seller_id = $1 ${dateCondCollections}
+      ORDER BY col.created_at DESC
+      LIMIT 50
+    `, values);
+
+    // Commission summary
+    const commissionResult = await db.query(`
+      SELECT
+        COALESCE(SUM(CASE WHEN ce.status = 'PENDING' THEN ce.commission_amount ELSE 0 END), 0)::bigint AS pending_amount,
+        COALESCE(SUM(CASE WHEN ce.status = 'SETTLED' THEN ce.commission_amount ELSE 0 END), 0)::bigint AS settled_amount,
+        COALESCE(SUM(ce.commission_amount), 0)::bigint AS total_earned
+      FROM commission_entries ce
+      WHERE ce.seller_id = $1
+    `, [sellerId]);
+
+    const commissionConfig = await db.query(
+      'SELECT commission_on_sales, commission_on_collections FROM seller_commission_configs WHERE seller_id = $1 AND active = true',
+      [sellerId]
+    );
+
+    return {
+      seller,
+      sales: salesResult.rows,
+      quotes: quotesResult.rows,
+      customers: customersResult.rows,
+      collections: collectionsResult.rows,
+      commission: {
+        ...commissionResult.rows[0],
+        config: commissionConfig.rows[0] || null,
+      },
+    };
+  }
 }

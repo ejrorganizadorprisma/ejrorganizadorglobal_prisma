@@ -44,6 +44,9 @@ const routeToPageMap: Record<string, AppPage> = {
   '/financial/calendar': 'sales' as AppPage,
   '/financial/receivables': 'sales' as AppPage,
   '/financial/payables': 'sales' as AppPage,
+  '/collections': 'collections' as AppPage,
+  '/commissions': 'commissions' as AppPage,
+  '/gps-log': 'gps_log' as AppPage,
 };
 
 export function usePagePermissions() {

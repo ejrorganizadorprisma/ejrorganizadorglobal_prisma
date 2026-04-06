@@ -28,6 +28,9 @@ import {
   Printer,
   Globe,
   Smartphone,
+  Receipt,
+  Percent,
+  MapPin,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -105,6 +108,7 @@ const menuItems: MenuItem[] = [
     submenu: [
       { name: 'Lista de Vendas', path: '/sales', icon: <DollarSign className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'Nova Venda', path: '/sales/new', icon: <DollarSign className="w-4 h-4" />, page: 'sales' as AppPage },
+      { name: 'Cobrancas', path: '/collections', icon: <Receipt className="w-4 h-4" />, page: 'collections' as AppPage },
     ],
   },
   {
@@ -123,6 +127,7 @@ const menuItems: MenuItem[] = [
       { name: 'Calendário', path: '/financial/calendar', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'A Receber', path: '/financial/receivables', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'A Pagar', path: '/financial/payables', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
+      { name: 'Comissoes', path: '/commissions', icon: <Percent className="w-4 h-4" />, page: 'commissions' as AppPage },
     ],
   },
   {
@@ -210,6 +215,7 @@ const menuItems: MenuItem[] = [
       { name: 'Ajuste de Estoque', path: '/stock-adjustment', icon: <ClipboardEdit className="w-4 h-4" />, page: 'stock_adjustment' as AppPage },
       { name: 'Backup', path: '/backup', icon: <Database className="w-4 h-4" />, page: 'backup' as AppPage },
       { name: 'Aplicativo Celular', path: '/settings/mobile-app', icon: <Smartphone className="w-4 h-4" />, page: 'users' as AppPage },
+      { name: 'Log GPS', path: '/gps-log', icon: <MapPin className="w-4 h-4" />, page: 'gps_log' as AppPage },
     ],
   },
 ];

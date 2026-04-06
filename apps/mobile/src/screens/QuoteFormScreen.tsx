@@ -6,6 +6,7 @@ import { Product } from '../hooks/useProducts';
 import CustomerPicker from '../components/CustomerPicker';
 import ProductPicker from '../components/ProductPicker';
 import { formatPrice } from '../utils/formatPrice';
+import { captureLocation } from '../utils/captureLocation';
 
 interface Props {
   navigation: any;
@@ -88,13 +89,16 @@ export default function QuoteFormScreen({ navigation }: Props) {
 
     setSaving(true);
     try {
+      const location = await captureLocation();
       await createQuote({
         customerId: customer.id,
         items: items.map(({ key, ...rest }) => rest),
         discount: discountValue,
         validUntil: isoDate,
         notes: notes.trim() || undefined,
-      });
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+      } as any);
       Alert.alert('Sucesso', 'Orcamento criado com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);

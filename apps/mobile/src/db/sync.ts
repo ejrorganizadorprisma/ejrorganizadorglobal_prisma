@@ -7,6 +7,7 @@ export interface SyncStatus {
   pendingCustomers: number;
   pendingQuotes: number;
   pendingSales: number;
+  pendingCollections: number;
   totalPending: number;
   lastSync: string | null;
 }
@@ -33,6 +34,7 @@ export async function getSyncStatus(): Promise<SyncStatus> {
     pendingCustomers: counts['customers'] || 0,
     pendingQuotes: counts['quotes'] || 0,
     pendingSales: counts['sales'] || 0,
+    pendingCollections: counts['collections'] || 0,
     totalPending: Object.values(counts).reduce((a, b) => a + b, 0),
     lastSync: logResult?.created_at || null,
   };
@@ -79,6 +81,22 @@ function sanitizePayload(entity: string, payload: any): any {
     return clean;
   }
 
+  if (entity === 'collections') {
+    const clean = { ...payload };
+    // Strip display-only fields
+    delete clean.saleNumber;
+    delete clean.customerName;
+    delete clean.collectionNumber;
+    delete clean.status;
+    delete clean.synced;
+    delete clean.createdAt;
+    // Fix checkDate format if needed
+    if (clean.checkDate && !clean.checkDate.includes('T')) {
+      clean.checkDate = `${clean.checkDate}T00:00:00.000Z`;
+    }
+    return clean;
+  }
+
   return payload;
 }
 
@@ -99,6 +117,7 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
       customers: '/customers',
       quotes: '/quotes',
       sales: '/sales',
+      collections: '/collections',
     };
     const endpoint = entityMap[item.entity];
     if (!endpoint) continue;
@@ -133,7 +152,7 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
             // update all pending sales/quotes that reference the old local customer ID
             if (item.entity === 'customers') {
               const remaining = await db.getAllAsync<{ id: number; payload: string }>(
-                "SELECT id, payload FROM sync_queue WHERE entity IN ('sales','quotes')"
+                "SELECT id, payload FROM sync_queue WHERE entity IN ('sales','quotes','collections')"
               );
               for (const r of remaining) {
                 const p = JSON.parse(r.payload);
@@ -240,6 +259,23 @@ export async function pullServerData(): Promise<{ pulled: number }> {
           );
         }
         pulled += sales.length;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // Pull collections
+  if (perms.collections !== false) {
+    try {
+      const collectionsResult = await apiRequest<any[]>('/collections?limit=1000', { token });
+      if (collectionsResult.success && collectionsResult.data) {
+        const collections = Array.isArray(collectionsResult.data) ? collectionsResult.data : [];
+        for (const collection of collections) {
+          await db.runAsync(
+            "INSERT OR REPLACE INTO collections (id, data, synced, updated_at) VALUES (?, ?, 1, datetime('now'))",
+            [collection.id, JSON.stringify(collection)]
+          );
+        }
+        pulled += collections.length;
       }
     } catch (e) { /* ignore */ }
   }

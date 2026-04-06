@@ -18,4 +18,8 @@ export class SellersService {
   }) {
     return this.repository.getComparison(filters);
   }
+
+  async getSellerDetail(sellerId: string, filters: { startDate?: string; endDate?: string }) {
+    return this.repository.getSellerDetail(sellerId, filters);
+  }
 }

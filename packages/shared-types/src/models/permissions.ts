@@ -29,6 +29,9 @@ export enum AppPage {
   DIGITAL_FABRICATION = 'digital_fabrication',
   PURCHASE_BUDGETS = 'purchase_budgets',
   SELLERS = 'sellers',
+  COLLECTIONS = 'collections',
+  COMMISSIONS = 'commissions',
+  GPS_LOG = 'gps_log',
 }
 
 // Available actions for each page

@@ -71,6 +71,8 @@ export const CreateQuoteSchema = z.object({
   discount: z.number().int().min(0).default(0),
   validUntil: z.string().refine((s) => !isNaN(Date.parse(s)), 'Data de validade inválida'),
   notes: z.string().optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
 });
 
 export const UpdateQuoteSchema = z.object({
@@ -97,6 +99,8 @@ export interface CreateQuoteDTO {
   discount: number;
   validUntil: string;
   notes?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface UpdateQuoteDTO {

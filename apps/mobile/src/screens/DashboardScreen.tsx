@@ -34,7 +34,8 @@ export default function DashboardScreen() {
   const pendingCount =
     (syncStatus?.pendingCustomers || 0) +
     (syncStatus?.pendingQuotes || 0) +
-    (syncStatus?.pendingSales || 0);
+    (syncStatus?.pendingSales || 0) +
+    (syncStatus?.pendingCollections || 0);
 
   const loadStats = useCallback(async () => {
     try {

@@ -76,6 +76,11 @@ import { DigitalFabricationDetailPage } from './pages/DigitalFabricationDetailPa
 import { FabricationMachinesPage } from './pages/FabricationMachinesPage';
 import { MobileAppPage } from './pages/MobileAppPage';
 
+// Collections, Commissions, GPS
+import { CollectionsPage } from './pages/CollectionsPage';
+import { CommissionsPage } from './pages/CommissionsPage';
+import { GpsLogPage } from './pages/GpsLogPage';
+
 // Financial Pages
 import { FinancialDashboardPage } from './pages/FinancialDashboardPage';
 import { FinancialCalendarPage } from './pages/FinancialCalendarPage';
@@ -129,6 +134,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       { path: '/stock-adjustment', page: AppPage.STOCK_ADJUSTMENT },
       { path: '/settings/document-settings', page: AppPage.DOCUMENT_SETTINGS },
       { path: '/backup', page: AppPage.BACKUP },
+      { path: '/collections', page: 'collections' as AppPage },
+      { path: '/commissions', page: 'commissions' as AppPage },
+      { path: '/gps-log', page: 'gps_log' as AppPage },
     ];
 
     const firstAccessiblePage = accessiblePages.find(p => hasPermission(p.page));
@@ -392,6 +400,39 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <FinancialDebtorsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Collections (Cobrancas) */}
+      <Route
+        path="/collections"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <CollectionsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Commissions (Comissoes) */}
+      <Route
+        path="/commissions"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <CommissionsPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* GPS Log */}
+      <Route
+        path="/gps-log"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <GpsLogPage />
             </MainLayout>
           </ProtectedRoute>
         }
