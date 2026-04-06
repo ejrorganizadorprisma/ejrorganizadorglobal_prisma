@@ -95,9 +95,12 @@ export function useQuotes(search?: string) {
       "INSERT INTO quotes (id, data, synced, updated_at) VALUES (?, ?, 0, datetime('now'))",
       [id, JSON.stringify(quote)]
     );
+    // Clean items: strip extra fields (productName) and fix date format before storing
+    const cleanItems = data.items.map(({ productName, ...item }) => item);
+    const cleanValidUntil = data.validUntil.includes('T') ? data.validUntil : `${data.validUntil}T23:59:59.000Z`;
     await db.runAsync(
       "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('quotes', 'CREATE', ?, ?)",
-      [id, JSON.stringify(data)]
+      [id, JSON.stringify({ ...data, items: cleanItems, validUntil: cleanValidUntil })]
     );
     await loadFromDb();
     return quote;

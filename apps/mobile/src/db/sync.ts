@@ -38,6 +38,50 @@ export async function getSyncStatus(): Promise<SyncStatus> {
   };
 }
 
+/**
+ * Sanitize payload before sending to backend.
+ * Strips extra fields that backend schemas reject and fixes date formats.
+ */
+function sanitizePayload(entity: string, payload: any): any {
+  if (entity === 'quotes') {
+    const clean = { ...payload };
+    // Fix validUntil: backend requires ISO datetime, mobile may send date-only
+    if (clean.validUntil && !clean.validUntil.includes('T')) {
+      clean.validUntil = `${clean.validUntil}T23:59:59.000Z`;
+    }
+    // Clean items: strip extra fields like productName that Zod rejects
+    if (Array.isArray(clean.items)) {
+      clean.items = clean.items.map((item: any) => {
+        if (item.itemType === 'PRODUCT') {
+          return { itemType: item.itemType, productId: item.productId, quantity: item.quantity, unitPrice: item.unitPrice };
+        } else {
+          return { itemType: item.itemType, serviceName: item.serviceName, serviceDescription: item.serviceDescription, quantity: item.quantity, unitPrice: item.unitPrice };
+        }
+      });
+    }
+    return clean;
+  }
+
+  if (entity === 'sales') {
+    const clean = { ...payload };
+    // Clean items: strip extra fields like productName
+    if (Array.isArray(clean.items)) {
+      clean.items = clean.items.map((item: any) => ({
+        itemType: item.itemType,
+        productId: item.productId,
+        serviceName: item.serviceName,
+        serviceDescription: item.serviceDescription,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount || 0,
+      }));
+    }
+    return clean;
+  }
+
+  return payload;
+}
+
 export async function pushPendingChanges(): Promise<{ pushed: number; errors: number }> {
   const db = await getDatabase();
   const token = await getToken();
@@ -59,7 +103,8 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
     const endpoint = entityMap[item.entity];
     if (!endpoint) continue;
 
-    const payload = JSON.parse(item.payload);
+    const rawPayload = JSON.parse(item.payload);
+    const payload = sanitizePayload(item.entity, rawPayload);
     let result;
 
     try {
@@ -83,6 +128,21 @@ export async function pushPendingChanges(): Promise<{ pushed: number; errors: nu
           // Remove old local ID record if different
           if (serverId !== item.entity_id) {
             await db.runAsync(`DELETE FROM ${item.entity} WHERE id = ?`, [item.entity_id]);
+
+            // CRITICAL: If a customer just synced and got a new server ID,
+            // update all pending sales/quotes that reference the old local customer ID
+            if (item.entity === 'customers') {
+              const remaining = await db.getAllAsync<{ id: number; payload: string }>(
+                "SELECT id, payload FROM sync_queue WHERE entity IN ('sales','quotes')"
+              );
+              for (const r of remaining) {
+                const p = JSON.parse(r.payload);
+                if (p.customerId === item.entity_id) {
+                  p.customerId = serverId;
+                  await db.runAsync("UPDATE sync_queue SET payload = ? WHERE id = ?", [JSON.stringify(p), r.id]);
+                }
+              }
+            }
           }
         } else {
           await db.runAsync(

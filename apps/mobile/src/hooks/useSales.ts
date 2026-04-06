@@ -109,9 +109,11 @@ export function useSales(search?: string) {
       "INSERT INTO sales (id, data, synced, updated_at) VALUES (?, ?, 0, datetime('now'))",
       [id, JSON.stringify(sale)]
     );
+    // Clean items: strip extra fields (productName) before storing in sync_queue
+    const cleanItems = data.items.map(({ productName, ...item }) => item);
     await db.runAsync(
       "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('sales', 'CREATE', ?, ?)",
-      [id, JSON.stringify({ ...data, discount })]
+      [id, JSON.stringify({ ...data, items: cleanItems, discount })]
     );
     await loadFromDb();
     return sale;

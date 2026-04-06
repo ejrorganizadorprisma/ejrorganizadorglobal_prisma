@@ -54,7 +54,7 @@ const QuoteItemSchema = z.discriminatedUnion('itemType', [
     productId: z.string().min(1, 'Produto é obrigatório'),
     quantity: z.number().int().positive('Quantidade deve ser maior que zero'),
     unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),
-  }),
+  }).passthrough(),
   // Schema para itens de serviço
   z.object({
     itemType: z.literal(QuoteItemType.SERVICE),
@@ -62,14 +62,14 @@ const QuoteItemSchema = z.discriminatedUnion('itemType', [
     serviceDescription: z.string().optional(),
     quantity: z.number().int().positive('Quantidade deve ser maior que zero'),
     unitPrice: z.number().int().min(0, 'Preço unitário não pode ser negativo'),
-  }),
+  }).passthrough(),
 ]);
 
 export const CreateQuoteSchema = z.object({
   customerId: z.string().min(1, 'Cliente é obrigatório'),
   items: z.array(QuoteItemSchema).min(1, 'Orçamento deve ter pelo menos 1 item'),
   discount: z.number().int().min(0).default(0),
-  validUntil: z.string().datetime('Data de validade inválida'),
+  validUntil: z.string().refine((s) => !isNaN(Date.parse(s)), 'Data de validade inválida'),
   notes: z.string().optional(),
 });
 
@@ -77,7 +77,7 @@ export const UpdateQuoteSchema = z.object({
   customerId: z.string().min(1).optional(),
   items: z.array(QuoteItemSchema).min(1).optional(),
   discount: z.number().int().min(0).optional(),
-  validUntil: z.string().datetime().optional(),
+  validUntil: z.string().refine((s) => !isNaN(Date.parse(s)), 'Data de validade inválida').optional(),
   notes: z.string().optional().nullable(),
   status: z.nativeEnum(QuoteStatus).optional(),
 });
