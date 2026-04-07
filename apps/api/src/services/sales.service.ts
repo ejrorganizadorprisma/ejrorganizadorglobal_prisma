@@ -97,6 +97,14 @@ export class SalesService {
     // Validar método de pagamento autorizado para o cliente
     // Vendedor mobile vende em campo — confianca no vendedor (regra apenas para web)
     const customer = await this.customersRepository.findById(data.customerId);
+
+    // Vendedor mobile só pode registrar vendas para clientes APROVADOS
+    if (isMobileSeller && customer && customer.approvalStatus !== 'APPROVED') {
+      throw new BadRequestError(
+        'Cliente não aprovado. Aguarde a aprovação do administrador antes de registrar vendas.'
+      );
+    }
+
     if (!isMobileSeller && customer && customer.allowedPaymentMethods) {
       if (!customer.allowedPaymentMethods.includes(data.paymentMethod)) {
         throw new BadRequestError(

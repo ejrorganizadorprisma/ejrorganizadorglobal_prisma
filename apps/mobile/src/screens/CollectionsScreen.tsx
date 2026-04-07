@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCollections, CollectionItem } from '../hooks/useCollections';
 import { formatPrice } from '../utils/formatPrice';
 
@@ -26,6 +27,12 @@ export default function CollectionsScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const { collections, loading, refresh } = useCollections(search);
   const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);

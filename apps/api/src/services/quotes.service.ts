@@ -1,10 +1,12 @@
 import { QuotesRepository } from '../repositories/quotes.repository';
+import { CustomersRepository } from '../repositories/customers.repository';
 import { NotFoundError, BadRequestError } from '../utils/errors';
 import { db } from '../config/database';
 import type { CreateQuoteDTO, UpdateQuoteDTO, QuoteStatus } from '@ejr/shared-types';
 
 export class QuotesService {
   private repository = new QuotesRepository();
+  private customersRepository = new CustomersRepository();
 
   async list(params: {
     page: number;
@@ -43,6 +45,16 @@ export class QuotesService {
         data = { ...data, validUntil: extended.toISOString() };
       } else {
         throw new BadRequestError('Data de validade não pode ser anterior à data atual');
+      }
+    }
+
+    // Vendedor mobile só pode criar orçamentos para clientes APROVADOS
+    if (isMobileSeller && data.customerId) {
+      const customer = await this.customersRepository.findById(data.customerId);
+      if (customer && customer.approvalStatus !== 'APPROVED') {
+        throw new BadRequestError(
+          'Cliente não aprovado. Aguarde a aprovação do administrador antes de criar orçamentos.'
+        );
       }
     }
 

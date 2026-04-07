@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSales, Sale } from '../hooks/useSales';
 import { formatPrice } from '../utils/formatPrice';
 
@@ -31,6 +32,12 @@ export default function SalesScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const { sales, loading, refresh } = useSales(search);
   const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);

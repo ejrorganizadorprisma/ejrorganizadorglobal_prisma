@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuotes, Quote } from '../hooks/useQuotes';
 import { formatPrice } from '../utils/formatPrice';
 
@@ -20,6 +21,12 @@ export default function QuotesScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const { quotes, loading, refresh } = useQuotes(search);
   const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);

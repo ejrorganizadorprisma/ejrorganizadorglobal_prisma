@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useCustomers, Customer } from '../hooks/useCustomers';
 
 interface Props {
@@ -10,6 +11,12 @@ export default function CustomersScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const { customers, loading, refresh } = useCustomers(search);
   const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);

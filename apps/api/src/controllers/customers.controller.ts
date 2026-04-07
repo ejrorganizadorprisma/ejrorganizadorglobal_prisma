@@ -22,10 +22,12 @@ export class CustomersController {
 
     const isSalesperson = req.user?.role === 'SALESPERSON';
 
-    // Vendedor mobile: ve apenas clientes APPROVED dos quais e responsavel
+    // Vendedor mobile: ve todos os proprios clientes (qualquer status)
+    // para que possa acompanhar PENDING/REJECTED no app. O picker mobile
+    // bloqueia nao-aprovados na hora de vender.
     // Outros: ve todos. Filtro por approvalStatus opcional via query.
     const responsibleUserId = isSalesperson ? req.user!.id : undefined;
-    const approvalStatus = isSalesperson ? 'APPROVED' : approvalStatusFilter;
+    const approvalStatus = isSalesperson ? undefined : approvalStatusFilter;
 
     const result = await this.service.findMany({
       page,
@@ -47,9 +49,9 @@ export class CustomersController {
     const { id } = req.params;
     const customer = await this.service.findById(id);
 
-    // Vendedor so pode ver clientes que sao dele e aprovados
+    // Vendedor so pode ver os proprios clientes (qualquer status)
     if (req.user?.role === 'SALESPERSON') {
-      if (customer.responsibleUserId !== req.user.id || customer.approvalStatus !== 'APPROVED') {
+      if (customer.responsibleUserId !== req.user.id) {
         return res.status(404).json({ success: false, error: { message: 'Cliente não encontrado' } });
       }
     }
