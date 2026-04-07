@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { apiRequest, setApiKey, clearApiKeyCache } from '../api/client';
+import { apiRequest, setApiKey, clearApiKeyCache, setTokenExpiredHandler } from '../api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDatabase } from '../db/migrations';
 
@@ -196,3 +196,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+// Force logout when API reports expired/invalid token (called from api/client)
+setTokenExpiredHandler(() => {
+  try {
+    SecureStore.deleteItemAsync('auth_token').catch(() => {});
+    AsyncStorage.removeItem('@ejr_mobile_permissions').catch(() => {});
+    useAuthStore.setState({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isLoading: false,
+      mobileAccessDenied: false,
+      mobileAccessError: null,
+      mobilePermissions: null,
+      companyName: null,
+    });
+  } catch { /* ignore */ }
+});

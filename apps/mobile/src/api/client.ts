@@ -8,6 +8,19 @@ const REQUEST_TIMEOUT_MS = 15000;
 let cachedBaseUrl: string | null = null;
 let cachedApiKey: string | null = null;
 
+// Global handler invoked when API returns 401 with expired/invalid token.
+// authStore registers itself here to force logout when this happens.
+let onTokenExpired: (() => void) | null = null;
+export function setTokenExpiredHandler(fn: () => void) {
+  onTokenExpired = fn;
+}
+
+function looksLikeTokenExpired(msg?: string): boolean {
+  if (!msg) return false;
+  const lower = msg.toLowerCase();
+  return lower.includes('token') && (lower.includes('expirado') || lower.includes('inválido') || lower.includes('invalido'));
+}
+
 export async function getBaseUrl(): Promise<string> {
   if (cachedBaseUrl) return cachedBaseUrl;
   const stored = await AsyncStorage.getItem(STORAGE_KEY_URL);
@@ -73,7 +86,12 @@ export async function apiRequest<T = any>(
     const json = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: json.error || { message: `HTTP ${response.status}` } };
+      const errMsg = json?.error?.message || json?.message || `HTTP ${response.status}`;
+      // Auto-logout on expired/invalid JWT (401 + token-related message)
+      if (response.status === 401 && looksLikeTokenExpired(errMsg) && onTokenExpired) {
+        try { onTokenExpired(); } catch { /* ignore */ }
+      }
+      return { success: false, error: json?.error || { message: errMsg } };
     }
 
     return json;

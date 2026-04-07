@@ -86,7 +86,7 @@ function HeaderRight() {
         activeOpacity={0.7}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
-        <Text style={tabStyles.logoutIcon}>⏻</Text>
+        <Text style={tabStyles.logoutText}>Sair</Text>
       </TouchableOpacity>
     </View>
   );
@@ -262,17 +262,20 @@ const tabStyles = StyleSheet.create({
     flexShrink: 1,
   },
   logoutButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#DC2626',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoutIcon: {
+  logoutText: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   splash: {
     flex: 1,
