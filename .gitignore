@@ -61,3 +61,7 @@ VERCEL_ENV_FRONTEND.txt
 
 # Vercel
 .vercel
+
+# Database dumps / migration scripts (local only)
+supabase-*.sql
+*.dump.sql
