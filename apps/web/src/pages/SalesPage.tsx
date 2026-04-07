@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSales, useSaleStats, useDeleteSale } from '../hooks/useSales';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { api } from '../lib/api';
+import { generateSalePDF, type SalePdfMode } from '../utils/salePdfGenerator';
 import { SaleStatus } from '@ejr/shared-types';
 import {
   DollarSign,
@@ -18,6 +21,8 @@ import {
   ShoppingBag,
   Filter,
   X,
+  FileText,
+  Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,7 +54,29 @@ export function SalesPage() {
 
   const { data: stats } = useSaleStats();
   const deleteSale = useDeleteSale();
-  const { formatPrice } = useFormatPrice();
+  const { formatPrice, defaultCurrency } = useFormatPrice();
+  const { data: documentSettings } = useDefaultDocumentSettings();
+  const [pdfMenuOpen, setPdfMenuOpen] = useState<string | null>(null);
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
+
+  const handleGeneratePdf = async (id: string, mode: SalePdfMode) => {
+    setPdfMenuOpen(null);
+    setPdfLoadingId(id);
+    try {
+      const { data } = await api.get(`/sales/${id}`);
+      const fullSale = data.data;
+      if (!fullSale?.customer) {
+        toast.error('Dados do cliente nao disponiveis');
+        return;
+      }
+      generateSalePDF(fullSale, fullSale.customer, documentSettings, defaultCurrency, mode);
+      toast.success(mode === 'print' ? 'PDF para impressao gerado' : 'PDF elegante gerado');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.response?.data?.message || err?.message || 'desconhecido'));
+    } finally {
+      setPdfLoadingId(null);
+    }
+  };
 
   const handleDelete = async (id: string, number: string) => {
     if (window.confirm(`Deseja realmente excluir a venda ${number}?`)) {
@@ -276,6 +303,44 @@ export function SalesPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          <div className="relative">
+                            <button
+                              onClick={() => setPdfMenuOpen(pdfMenuOpen === sale.id ? null : sale.id)}
+                              disabled={pdfLoadingId === sale.id}
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Gerar PDF"
+                            >
+                              {pdfLoadingId === sale.id ? (
+                                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                            </button>
+                            {pdfMenuOpen === sale.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setPdfMenuOpen(null)}
+                                />
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                                  <button
+                                    onClick={() => handleGeneratePdf(sale.id, 'elegant')}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    PDF Elegante
+                                  </button>
+                                  <button
+                                    onClick={() => handleGeneratePdf(sale.id, 'print')}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <Printer className="w-4 h-4" />
+                                    PDF Impressao
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                           {sale.status === 'PENDING' && (
                             <button
                               onClick={() => handleDelete(sale.id, sale.saleNumber)}
@@ -334,13 +399,39 @@ export function SalesPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-3">
                     <span className="text-lg font-bold text-gray-900">{formatPrice(sale.total)}</span>
                     {sale.totalPending > 0 && (
                       <span className="text-sm text-red-600 font-medium">
                         Falta: {formatPrice(sale.totalPending)}
                       </span>
                     )}
+                  </div>
+
+                  <div
+                    className="flex gap-2 pt-3 border-t"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      onClick={() => handleGeneratePdf(sale.id, 'elegant')}
+                      disabled={pdfLoadingId === sale.id}
+                      className="flex-1 px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {pdfLoadingId === sale.id ? (
+                        <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <FileText className="w-3.5 h-3.5" />
+                      )}
+                      PDF
+                    </button>
+                    <button
+                      onClick={() => handleGeneratePdf(sale.id, 'print')}
+                      disabled={pdfLoadingId === sale.id}
+                      className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      Imprimir
+                    </button>
                   </div>
                 </div>
               );
