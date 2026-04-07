@@ -9,14 +9,15 @@ export function useNotifications() {
         const { data } = await api.get('/notifications');
         return data.data;
       } catch (error: any) {
-        // Silenciar erro 404 - endpoint ainda não implementado
         if (error?.response?.status === 404) {
           return [];
         }
         throw error;
       }
     },
-    retry: false, // Não tentar novamente em caso de 404
+    staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 }
 
@@ -28,15 +29,16 @@ export function useUnreadCount() {
         const { data } = await api.get('/notifications/unread');
         return data.data.count;
       } catch (error: any) {
-        // Silenciar erro 404 - endpoint ainda não implementado
         if (error?.response?.status === 404) {
           return 0;
         }
         throw error;
       }
     },
-    refetchInterval: 30000, // Refetch every 30 seconds
-    retry: false, // Não tentar novamente em caso de 404
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000, // 1 minute instead of 30s
+    refetchOnWindowFocus: false,
+    retry: false,
   });
 }
 

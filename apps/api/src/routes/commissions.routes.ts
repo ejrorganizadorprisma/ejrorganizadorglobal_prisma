@@ -25,7 +25,11 @@ router.get(
     try {
       const configs = await repo.getAllConfigs();
       res.json({ success: true, data: configs });
-    } catch (error) {
+    } catch (error: any) {
+      // Table may not exist yet in production
+      if (error?.code === '42P01') {
+        return res.json({ success: true, data: [] });
+      }
       next(error);
     }
   }
@@ -79,7 +83,10 @@ router.get(
 
       const result = await repo.getEntries(filters);
       res.json({ success: true, ...result });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === '42P01') {
+        return res.json({ success: true, data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
+      }
       next(error);
     }
   }
@@ -98,7 +105,10 @@ router.get(
     try {
       const summaries = await repo.getAllSummaries();
       res.json({ success: true, data: summaries });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === '42P01') {
+        return res.json({ success: true, data: [] });
+      }
       next(error);
     }
   }
@@ -146,7 +156,10 @@ router.get(
 
       const result = await repo.getSettlements(filters);
       res.json({ success: true, ...result });
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.code === '42P01') {
+        return res.json({ success: true, data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
+      }
       next(error);
     }
   }

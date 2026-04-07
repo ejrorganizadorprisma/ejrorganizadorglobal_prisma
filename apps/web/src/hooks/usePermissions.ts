@@ -10,12 +10,11 @@ export function usePermissions() {
       const { data } = await api.get<{ data: PermissionsConfig }>('/permissions');
       return data.data;
     },
-    // Refetch permissions every 30 seconds to catch updates from other users/sessions
-    refetchInterval: 30000,
-    // Also refetch when window regains focus
-    refetchOnWindowFocus: true,
-    // Keep previous data while fetching new data
+    staleTime: 5 * 60 * 1000, // 5 minutes — permissions rarely change
+    refetchInterval: 5 * 60 * 1000, // refetch every 5 minutes
+    refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
+    retry: 1,
   });
 }
 

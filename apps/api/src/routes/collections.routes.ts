@@ -128,7 +128,10 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     const result = await repo.findAll(filters);
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === '42P01') {
+      return res.json({ success: true, data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
+    }
     throw error;
   }
 });
