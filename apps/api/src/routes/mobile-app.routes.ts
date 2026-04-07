@@ -89,7 +89,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
         })),
         stats: { authorizedCount, activeToday, totalSellers: sellers.length },
         download: {
-          appVersion: '1.2.0',
+          appVersion: '1.3.0',
           appName: 'EJR OrGlobal',
           platform: 'Android',
           fileSize: fileSize || 74_000_000,

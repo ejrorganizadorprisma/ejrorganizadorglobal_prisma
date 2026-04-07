@@ -244,6 +244,14 @@ export async function pullServerData(): Promise<{ pulled: number }> {
     try { pulled += await pullEntity(db, token, '/collections', 'collections', true); } catch { /* skip */ }
   }
 
+  // Fetch company name from document settings
+  try {
+    const settingsResult = await apiRequest<any>('/document-settings/default', { token, timeoutMs: 10000 });
+    if (settingsResult.success && settingsResult.data?.companyName) {
+      await AsyncStorage.setItem('@ejr_mobile_company_name', settingsResult.data.companyName);
+    }
+  } catch { /* skip */ }
+
   await db.runAsync(
     "INSERT INTO sync_log (action, status, message) VALUES ('PULL', 'SUCCESS', ?)",
     [`Pulled ${pulled} records`]

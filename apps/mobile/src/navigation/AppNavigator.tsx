@@ -43,6 +43,7 @@ function TabIcon({ label, focused }: { label: string; focused: boolean }) {
 }
 
 function HeaderLogo() {
+  const { companyName } = useAuthStore();
   return (
     <View style={tabStyles.headerLogo}>
       <Image
@@ -50,7 +51,7 @@ function HeaderLogo() {
         style={tabStyles.logoImage}
         resizeMode="contain"
       />
-      <Text style={tabStyles.logoText}>EJR OrGlobal</Text>
+      <Text style={tabStyles.logoText}>{companyName || 'EJR OrGlobal'}</Text>
     </View>
   );
 }
@@ -64,7 +65,10 @@ function HomeTabs() {
         headerStyle: { backgroundColor: '#0B5C9A', elevation: 0, shadowOpacity: 0 },
         headerTintColor: '#FFF',
         headerTitle: () => <HeaderLogo />,
-        tabBarShowLabel: false,
+        tabBarShowLabel: true,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: -2 },
+        tabBarActiveTintColor: '#0B5C9A',
+        tabBarInactiveTintColor: '#9CA3AF',
         tabBarIcon: ({ focused }) => <TabIcon label={route.name} focused={focused} />,
         tabBarStyle: {
           height: 56,

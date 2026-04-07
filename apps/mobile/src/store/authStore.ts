@@ -27,6 +27,7 @@ interface AuthState {
   mobileAccessDenied: boolean;
   mobileAccessError: string | null;
   mobilePermissions: MobilePermissions | null;
+  companyName: string | null;
   login: (email: string, password: string, connectionKey: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   loadToken: () => Promise<void>;
@@ -51,6 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   mobileAccessDenied: false,
   mobileAccessError: null,
   mobilePermissions: null,
+  companyName: null,
 
   login: async (email: string, password: string, connectionKey: string) => {
     try {
@@ -68,7 +70,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (mobilePermissions) {
           await AsyncStorage.setItem('@ejr_mobile_permissions', JSON.stringify(mobilePermissions));
         }
-        set({ user, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions });
+        const storedCompanyName = await AsyncStorage.getItem('@ejr_mobile_company_name');
+        set({ user, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions, companyName: storedCompanyName });
         return { success: true };
       }
 
@@ -87,7 +90,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await SecureStore.deleteItemAsync('auth_token');
     await AsyncStorage.removeItem('@ejr_mobile_permissions');
-    set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions: null });
+    await AsyncStorage.removeItem('@ejr_mobile_company_name');
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions: null, companyName: null });
   },
 
   loadToken: async () => {
@@ -106,7 +110,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               mobilePermissions = JSON.parse(stored);
             }
           }
-          set({ user: result.data, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
+          const storedCompanyName = await AsyncStorage.getItem('@ejr_mobile_company_name');
+          set({ user: result.data, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions, companyName: storedCompanyName });
           return;
         }
 
@@ -114,14 +119,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const errorMsg = result.error?.message;
         if (isMobileAccessError(errorMsg)) {
           await SecureStore.deleteItemAsync('auth_token');
-          set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: true, mobileAccessError: errorMsg, mobilePermissions: null });
+          set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: true, mobileAccessError: errorMsg, mobilePermissions: null, companyName: null });
           return;
         }
 
         // Network/timeout error: allow offline access with cached permissions
         const storedPerms = await AsyncStorage.getItem('@ejr_mobile_permissions');
         const mobilePermissions = storedPerms ? JSON.parse(storedPerms) : null;
-        set({ user: null, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
+        const storedCompanyNameOffline = await AsyncStorage.getItem('@ejr_mobile_company_name');
+        set({ user: null, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions, companyName: storedCompanyNameOffline });
         return;
       }
     } catch (error) {
@@ -131,12 +137,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (token) {
           const storedPerms = await AsyncStorage.getItem('@ejr_mobile_permissions');
           const mobilePermissions = storedPerms ? JSON.parse(storedPerms) : null;
-          set({ user: null, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions });
+          const storedCompanyNameCatch = await AsyncStorage.getItem('@ejr_mobile_company_name');
+          set({ user: null, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions, companyName: storedCompanyNameCatch });
           return;
         }
       } catch { /* ignore */ }
     }
-    set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobilePermissions: null });
+    set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobilePermissions: null, companyName: null });
   },
 
   checkSession: async () => {

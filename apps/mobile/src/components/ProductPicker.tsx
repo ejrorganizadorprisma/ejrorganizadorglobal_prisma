@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, Modal, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TextInput, Modal, StyleSheet, Image } from 'react-native';
 import { useProducts, Product } from '../hooks/useProducts';
 import { formatPrice } from '../utils/formatPrice';
 
@@ -33,6 +33,13 @@ export default function ProductPicker({ visible, onSelect, onClose }: Props) {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.item} onPress={() => { onSelect(item); onClose(); }}>
+              {item.imageUrls && item.imageUrls.length > 0 ? (
+                <Image source={{ uri: item.imageUrls[0] }} style={styles.thumbnail} resizeMode="cover" />
+              ) : (
+                <View style={styles.thumbnailPlaceholder}>
+                  <Text style={{ fontSize: 16 }}>📦</Text>
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.code}>{item.code} - Estoque: {item.currentStock}</Text>
@@ -58,4 +65,6 @@ const styles = StyleSheet.create({
   code: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   price: { fontSize: 15, fontWeight: '700', color: '#0B5C9A' },
   empty: { textAlign: 'center', padding: 40, color: '#9CA3AF', fontSize: 15 },
+  thumbnail: { width: 40, height: 40, borderRadius: 6, marginRight: 10, backgroundColor: '#F3F4F6' },
+  thumbnailPlaceholder: { width: 40, height: 40, borderRadius: 6, marginRight: 10, backgroundColor: '#F3F4F6', justifyContent: 'center' as const, alignItems: 'center' as const },
 });

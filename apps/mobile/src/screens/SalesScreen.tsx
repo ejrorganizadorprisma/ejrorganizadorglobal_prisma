@@ -95,6 +95,9 @@ export default function SalesScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <View style={styles.titleBar}>
+        <Text style={styles.titleText}>Vendas</Text>
+      </View>
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -145,6 +148,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
+  },
+  titleBar: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  titleText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
   },
   searchContainer: {
     padding: 12,

@@ -1,12 +1,20 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, FlatList, TextInput, ActivityIndicator, StyleSheet, Image, TouchableOpacity, Modal, Dimensions } from 'react-native';
 import { useProducts } from '../hooks/useProducts';
 import { formatPrice } from '../utils/formatPrice';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function ProductsScreen() {
   const [search, setSearch] = useState('');
   const { products, loading, refresh } = useProducts(search);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -22,6 +30,9 @@ export default function ProductsScreen() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.titleBar}>
+        <Text style={styles.titleText}>Produtos</Text>
+      </View>
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
@@ -47,6 +58,19 @@ export default function ProductsScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardTop}>
+                {item.imageUrls && item.imageUrls.length > 0 ? (
+                  <TouchableOpacity onPress={() => setSelectedImage(item.imageUrls![0])}>
+                    <Image
+                      source={{ uri: item.imageUrls[0] }}
+                      style={styles.productImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.productImagePlaceholder}>
+                    <Text style={styles.productImagePlaceholderText}>📦</Text>
+                  </View>
+                )}
                 <View style={styles.cardInfo}>
                   <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
                   <Text style={styles.productCode}>{item.code}</Text>
@@ -85,6 +109,21 @@ export default function ProductsScreen() {
           }
         />
       )}
+
+      <Modal visible={!!selectedImage} transparent animationType="fade" onRequestClose={() => setSelectedImage(null)}>
+        <View style={styles.imageModalOverlay}>
+          <TouchableOpacity style={styles.imageModalClose} onPress={() => setSelectedImage(null)}>
+            <Text style={styles.imageModalCloseText}>✕</Text>
+          </TouchableOpacity>
+          {selectedImage && (
+            <Image
+              source={{ uri: selectedImage }}
+              style={styles.imageModalImage}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -233,5 +272,57 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  titleBar: {
+    backgroundColor: '#FFF',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  titleText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  productImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#F3F4F6',
+  },
+  productImagePlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    marginRight: 10,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  productImagePlaceholderText: {
+    fontSize: 20,
+  },
+  imageModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+  },
+  imageModalClose: {
+    position: 'absolute' as const,
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  imageModalCloseText: {
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: 'bold' as const,
+  },
+  imageModalImage: {
+    width: Dimensions.get('window').width - 32,
+    height: Dimensions.get('window').height * 0.7,
   },
 });
