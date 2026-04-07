@@ -25,14 +25,25 @@ export class QuotesService {
     return quote;
   }
 
-  async create(data: CreateQuoteDTO, userId: string) {
+  async create(data: CreateQuoteDTO, userId: string, userRole?: string) {
+    const isMobileSeller = userRole === 'SALESPERSON';
+
     // Validar data de validade
     const validUntil = new Date(data.validUntil);
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Reset to start of day
 
     if (validUntil < today) {
-      throw new BadRequestError('Data de validade não pode ser anterior à data atual');
+      if (isMobileSeller) {
+        // Vendedor mobile: orcamento criado offline pode ter validUntil no passado
+        // ao chegar na sincronizacao. Auto-estende para hoje + 30 dias.
+        const extended = new Date();
+        extended.setDate(extended.getDate() + 30);
+        extended.setHours(23, 59, 59, 999);
+        data = { ...data, validUntil: extended.toISOString() };
+      } else {
+        throw new BadRequestError('Data de validade não pode ser anterior à data atual');
+      }
     }
 
     const quote = await this.repository.create(data, userId);

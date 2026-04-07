@@ -60,8 +60,9 @@ export class QuotesController {
       console.log('Recebendo dados do orçamento:', JSON.stringify(req.body, null, 2));
       const data = CreateQuoteSchema.parse(req.body);
       const userId = req.user!.id;
+      const userRole = req.user!.role;
 
-      const quote = await this.service.create(data, userId);
+      const quote = await this.service.create(data, userId, userRole);
 
       res.status(201).json({
         success: true,

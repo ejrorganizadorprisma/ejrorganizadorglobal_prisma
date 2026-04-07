@@ -42,7 +42,9 @@ export class SalesService {
   /**
    * Criar nova venda
    */
-  async create(data: CreateSaleDTO, userId: string) {
+  async create(data: CreateSaleDTO, userId: string, userRole?: string) {
+    const isMobileSeller = userRole === 'SALESPERSON';
+
     // Validações
     if (!data.customerId) {
       throw new BadRequestError('Cliente é obrigatório');
@@ -102,20 +104,21 @@ export class SalesService {
       }
     }
 
-    // Validar estoque antes de vender
+    // Validar estoque antes de vender (vendedor mobile pode estourar estoque
+    // pois a venda ja aconteceu fisicamente em campo — apenas existencia do produto e checada)
     for (const item of data.items) {
       if (item.itemType === 'PRODUCT' && item.productId) {
         const result = await db.query('SELECT current_stock, name FROM products WHERE id = $1', [item.productId]);
         if (result.rows.length === 0) {
           throw new BadRequestError(`Produto não encontrado: ${item.productId}`);
         }
-        if (result.rows[0].current_stock < item.quantity) {
+        if (!isMobileSeller && result.rows[0].current_stock < item.quantity) {
           throw new BadRequestError(`Estoque insuficiente para "${result.rows[0].name}": disponível ${result.rows[0].current_stock}, solicitado ${item.quantity}`);
         }
       }
     }
 
-    const sale = await this.repository.create(data, userId);
+    const sale = await this.repository.create(data, userId, isMobileSeller);
 
     // ─── Post-creation hooks (GPS + Commissions) ───
     // These run after the sale is committed; failures are logged but do not rollback the sale.
@@ -225,7 +228,8 @@ export class SalesService {
       notes?: string;
       internalNotes?: string;
     },
-    userId: string
+    userId: string,
+    userRole?: string
   ) {
     // Buscar orçamento com itens
     const quote = await this.quotesRepository.findById(quoteId);
@@ -270,7 +274,7 @@ export class SalesService {
     };
 
     // Usar o fluxo normal de criação (valida estoque, cria parcelas, etc.)
-    return this.create(saleData, userId);
+    return this.create(saleData, userId, userRole);
   }
 
   /**

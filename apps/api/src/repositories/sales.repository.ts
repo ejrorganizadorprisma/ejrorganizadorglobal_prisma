@@ -213,7 +213,7 @@ export class SalesRepository {
   /**
    * Criar nova venda
    */
-  async create(saleData: CreateSaleDTO, userId: string): Promise<Sale> {
+  async create(saleData: CreateSaleDTO, userId: string, allowNegativeStock: boolean = false): Promise<Sale> {
     await db.query('BEGIN');
 
     try {
@@ -327,21 +327,42 @@ export class SalesRepository {
     // Atualizar estoque dos produtos
     for (const item of items) {
       if (item.itemType === 'PRODUCT' && item.productId) {
-        const stockQuery = `
-          SELECT update_product_stock(
-            $1::TEXT, $2::INTEGER, $3::TEXT, $4::VARCHAR, $5::TEXT, $6::TEXT, $7::VARCHAR
-          )
-        `;
+        if (allowNegativeStock) {
+          // Vendedor mobile: bypass da function (que rejeita estoque negativo).
+          // A venda offline ja aconteceu — sincronizamos a realidade, mesmo
+          // que isso deixe o estoque em valor negativo (para o gestor corrigir depois).
+          const prevResult = await db.query(
+            'SELECT current_stock FROM products WHERE id = $1 FOR UPDATE',
+            [item.productId]
+          );
+          const prevStock = prevResult.rows[0]?.current_stock ?? 0;
+          const newStock = prevStock - item.quantity;
+          await db.query(
+            'UPDATE products SET current_stock = $1, updated_at = NOW() WHERE id = $2',
+            [newStock, item.productId]
+          );
+          await db.query(
+            `INSERT INTO inventory_movements (id, product_id, user_id, type, quantity, previous_stock, new_stock, reason, reference_id, reference_type)
+             VALUES (gen_random_uuid()::text, $1, $2, 'SALE', $3, $4, $5, $6, $7, 'SALE')`,
+            [item.productId, userId, -item.quantity, prevStock, newStock, `Venda ${saleNumber} (mobile)`, createdSale.id]
+          );
+        } else {
+          const stockQuery = `
+            SELECT update_product_stock(
+              $1::TEXT, $2::INTEGER, $3::TEXT, $4::VARCHAR, $5::TEXT, $6::TEXT, $7::VARCHAR
+            )
+          `;
 
-        await db.query(stockQuery, [
-          item.productId,
-          -item.quantity,
-          userId,
-          'SALE',
-          `Venda ${saleNumber}`,
-          createdSale.id,
-          'SALE',
-        ]);
+          await db.query(stockQuery, [
+            item.productId,
+            -item.quantity,
+            userId,
+            'SALE',
+            `Venda ${saleNumber}`,
+            createdSale.id,
+            'SALE',
+          ]);
+        }
       }
     }
 

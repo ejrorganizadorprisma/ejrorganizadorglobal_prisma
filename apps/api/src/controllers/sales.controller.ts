@@ -101,8 +101,9 @@ export class SalesController {
     try {
       const saleData: CreateSaleDTO = req.body;
       const userId = req.user!.id;
+      const userRole = req.user!.role;
 
-      const sale = await this.service.create(saleData, userId);
+      const sale = await this.service.create(saleData, userId, userRole);
 
       res.status(201).json({
         success: true,
@@ -122,6 +123,7 @@ export class SalesController {
     try {
       const { quoteId, paymentMethod, installments, saleDate, dueDate, notes, internalNotes } = req.body;
       const userId = req.user!.id;
+      const userRole = req.user!.role;
 
       if (!quoteId) {
         return res.status(400).json({ success: false, message: 'quoteId é obrigatório' });
@@ -134,7 +136,8 @@ export class SalesController {
       const sale = await this.service.convertFromQuote(
         quoteId,
         { paymentMethod, installments, saleDate, dueDate, notes, internalNotes },
-        userId
+        userId,
+        userRole
       );
 
       res.status(201).json({
