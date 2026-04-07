@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCustomers, Customer } from '../hooks/useCustomers';
+import { fullSync } from '../db/sync';
 
 interface Props {
   navigation: any;
@@ -14,7 +15,14 @@ export default function CustomersScreen({ navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      let cancelled = false;
+      (async () => {
+        try {
+          await fullSync();
+        } catch { /* ignore */ }
+        if (!cancelled) await refresh();
+      })();
+      return () => { cancelled = true; };
     }, [refresh])
   );
 

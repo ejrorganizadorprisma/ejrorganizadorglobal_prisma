@@ -3,6 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, S
 import { useFocusEffect } from '@react-navigation/native';
 import { useSales, Sale } from '../hooks/useSales';
 import { formatPrice } from '../utils/formatPrice';
+import { fullSync } from '../db/sync';
 
 interface Props {
   navigation: any;
@@ -35,7 +36,14 @@ export default function SalesScreen({ navigation }: Props) {
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      let cancelled = false;
+      (async () => {
+        try {
+          await fullSync();
+        } catch { /* ignore */ }
+        if (!cancelled) await refresh();
+      })();
+      return () => { cancelled = true; };
     }, [refresh])
   );
 

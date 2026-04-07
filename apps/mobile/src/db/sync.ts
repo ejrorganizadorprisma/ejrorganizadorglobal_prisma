@@ -279,20 +279,41 @@ export async function pullServerData(): Promise<{ pulled: number }> {
   return { pulled };
 }
 
-export async function fullSync(): Promise<{ pushed: number; pulled: number; errors: number }> {
-  const pushResult = await pushPendingChanges();
-  const pullResult = await pullServerData();
+let inFlightSync: Promise<{ pushed: number; pulled: number; errors: number }> | null = null;
+let lastSyncFinishedAt = 0;
+const MIN_SYNC_INTERVAL_MS = 3000;
 
-  try {
-    const token = await getToken();
-    if (token) {
-      await apiRequest('/mobile-app/sync-done', { method: 'POST', token });
+export async function fullSync(force = false): Promise<{ pushed: number; pulled: number; errors: number }> {
+  // Reuse in-flight sync if one is already running
+  if (inFlightSync) return inFlightSync;
+
+  // Throttle: skip if we just synced recently (unless forced)
+  if (!force && Date.now() - lastSyncFinishedAt < MIN_SYNC_INTERVAL_MS) {
+    return { pushed: 0, pulled: 0, errors: 0 };
+  }
+
+  inFlightSync = (async () => {
+    try {
+      const pushResult = await pushPendingChanges();
+      const pullResult = await pullServerData();
+
+      try {
+        const token = await getToken();
+        if (token) {
+          await apiRequest('/mobile-app/sync-done', { method: 'POST', token });
+        }
+      } catch { /* ignore */ }
+
+      return {
+        pushed: pushResult.pushed,
+        pulled: pullResult.pulled,
+        errors: pushResult.errors,
+      };
+    } finally {
+      lastSyncFinishedAt = Date.now();
+      inFlightSync = null;
     }
-  } catch { /* ignore */ }
+  })();
 
-  return {
-    pushed: pushResult.pushed,
-    pulled: pullResult.pulled,
-    errors: pushResult.errors,
-  };
+  return inFlightSync;
 }
