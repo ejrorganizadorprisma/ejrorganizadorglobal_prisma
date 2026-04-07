@@ -4,12 +4,15 @@ import { useQuote, useCreateQuote, useUpdateQuote } from '../hooks/useQuotes';
 import { useCustomers } from '../hooks/useCustomers';
 import { useProducts } from '../hooks/useProducts';
 import { useServices } from '../hooks/useServices';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { QuoteItemType } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice } from '../hooks/useFormatPrice';
-import { Search, Package, AlertTriangle, Trash2, Plus, Wrench } from 'lucide-react';
+import { generateQuotePDF, type QuotePdfMode } from '../utils/quotePdfGenerator';
+import { api } from '../lib/api';
+import { Search, Package, AlertTriangle, Trash2, Plus, Wrench, FileText, Printer } from 'lucide-react';
 
 type FormItem = {
   itemType: QuoteItemType;
@@ -37,6 +40,31 @@ export function QuoteFormPage() {
   const { data: systemSettings } = useSystemSettings();
   const defaultCurrency = systemSettings?.defaultCurrency || 'BRL';
   const { formatPrice } = useFormatPrice();
+  const { data: documentSettings } = useDefaultDocumentSettings();
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleGeneratePdf = async (mode: QuotePdfMode) => {
+    if (!id) return;
+    setPdfLoading(true);
+    try {
+      const { data: quoteResp } = await api.get(`/quotes/${id}`);
+      const fullQuote = quoteResp.data;
+      if (!fullQuote?.customer) {
+        toast.error('Dados do cliente nao disponiveis');
+        return;
+      }
+      const signerInfo = {
+        name: documentSettings?.signatureName || 'Responsavel',
+        role: documentSettings?.signatureRole || 'Diretor',
+      };
+      generateQuotePDF(fullQuote, fullQuote.customer, signerInfo, documentSettings, defaultCurrency, mode);
+      toast.success(mode === 'print' ? 'PDF para impressao gerado' : 'PDF elegante gerado');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.response?.data?.message || err?.message || 'desconhecido'));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
 
   // Product search state
   const [productSearch, setProductSearch] = useState('');
@@ -331,7 +359,35 @@ export function QuoteFormPage() {
         <button onClick={() => navigate('/quotes')} className="text-blue-600 hover:text-blue-800 mb-4">
           ← Voltar para Orçamentos
         </button>
-        <h1 className="text-2xl lg:text-3xl font-bold">{isEditing ? 'Editar Orçamento' : 'Novo Orçamento'}</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-2xl lg:text-3xl font-bold">{isEditing ? 'Editar Orçamento' : 'Novo Orçamento'}</h1>
+          {isEditing && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => handleGeneratePdf('elegant')}
+                disabled={pdfLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {pdfLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                PDF Elegante
+              </button>
+              <button
+                type="button"
+                onClick={() => handleGeneratePdf('print')}
+                disabled={pdfLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                <Printer className="w-4 h-4" />
+                PDF Impressao
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

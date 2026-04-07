@@ -1,12 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuotes, useDeleteQuote, useQuote } from '../hooks/useQuotes';
+import { useQuotes, useDeleteQuote } from '../hooks/useQuotes';
 import { useConvertToSale } from '../hooks/useSales';
-import { useCustomer } from '../hooks/useCustomers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice } from '../hooks/useFormatPrice';
-import { generateQuotePDF } from '../utils/quotePdfGenerator';
+import { api } from '../lib/api';
+import { generateQuotePDF, type QuotePdfMode } from '../utils/quotePdfGenerator';
 import { toast } from 'sonner';
 import type { Currency, PaymentMethod } from '@ejr/shared-types';
 import {
@@ -14,7 +14,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Download,
   Filter,
   Search,
   ShoppingCart,
@@ -28,6 +27,7 @@ import {
   DollarSign,
   Package,
   Wrench,
+  Printer,
 } from 'lucide-react';
 
 const LOCALE_MAP: Record<string, string> = {
@@ -358,7 +358,8 @@ export function QuotesPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<any>('');
-  const [pdfQuoteId, setPdfQuoteId] = useState<string | null>(null);
+  const [pdfMenuOpen, setPdfMenuOpen] = useState<string | null>(null);
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [convertingQuote, setConvertingQuote] = useState<any>(null);
   const limit = 10;
 
@@ -376,10 +377,6 @@ export function QuotesPage() {
   const { data: systemSettings } = useSystemSettings();
   const defaultCurrency: Currency = systemSettings?.defaultCurrency || 'BRL';
   const { formatPrice } = useFormatPrice();
-
-  // Fetch quote and customer data for PDF generation
-  const { data: quoteData } = useQuote(pdfQuoteId || '', { enabled: !!pdfQuoteId });
-  const { data: customerData } = useCustomer(quoteData?.customerId);
   const { data: documentSettings } = useDefaultDocumentSettings();
 
   const handleDelete = async (id: string, number: string) => {
@@ -429,29 +426,28 @@ export function QuotesPage() {
     }
   };
 
-  const handleDownloadPDF = async (quoteId: string) => {
-    setPdfQuoteId(quoteId);
-    await new Promise(resolve => setTimeout(resolve, 100));
-  };
-
-  // Auto-generate PDF when quote data is loaded
-  useEffect(() => {
-    if (pdfQuoteId && quoteData && customerData) {
+  const handleGeneratePdf = async (quoteId: string, mode: QuotePdfMode) => {
+    setPdfMenuOpen(null);
+    setPdfLoadingId(quoteId);
+    try {
+      const { data: quoteResp } = await api.get(`/quotes/${quoteId}`);
+      const fullQuote = quoteResp.data;
+      if (!fullQuote?.customer) {
+        toast.error('Dados do cliente nao disponiveis');
+        return;
+      }
       const signerInfo = {
         name: documentSettings?.signatureName || 'Responsavel',
         role: documentSettings?.signatureRole || 'Diretor',
       };
-
-      try {
-        generateQuotePDF(quoteData as any, customerData, signerInfo, documentSettings, defaultCurrency);
-        setPdfQuoteId(null);
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        toast.error('Erro ao gerar PDF. Por favor, tente novamente.');
-        setPdfQuoteId(null);
-      }
+      generateQuotePDF(fullQuote, fullQuote.customer, signerInfo, documentSettings, defaultCurrency, mode);
+      toast.success(mode === 'print' ? 'PDF para impressao gerado' : 'PDF elegante gerado');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.response?.data?.message || err?.message || 'desconhecido'));
+    } finally {
+      setPdfLoadingId(null);
     }
-  }, [pdfQuoteId, quoteData, customerData, documentSettings, defaultCurrency]);
+  };
 
   const formatDate = (dateString: string) => {
     try {
@@ -650,15 +646,46 @@ export function QuotesPage() {
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleDownloadPDF(quote.id)}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
-                                       text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg
-                                       transition-colors"
-                            title="Baixar PDF"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
+                          <div className="relative">
+                            <button
+                              onClick={() => setPdfMenuOpen(pdfMenuOpen === quote.id ? null : quote.id)}
+                              disabled={pdfLoadingId === quote.id}
+                              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
+                                         text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg
+                                         transition-colors disabled:opacity-50"
+                              title="Gerar PDF"
+                            >
+                              {pdfLoadingId === quote.id ? (
+                                <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <FileText className="w-4 h-4" />
+                              )}
+                            </button>
+                            {pdfMenuOpen === quote.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-10"
+                                  onClick={() => setPdfMenuOpen(null)}
+                                />
+                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                                  <button
+                                    onClick={() => handleGeneratePdf(quote.id, 'elegant')}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
+                                  >
+                                    <FileText className="w-4 h-4" />
+                                    PDF Elegante
+                                  </button>
+                                  <button
+                                    onClick={() => handleGeneratePdf(quote.id, 'print')}
+                                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <Printer className="w-4 h-4" />
+                                    PDF Impressao
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                           {quote.status === 'APPROVED' && (
                             <button
                               onClick={() => handleOpenConvertModal(quote)}

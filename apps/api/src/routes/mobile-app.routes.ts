@@ -7,6 +7,9 @@ import fs from 'fs';
 
 const router = Router();
 
+// Default GitHub release URL (used when MOBILE_APP_DOWNLOAD_URL env var is not set)
+const DEFAULT_APK_URL = 'https://github.com/ejrorganizadorprisma/ejrorganizadorglobal_prisma/releases/download/v1.3.1/EJR-OrGlobal-v1.3.1.apk';
+
 // PUBLIC: validate seller's token before login
 router.post('/check', async (req: Request, res: Response) => {
   try {
@@ -35,7 +38,7 @@ router.post('/check', async (req: Request, res: Response) => {
 
 // PUBLIC: download APK (opened via window.open, no auth header)
 router.get('/download', (_req: Request, res: Response) => {
-  const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL;
+  const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL || DEFAULT_APK_URL;
   if (externalUrl) return res.redirect(externalUrl);
   const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-orglobal.apk');
   if (fs.existsSync(localPath)) return res.download(localPath, 'ejr-orglobal.apk');
@@ -67,7 +70,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
     const activeToday = sellers.filter(s => s.mobile_app_last_login && new Date(s.mobile_app_last_login) > oneDayAgo).length;
 
     // Download info
-    const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL;
+    const externalUrl = process.env.MOBILE_APP_DOWNLOAD_URL || DEFAULT_APK_URL;
     const localPath = path.join(process.cwd(), 'uploads', 'mobile', 'ejr-orglobal.apk');
     const localExists = fs.existsSync(localPath);
     let fileSize: number | null = null;
@@ -89,10 +92,10 @@ router.get('/settings', async (_req: Request, res: Response) => {
         })),
         stats: { authorizedCount, activeToday, totalSellers: sellers.length },
         download: {
-          appVersion: '1.3.0',
+          appVersion: '1.3.1',
           appName: 'EJR OrGlobal',
           platform: 'Android',
-          fileSize: fileSize || 74_000_000,
+          fileSize: fileSize || 74_672_791,
           available: !!(externalUrl || localExists),
           url: externalUrl || (localExists ? '/mobile-app/download' : null),
         },

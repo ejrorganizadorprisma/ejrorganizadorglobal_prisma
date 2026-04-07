@@ -36,17 +36,11 @@ const formatBrazilianDate = (date: Date): string => {
 
 /**
  * Formats a value in cents to the appropriate currency format
- * Examples:
- *   BRL: 123456 -> 'R$ 1.234,56'
- *   PYG: 123456 -> 'Gs. 1.234.567' (no decimals, integer currency)
- *   USD: 123456 -> '$ 1,234.56'
  */
 const formatCurrency = (value: number, currency: Currency = 'BRL'): string => {
   const config = CURRENCY_FORMAT_CONFIG[currency];
   const realValue = config.decimals === 0 ? value : value / 100;
 
-  // For PYG, Intl uses the guarani symbol which may not render in PDF fonts,
-  // so we manually format with the 'Gs.' prefix
   if (currency === 'PYG') {
     const formatted = new Intl.NumberFormat(config.locale, {
       minimumFractionDigits: 0,
@@ -68,20 +62,13 @@ const formatCurrency = (value: number, currency: Currency = 'BRL'): string => {
  */
 const formatDocument = (document: string): string => {
   if (!document) return '';
-
-  // Remove any non-digit characters
   const cleaned = document.replace(/\D/g, '');
-
-  // CPF: 123.456.789-00
   if (cleaned.length === 11) {
     return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   }
-
-  // CNPJ: 12.345.678/0001-00
   if (cleaned.length === 14) {
     return cleaned.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   }
-
   return document;
 };
 
@@ -96,20 +83,25 @@ const hexToRgb = (hex: string): { r: number; g: number; b: number } => {
         g: parseInt(result[2], 16),
         b: parseInt(result[3], 16),
       }
-    : { r: 37, g: 99, b: 235 }; // Default blue
+    : { r: 37, g: 99, b: 235 };
 };
+
+export type QuotePdfMode = 'elegant' | 'print';
 
 /**
  * Generates a professional PDF for a quote
+ * @param mode - 'elegant' (default, colorful) or 'print' (ink-saving grayscale)
  */
 export const generateQuotePDF = (
   quote: QuoteWithProduct,
   customer: Customer,
   signer: SignerInfo,
   settings?: DocumentSettings,
-  currency: Currency = 'BRL'
+  currency: Currency = 'BRL',
+  mode: QuotePdfMode = 'elegant'
 ): void => {
   const doc = new jsPDF();
+  const isPrint = mode === 'print';
 
   // Use settings or defaults
   const _companyName = settings?.companyName || 'EJR ORGANIZADOR';
@@ -125,7 +117,7 @@ export const generateQuotePDF = (
   const signerRole = settings?.signatureRole || signer.role;
 
   // Define colors
-  const primaryRgb = hexToRgb(primaryColor);
+  const primaryRgb = isPrint ? { r: 60, g: 60, b: 60 } : hexToRgb(primaryColor);
   const lightGrey = '#f3f4f6';
   const darkGrey = '#6b7280';
   const black = '#000000';
@@ -133,26 +125,45 @@ export const generateQuotePDF = (
   let yPos = 20;
 
   // ========== HEADER SECTION ==========
-  // Company name with background
-  doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-  doc.rect(0, 0, 210, 35, 'F');
-
-  doc.setTextColor('#ffffff');
-
-  // Add logo if available (larger size)
-  if (companyLogo) {
-    try {
-      doc.addImage(companyLogo, 'PNG', 10, 3, 70, 30);
-    } catch (error) {
-      console.error('Error adding logo:', error);
+  if (isPrint) {
+    if (companyLogo) {
+      try {
+        doc.addImage(companyLogo, 'PNG', 15, 8, 55, 22);
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    } else if (settings?.companyName) {
+      doc.setTextColor(black);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(settings.companyName, 15, 20);
     }
-  }
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    doc.line(15, 36, 195, 36);
 
-  // EJR Organizador discretamente na parte inferior direita
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(255, 255, 255);
-  doc.text('EJR Organizador Global', 205, 32, { align: 'right' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(darkGrey);
+    doc.text('EJR Organizador Global', 195, 32, { align: 'right' });
+  } else {
+    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+    doc.rect(0, 0, 210, 35, 'F');
+    doc.setTextColor('#ffffff');
+
+    if (companyLogo) {
+      try {
+        doc.addImage(companyLogo, 'PNG', 10, 3, 70, 30);
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    }
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(255, 255, 255);
+    doc.text('EJR Organizador Global', 205, 32, { align: 'right' });
+  }
 
   yPos = 45;
 
@@ -173,16 +184,25 @@ export const generateQuotePDF = (
 
   yPos += 20;
 
+  // Helper: section title (filled in elegant, bordered in print)
+  const renderSectionTitle = (title: string) => {
+    if (isPrint) {
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.3);
+      doc.rect(15, yPos, 180, 8, 'S');
+    } else {
+      doc.setFillColor(lightGrey);
+      doc.rect(15, yPos, 180, 8, 'F');
+    }
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(black);
+    doc.text(title, 20, yPos + 5.5);
+    yPos += 12;
+  };
+
   // ========== CUSTOMER SECTION ==========
-  doc.setFillColor(lightGrey);
-  doc.rect(15, yPos, 180, 8, 'F');
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(black);
-  doc.text('DADOS DO CLIENTE', 20, yPos + 5.5);
-
-  yPos += 12;
+  renderSectionTitle('DADOS DO CLIENTE');
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -210,15 +230,7 @@ export const generateQuotePDF = (
   yPos += 5;
 
   // ========== ITEMS TABLE ==========
-  doc.setFillColor(lightGrey);
-  doc.rect(15, yPos, 180, 8, 'F');
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(black);
-  doc.text('ITENS DO ORÇAMENTO', 20, yPos + 5.5);
-
-  yPos += 12;
+  renderSectionTitle('ITENS DO ORÇAMENTO');
 
   // Prepare table data
   const tableData: any[] = [];
@@ -250,18 +262,35 @@ export const generateQuotePDF = (
     startY: yPos,
     head: [['Cod.', 'Cod. Fab.', 'Produto', 'Qtd', 'Valor Unit.', 'Total']],
     body: tableData,
-    theme: 'striped',
-    headStyles: {
-      fillColor: [primaryRgb.r, primaryRgb.g, primaryRgb.b],
-      textColor: '#ffffff',
-      fontSize: 9,
-      fontStyle: 'bold',
-      halign: 'left'
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: black
-    },
+    theme: isPrint ? 'grid' : 'striped',
+    headStyles: isPrint
+      ? {
+          fillColor: false as any,
+          textColor: black,
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          lineColor: [100, 100, 100],
+          lineWidth: 0.3,
+        }
+      : {
+          fillColor: [primaryRgb.r, primaryRgb.g, primaryRgb.b],
+          textColor: '#ffffff',
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+        },
+    bodyStyles: isPrint
+      ? {
+          fontSize: 9,
+          textColor: black,
+          lineColor: [180, 180, 180],
+          lineWidth: 0.2,
+        }
+      : {
+          fontSize: 9,
+          textColor: black,
+        },
     columnStyles: {
       0: { cellWidth: 22 },
       1: { cellWidth: 28 },
@@ -272,7 +301,6 @@ export const generateQuotePDF = (
     },
     margin: { left: 15, right: 15 },
     didDrawPage: function(data) {
-      // Update yPos after table is drawn
       yPos = data.cursor?.y || yPos;
     }
   });
@@ -286,6 +314,7 @@ export const generateQuotePDF = (
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
+  doc.setTextColor(black);
 
   // Subtotal
   doc.text('Subtotal:', totalsX, yPos);
@@ -308,7 +337,11 @@ export const generateQuotePDF = (
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL:', totalsX, yPos);
+  if (!isPrint) {
+    doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+  }
   doc.text(formatCurrency(quote.total, currency), 190, yPos, { align: 'right' });
+  doc.setTextColor(black);
 
   yPos += 10;
 
@@ -322,15 +355,7 @@ export const generateQuotePDF = (
 
   // ========== NOTES SECTION ==========
   if (quote.notes && quote.notes.trim()) {
-    doc.setFillColor(lightGrey);
-    doc.rect(15, yPos, 180, 8, 'F');
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(black);
-    doc.text('OBSERVAÇÕES', 20, yPos + 5.5);
-
-    yPos += 12;
+    renderSectionTitle('OBSERVAÇÕES');
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -407,9 +432,16 @@ export const generateQuotePDF = (
       const contactLine = contactInfo.join(' | ');
       doc.text(contactLine, 105, footerY, { align: 'center' });
     }
+
+    // Page number
+    if (pageCount > 1) {
+      doc.setFontSize(7);
+      doc.text(`Pagina ${i} de ${pageCount}`, 195, 287, { align: 'right' });
+    }
   }
 
   // ========== SAVE PDF ==========
-  const fileName = `Orcamento_${quote.quoteNumber.replace(/\//g, '-')}_${customer.name.replace(/\s+/g, '_')}.pdf`;
+  const suffix = isPrint ? '_impressao' : '';
+  const fileName = `Orcamento_${quote.quoteNumber.replace(/\//g, '-')}_${customer.name.replace(/\s+/g, '_')}${suffix}.pdf`;
   doc.save(fileName);
 };

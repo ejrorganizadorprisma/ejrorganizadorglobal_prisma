@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import {
   useCollections,
   useCollectionStats,
@@ -11,6 +12,7 @@ import {
 import type { Collection } from '../hooks/useCollections';
 import { useSellerStats } from '../hooks/useSellers';
 import { AppPage } from '@ejr/shared-types';
+import { generateCollectionPDF, type CollectionPdfMode } from '../utils/collectionPdfGenerator';
 import { toast } from 'sonner';
 import {
   Receipt,
@@ -25,6 +27,8 @@ import {
   Image,
   Eye,
   Loader2,
+  FileText,
+  Printer,
 } from 'lucide-react';
 
 const statusConfig: Record<
@@ -49,7 +53,8 @@ export function CollectionsPage() {
 }
 
 function CollectionsPageContent() {
-  const { formatPrice } = useFormatPrice();
+  const { formatPrice, defaultCurrency } = useFormatPrice();
+  const { data: documentSettings } = useDefaultDocumentSettings();
 
   // Filters
   const [page, setPage] = useState(1);
@@ -62,6 +67,9 @@ function CollectionsPageContent() {
 
   // Detail/expand
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // PDF
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
 
   // Reject modal
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
@@ -133,6 +141,18 @@ function CollectionsPageContent() {
       toast.success('Cobranca marcada como depositada');
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Erro ao marcar como depositado');
+    }
+  };
+
+  const handleGeneratePdf = (collection: Collection, mode: CollectionPdfMode) => {
+    setPdfLoadingId(collection.id);
+    try {
+      generateCollectionPDF(collection, documentSettings, defaultCurrency, mode);
+      toast.success(mode === 'print' ? 'PDF para impressao gerado' : 'PDF elegante gerado');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.message || 'desconhecido'));
+    } finally {
+      setPdfLoadingId(null);
     }
   };
 
@@ -309,6 +329,8 @@ function CollectionsPageContent() {
                         onApprove={() => handleApprove(c.id)}
                         onReject={() => { setRejectModalId(c.id); setRejectReason(''); }}
                         onDeposit={() => handleDeposit(c.id)}
+                        onGeneratePdf={(mode) => handleGeneratePdf(c, mode)}
+                        isPdfLoading={pdfLoadingId === c.id}
                         isApproving={approveCollection.isPending}
                         isDepositing={depositCollection.isPending}
                       />
@@ -392,6 +414,8 @@ interface CollectionRowProps {
   onApprove: () => void;
   onReject: () => void;
   onDeposit: () => void;
+  onGeneratePdf: (mode: CollectionPdfMode) => void;
+  isPdfLoading: boolean;
   isApproving: boolean;
   isDepositing: boolean;
 }
@@ -405,9 +429,12 @@ function CollectionRow({
   onApprove,
   onReject,
   onDeposit,
+  onGeneratePdf,
+  isPdfLoading,
   isApproving,
   isDepositing,
 }: CollectionRowProps) {
+  const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
   return (
     <>
       <tr className="hover:bg-gray-50 cursor-pointer" onClick={onToggleExpand}>
@@ -434,6 +461,50 @@ function CollectionRow({
             >
               <Eye className="w-4 h-4" />
             </button>
+            <div className="relative">
+              <button
+                onClick={() => setPdfMenuOpen((v) => !v)}
+                disabled={isPdfLoading}
+                className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
+                title="Gerar PDF"
+              >
+                {isPdfLoading ? (
+                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+              </button>
+              {pdfMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setPdfMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                    <button
+                      onClick={() => {
+                        setPdfMenuOpen(false);
+                        onGeneratePdf('elegant');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      PDF Elegante
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPdfMenuOpen(false);
+                        onGeneratePdf('print');
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <Printer className="w-4 h-4" />
+                      PDF Impressao
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             {c.status === 'PENDING_APPROVAL' && (
               <>
                 <button
