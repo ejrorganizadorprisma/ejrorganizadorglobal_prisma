@@ -99,17 +99,35 @@ function CommissionsPageContent() {
    Tab: Configuracao
    ============================================================ */
 function ConfigTab() {
-  const { data: configs, isLoading } = useCommissionConfigs();
+  const { data: configs, isLoading: loadingConfigs } = useCommissionConfigs();
+  const { data: sellers, isLoading: loadingSellers } = useSellerStats();
   const updateConfig = useUpdateCommissionConfig();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editSales, setEditSales] = useState(0);
   const [editCollections, setEditCollections] = useState(0);
 
-  const startEdit = (c: SellerCommissionConfig) => {
-    setEditingId(c.sellerId);
-    setEditSales(c.commissionOnSales);
-    setEditCollections(c.commissionOnCollections);
+  // Merge sellers with existing configs
+  const configMap = new Map<string, SellerCommissionConfig>();
+  configs?.forEach((c) => configMap.set(c.sellerId, c));
+
+  const mergedSellers = (sellers || []).map((s) => {
+    const existing = configMap.get(s.id);
+    return {
+      sellerId: s.id,
+      sellerName: s.name,
+      sellerEmail: s.email,
+      commissionOnSales: existing?.commissionOnSales ?? 0,
+      commissionOnCollections: existing?.commissionOnCollections ?? 0,
+      isActive: existing?.isActive ?? true,
+      hasConfig: !!existing,
+    };
+  });
+
+  const startEdit = (s: typeof mergedSellers[0]) => {
+    setEditingId(s.sellerId);
+    setEditSales(s.commissionOnSales);
+    setEditCollections(s.commissionOnCollections);
   };
 
   const handleSave = async (sellerId: string) => {
@@ -126,7 +144,7 @@ function ConfigTab() {
     }
   };
 
-  if (isLoading) {
+  if (loadingConfigs || loadingSellers) {
     return (
       <div className="bg-white rounded-xl shadow-sm border p-12 flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
@@ -138,7 +156,7 @@ function ConfigTab() {
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
       <div className="px-6 py-4 border-b">
         <h2 className="text-lg font-semibold text-gray-900">Configuracao de Comissoes por Vendedor</h2>
-        <p className="text-sm text-gray-500 mt-1">Defina os percentuais de comissao sobre vendas e cobrancas</p>
+        <p className="text-sm text-gray-500 mt-1">Defina os percentuais de comissao sobre vendas e cobrancas para cada vendedor</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -148,17 +166,17 @@ function ConfigTab() {
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Email</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">% Vendas</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">% Cobrancas</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Ativo</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acoes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {configs?.map((c) => {
-              const isEditing = editingId === c.sellerId;
+            {mergedSellers.map((s) => {
+              const isEditing = editingId === s.sellerId;
               return (
-                <tr key={c.sellerId} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{c.sellerName}</td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.sellerEmail}</td>
+                <tr key={s.sellerId} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{s.sellerName}</td>
+                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{s.sellerEmail}</td>
                   <td className="px-4 py-3 text-center">
                     {isEditing ? (
                       <input
@@ -171,7 +189,7 @@ function ConfigTab() {
                         className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                     ) : (
-                      <span className="text-gray-900">{c.commissionOnSales}%</span>
+                      <span className={s.hasConfig ? 'text-gray-900' : 'text-gray-400'}>{s.commissionOnSales}%</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -186,21 +204,25 @@ function ConfigTab() {
                         className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                     ) : (
-                      <span className="text-gray-900">{c.commissionOnCollections}%</span>
+                      <span className={s.hasConfig ? 'text-gray-900' : 'text-gray-400'}>{s.commissionOnCollections}%</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      c.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {c.isActive ? 'Sim' : 'Nao'}
-                    </span>
+                    {s.hasConfig ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Configurado
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                        Sem comissao
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {isEditing ? (
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleSave(c.sellerId)}
+                          onClick={() => handleSave(s.sellerId)}
                           disabled={updateConfig.isPending}
                           className="px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
                         >
@@ -216,20 +238,20 @@ function ConfigTab() {
                       </div>
                     ) : (
                       <button
-                        onClick={() => startEdit(c)}
+                        onClick={() => startEdit(s)}
                         className="px-3 py-1.5 text-xs font-medium text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50 transition-colors"
                       >
-                        Editar
+                        {s.hasConfig ? 'Editar' : 'Definir %'}
                       </button>
                     )}
                   </td>
                 </tr>
               );
             })}
-            {(!configs || configs.length === 0) && (
+            {mergedSellers.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                  Nenhuma configuracao de comissao encontrada
+                  Nenhum vendedor encontrado. Cadastre vendedores com role SALESPERSON primeiro.
                 </td>
               </tr>
             )}
