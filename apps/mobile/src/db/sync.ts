@@ -3,6 +3,16 @@ import { apiRequest } from '../api/client';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// Subscribers notified whenever a fullSync finishes. Used by data screens
+// to re-read from local SQLite the moment background sync pulls new data.
+type SyncListener = () => void;
+const syncListeners = new Set<SyncListener>();
+
+export function onSyncComplete(cb: SyncListener): () => void {
+  syncListeners.add(cb);
+  return () => { syncListeners.delete(cb); };
+}
+
 export interface SyncStatus {
   pendingCustomers: number;
   pendingQuotes: number;
@@ -312,6 +322,10 @@ export async function fullSync(force = false): Promise<{ pushed: number; pulled:
     } finally {
       lastSyncFinishedAt = Date.now();
       inFlightSync = null;
+      // Notify subscribers so mounted screens can re-read local DB
+      syncListeners.forEach(cb => {
+        try { cb(); } catch { /* ignore */ }
+      });
     }
   })();
 

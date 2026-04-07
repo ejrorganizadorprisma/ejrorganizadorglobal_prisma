@@ -1,9 +1,9 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCollections, CollectionItem } from '../hooks/useCollections';
 import { formatPrice } from '../utils/formatPrice';
-import { fullSync } from '../db/sync';
+import { fullSync, onSyncComplete } from '../db/sync';
 
 interface Props {
   navigation: any;
@@ -34,7 +34,7 @@ export default function CollectionsScreen({ navigation }: Props) {
       let cancelled = false;
       (async () => {
         try {
-          await fullSync();
+          await fullSync(true);
         } catch { /* ignore */ }
         if (!cancelled) await refresh();
       })();
@@ -42,8 +42,20 @@ export default function CollectionsScreen({ navigation }: Props) {
     }, [refresh])
   );
 
+  // Re-read local DB whenever a background sync (periodic tick, network
+  // recovery, pull-to-refresh from another screen) finishes. This catches
+  // the case where the seller is already on this tab when the admin
+  // approves/updates data on the web.
+  useEffect(() => {
+    const unsub = onSyncComplete(() => { refresh(); });
+    return unsub;
+  }, [refresh]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
+    try {
+      await fullSync(true);
+    } catch { /* ignore */ }
     await refresh();
     setRefreshing(false);
   };
