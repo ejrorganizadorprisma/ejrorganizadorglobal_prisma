@@ -15,16 +15,21 @@ export class CustomersService {
     search?: string;
     type?: CustomerType;
     createdBy?: string;
+    responsibleUserId?: string;
+    approvalStatus?: string;
+    includeDeleted?: boolean;
   }) {
-    const { page, limit, search, type, createdBy } = params;
+    const { page, limit, search, type, createdBy, responsibleUserId, approvalStatus, includeDeleted } = params;
 
     if (page < 1 || limit < 1 || limit > 100) {
       throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
+    const filters = { search, type, createdBy, responsibleUserId, approvalStatus, includeDeleted };
+
     const [customers, total] = await Promise.all([
-      this.repository.findMany({ page, limit, search, type, createdBy }),
-      this.repository.count({ search, type, createdBy }),
+      this.repository.findMany({ page, limit, ...filters }),
+      this.repository.count(filters),
     ]);
 
     return {
@@ -58,7 +63,8 @@ export class CustomersService {
     return customer;
   }
 
-  async create(data: CreateCustomerDTO, userId?: string) {
+  async create(data: CreateCustomerDTO, userId?: string, userRole?: string) {
+    const isMobileSeller = userRole === 'SALESPERSON';
     let cleanDocument: string | undefined;
 
     // Validação de documento BR (CPF/CNPJ) - só quando documento é fornecido
@@ -103,10 +109,32 @@ export class CustomersService {
       data.creditMaxDays = null;
     }
 
-    return this.repository.create({
-      ...data,
-      document: cleanDocument || data.document,
-    }, userId);
+    // Vendedor mobile: cliente entra como PENDING + responsible_user_id = self
+    // Admin/manager: APPROVED por padrao + responsible_user_id pode vir do payload
+    const opts: { approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED'; responsibleUserId: string | null } = isMobileSeller
+      ? { approvalStatus: 'PENDING', responsibleUserId: userId ?? null }
+      : { approvalStatus: 'APPROVED', responsibleUserId: (data as any).responsibleUserId ?? null };
+
+    return this.repository.create(
+      {
+        ...data,
+        document: cleanDocument || data.document,
+      },
+      userId,
+      opts
+    );
+  }
+
+  async approve(id: string, approvedBy: string, responsibleUserId: string | null) {
+    const existing = await this.repository.findById(id);
+    if (!existing) throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
+    return this.repository.approve(id, approvedBy, responsibleUserId);
+  }
+
+  async reject(id: string, rejectedBy: string, reason: string) {
+    const existing = await this.repository.findById(id);
+    if (!existing) throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
+    return this.repository.reject(id, rejectedBy, reason);
   }
 
   async update(id: string, data: UpdateCustomerDTO) {
@@ -167,16 +195,9 @@ export class CustomersService {
       throw new AppError('Cliente não encontrado', 404, 'CUSTOMER_NOT_FOUND');
     }
 
-    // Verificar se cliente tem orçamentos associados
-    if (existingCustomer.quotes && existingCustomer.quotes.length > 0) {
-      throw new AppError(
-        'Não é possível excluir cliente com orçamentos associados',
-        400,
-        'CUSTOMER_HAS_QUOTES'
-      );
-    }
-
-    return this.repository.delete(id);
+    // Soft delete — preserva integridade referencial com vendas/orcamentos
+    // e permite que o mobile detecte a remocao no proximo sync.
+    return this.repository.softDelete(id);
   }
 
   // Validação de CPF

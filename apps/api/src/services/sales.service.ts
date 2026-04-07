@@ -95,8 +95,9 @@ export class SalesService {
     }
 
     // Validar método de pagamento autorizado para o cliente
+    // Vendedor mobile vende em campo — confianca no vendedor (regra apenas para web)
     const customer = await this.customersRepository.findById(data.customerId);
-    if (customer && customer.allowedPaymentMethods) {
+    if (!isMobileSeller && customer && customer.allowedPaymentMethods) {
       if (!customer.allowedPaymentMethods.includes(data.paymentMethod)) {
         throw new BadRequestError(
           `Método de pagamento "${data.paymentMethod}" não autorizado para este cliente`

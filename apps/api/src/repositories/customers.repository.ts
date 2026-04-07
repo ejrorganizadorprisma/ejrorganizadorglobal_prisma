@@ -1,182 +1,163 @@
 import { db } from '../config/database';
-import type { Customer, CustomerType, CreateCustomerDTO, UpdateCustomerDTO } from '@ejr/shared-types';
+import type { CustomerType, CreateCustomerDTO, UpdateCustomerDTO } from '@ejr/shared-types';
+
+interface FindManyParams {
+  page: number;
+  limit: number;
+  search?: string;
+  type?: CustomerType;
+  createdBy?: string;
+  responsibleUserId?: string;
+  approvalStatus?: string;
+  includeDeleted?: boolean;
+}
+
+interface CountParams {
+  search?: string;
+  type?: CustomerType;
+  createdBy?: string;
+  responsibleUserId?: string;
+  approvalStatus?: string;
+  includeDeleted?: boolean;
+}
+
+function mapRow(row: any) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    document: row.document,
+    ci: row.ci,
+    ruc: row.ruc,
+    type: row.type,
+    address: row.address,
+    allowedPaymentMethods: row.allowed_payment_methods,
+    creditMaxDays: row.credit_max_days,
+    createdBy: row.created_by,
+    responsibleUserId: row.responsible_user_id,
+    responsibleUserName: row.responsible_user_name ?? null,
+    approvalStatus: row.approval_status,
+    approvedAt: row.approved_at,
+    approvedBy: row.approved_by,
+    rejectionReason: row.rejection_reason,
+    deletedAt: row.deleted_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function buildWhere(params: CountParams): { whereClause: string; queryParams: any[]; nextIndex: number } {
+  const whereClauses: string[] = [];
+  const queryParams: any[] = [];
+  let i = 1;
+
+  if (!params.includeDeleted) {
+    whereClauses.push('c.deleted_at IS NULL');
+  }
+
+  if (params.search) {
+    whereClauses.push(
+      `(c.name ILIKE $${i} OR c.email ILIKE $${i} OR c.document ILIKE $${i} OR c.ci ILIKE $${i} OR c.ruc ILIKE $${i})`
+    );
+    queryParams.push(`%${params.search}%`);
+    i++;
+  }
+
+  if (params.type) {
+    whereClauses.push(`c.type = $${i}`);
+    queryParams.push(params.type);
+    i++;
+  }
+
+  if (params.createdBy) {
+    whereClauses.push(`c.created_by = $${i}`);
+    queryParams.push(params.createdBy);
+    i++;
+  }
+
+  if (params.responsibleUserId) {
+    whereClauses.push(`c.responsible_user_id = $${i}`);
+    queryParams.push(params.responsibleUserId);
+    i++;
+  }
+
+  if (params.approvalStatus) {
+    whereClauses.push(`c.approval_status = $${i}`);
+    queryParams.push(params.approvalStatus);
+    i++;
+  }
+
+  return {
+    whereClause: whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '',
+    queryParams,
+    nextIndex: i,
+  };
+}
 
 export class CustomersRepository {
-  async findMany(params: {
-    page: number;
-    limit: number;
-    search?: string;
-    type?: CustomerType;
-    createdBy?: string;
-  }) {
-    const { page, limit, search, type, createdBy } = params;
+  async findMany(params: FindManyParams) {
+    const { page, limit } = params;
+    const { whereClause, queryParams, nextIndex } = buildWhere(params);
 
-    // Build WHERE clauses
-    const whereClauses: string[] = [];
-    const queryParams: any[] = [];
-    let paramIndex = 1;
-
-    // Filtro de busca
-    if (search) {
-      whereClauses.push(`(name ILIKE $${paramIndex} OR email ILIKE $${paramIndex} OR document ILIKE $${paramIndex} OR ci ILIKE $${paramIndex} OR ruc ILIKE $${paramIndex})`);
-      queryParams.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    // Filtro de tipo
-    if (type) {
-      whereClauses.push(`type = $${paramIndex}`);
-      queryParams.push(type);
-      paramIndex++;
-    }
-
-    // Filtro de criador (vendedor)
-    if (createdBy) {
-      whereClauses.push(`created_by = $${paramIndex}`);
-      queryParams.push(createdBy);
-      paramIndex++;
-    }
-
-    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-    // Add pagination parameters
     queryParams.push(limit);
     queryParams.push((page - 1) * limit);
 
     const sql = `
-      SELECT * FROM customers
+      SELECT c.*, u.name AS responsible_user_name
+      FROM customers c
+      LEFT JOIN users u ON u.id = c.responsible_user_id
       ${whereClause}
-      ORDER BY created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      ORDER BY c.created_at DESC
+      LIMIT $${nextIndex} OFFSET $${nextIndex + 1}
     `;
 
     const result = await db.query(sql, queryParams);
-
-    // Converte snake_case para camelCase
-    return result.rows.map(customer => ({
-      id: customer.id,
-      name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      document: customer.document,
-      ci: customer.ci,
-      ruc: customer.ruc,
-      type: customer.type,
-      address: customer.address,
-      allowedPaymentMethods: customer.allowed_payment_methods,
-      creditMaxDays: customer.credit_max_days,
-      createdBy: customer.created_by,
-      createdAt: customer.created_at,
-      updatedAt: customer.updated_at,
-    }));
+    return result.rows.map(mapRow);
   }
 
-  async count(params: { search?: string; type?: CustomerType; createdBy?: string }) {
-    const { search, type, createdBy } = params;
-
-    // Build WHERE clauses
-    const whereClauses: string[] = [];
-    const queryParams: any[] = [];
-    let paramIndex = 1;
-
-    // Filtro de busca
-    if (search) {
-      whereClauses.push(`(name ILIKE $${paramIndex} OR email ILIKE $${paramIndex} OR document ILIKE $${paramIndex} OR ci ILIKE $${paramIndex} OR ruc ILIKE $${paramIndex})`);
-      queryParams.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    // Filtro de tipo
-    if (type) {
-      whereClauses.push(`type = $${paramIndex}`);
-      queryParams.push(type);
-      paramIndex++;
-    }
-
-    // Filtro de criador (vendedor)
-    if (createdBy) {
-      whereClauses.push(`created_by = $${paramIndex}`);
-      queryParams.push(createdBy);
-      paramIndex++;
-    }
-
-    const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-
-    const sql = `
-      SELECT COUNT(*) as count FROM customers
-      ${whereClause}
-    `;
-
+  async count(params: CountParams) {
+    const { whereClause, queryParams } = buildWhere(params);
+    const sql = `SELECT COUNT(*) AS count FROM customers c ${whereClause}`;
     const result = await db.query(sql, queryParams);
-
     return parseInt(result.rows[0].count, 10);
   }
 
-  async findById(id: string) {
-    const sql = 'SELECT * FROM customers WHERE id = $1';
+  async findById(id: string, opts: { includeDeleted?: boolean } = {}) {
+    const sql = opts.includeDeleted
+      ? `SELECT c.*, u.name AS responsible_user_name FROM customers c LEFT JOIN users u ON u.id = c.responsible_user_id WHERE c.id = $1`
+      : `SELECT c.*, u.name AS responsible_user_name FROM customers c LEFT JOIN users u ON u.id = c.responsible_user_id WHERE c.id = $1 AND c.deleted_at IS NULL`;
     const result = await db.query(sql, [id]);
-
-    if (result.rows.length === 0) {
-      return null; // Não encontrado
-    }
-
-    const data = result.rows[0];
-
-    // Converte snake_case para camelCase
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      document: data.document,
-      ci: data.ci,
-      ruc: data.ruc,
-      type: data.type,
-      address: data.address,
-      allowedPaymentMethods: data.allowed_payment_methods,
-      creditMaxDays: data.credit_max_days,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    if (result.rows.length === 0) return null;
+    return mapRow(result.rows[0]);
   }
 
   async findByDocument(document: string) {
-    const sql = 'SELECT * FROM customers WHERE document = $1';
+    const sql = `SELECT c.*, u.name AS responsible_user_name FROM customers c LEFT JOIN users u ON u.id = c.responsible_user_id WHERE c.document = $1 AND c.deleted_at IS NULL`;
     const result = await db.query(sql, [document]);
-
-    if (result.rows.length === 0) {
-      return null; // Não encontrado
-    }
-
-    const data = result.rows[0];
-
-    // Converte snake_case para camelCase
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      document: data.document,
-      ci: data.ci,
-      ruc: data.ruc,
-      type: data.type,
-      address: data.address,
-      allowedPaymentMethods: data.allowed_payment_methods,
-      creditMaxDays: data.credit_max_days,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    if (result.rows.length === 0) return null;
+    return mapRow(result.rows[0]);
   }
 
-  async create(customerData: CreateCustomerDTO, userId?: string) {
-    // Generate a unique ID for the customer
+  async create(
+    customerData: CreateCustomerDTO,
+    userId?: string,
+    opts: { approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED'; responsibleUserId?: string | null } = {}
+  ) {
     const id = `cust-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const approvalStatus = opts.approvalStatus ?? 'APPROVED';
+    const approvedAt = approvalStatus === 'APPROVED' ? new Date() : null;
+    const approvedBy = approvalStatus === 'APPROVED' ? userId ?? null : null;
+    const responsibleUserId =
+      opts.responsibleUserId !== undefined ? opts.responsibleUserId : (customerData as any).responsibleUserId ?? null;
 
     const sql = `
-      INSERT INTO customers (id, name, email, phone, document, ci, ruc, type, address, allowed_payment_methods, credit_max_days, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      INSERT INTO customers (
+        id, name, email, phone, document, ci, ruc, type, address,
+        allowed_payment_methods, credit_max_days, created_by,
+        responsible_user_id, approval_status, approved_at, approved_by
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *
     `;
 
@@ -193,137 +174,98 @@ export class CustomersRepository {
       customerData.allowedPaymentMethods || null,
       customerData.creditMaxDays || null,
       userId || null,
+      responsibleUserId,
+      approvalStatus,
+      approvedAt,
+      approvedBy,
     ]);
 
-    const data = result.rows[0];
-
-    // Converte snake_case para camelCase
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      document: data.document,
-      ci: data.ci,
-      ruc: data.ruc,
-      type: data.type,
-      address: data.address,
-      allowedPaymentMethods: data.allowed_payment_methods,
-      creditMaxDays: data.credit_max_days,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    return mapRow(result.rows[0]);
   }
 
-  async update(id: string, customerData: UpdateCustomerDTO) {
+  async update(id: string, customerData: UpdateCustomerDTO & { responsibleUserId?: string | null }) {
     const updateFields: string[] = [];
     const queryParams: any[] = [];
-    let paramIndex = 1;
+    let i = 1;
 
-    if (customerData.name !== undefined) {
-      updateFields.push(`name = $${paramIndex}`);
-      queryParams.push(customerData.name);
-      paramIndex++;
-    }
-    if (customerData.email !== undefined) {
-      updateFields.push(`email = $${paramIndex}`);
-      queryParams.push(customerData.email);
-      paramIndex++;
-    }
-    if (customerData.phone !== undefined) {
-      updateFields.push(`phone = $${paramIndex}`);
-      queryParams.push(customerData.phone);
-      paramIndex++;
-    }
-    if (customerData.document !== undefined) {
-      updateFields.push(`document = $${paramIndex}`);
-      queryParams.push(customerData.document || null);
-      paramIndex++;
-    }
-    if (customerData.ci !== undefined) {
-      updateFields.push(`ci = $${paramIndex}`);
-      queryParams.push(customerData.ci || null);
-      paramIndex++;
-    }
-    if (customerData.ruc !== undefined) {
-      updateFields.push(`ruc = $${paramIndex}`);
-      queryParams.push(customerData.ruc || null);
-      paramIndex++;
-    }
-    if (customerData.type !== undefined) {
-      updateFields.push(`type = $${paramIndex}`);
-      queryParams.push(customerData.type);
-      paramIndex++;
-    }
-    if (customerData.address !== undefined) {
-      updateFields.push(`address = $${paramIndex}`);
-      queryParams.push(customerData.address);
-      paramIndex++;
-    }
-    if (customerData.allowedPaymentMethods !== undefined) {
-      updateFields.push(`allowed_payment_methods = $${paramIndex}`);
-      queryParams.push(customerData.allowedPaymentMethods);
-      paramIndex++;
-    }
-    if (customerData.creditMaxDays !== undefined) {
-      updateFields.push(`credit_max_days = $${paramIndex}`);
-      queryParams.push(customerData.creditMaxDays);
-      paramIndex++;
-    }
+    const setField = (column: string, value: any) => {
+      updateFields.push(`${column} = $${i}`);
+      queryParams.push(value);
+      i++;
+    };
+
+    if (customerData.name !== undefined) setField('name', customerData.name);
+    if (customerData.email !== undefined) setField('email', customerData.email);
+    if (customerData.phone !== undefined) setField('phone', customerData.phone);
+    if (customerData.document !== undefined) setField('document', customerData.document || null);
+    if (customerData.ci !== undefined) setField('ci', customerData.ci || null);
+    if (customerData.ruc !== undefined) setField('ruc', customerData.ruc || null);
+    if (customerData.type !== undefined) setField('type', customerData.type);
+    if (customerData.address !== undefined) setField('address', customerData.address);
+    if (customerData.allowedPaymentMethods !== undefined)
+      setField('allowed_payment_methods', customerData.allowedPaymentMethods);
+    if (customerData.creditMaxDays !== undefined) setField('credit_max_days', customerData.creditMaxDays);
+    if (customerData.responsibleUserId !== undefined)
+      setField('responsible_user_id', customerData.responsibleUserId);
 
     if (updateFields.length === 0) {
       throw new Error('Nenhum campo para atualizar');
     }
 
-    // Add updated_at timestamp
-    updateFields.push(`updated_at = NOW()`);
-
-    // Add id to params
+    updateFields.push('updated_at = NOW()');
     queryParams.push(id);
 
-    const sql = `
-      UPDATE customers
-      SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
-      RETURNING *
-    `;
-
+    const sql = `UPDATE customers SET ${updateFields.join(', ')} WHERE id = $${i} RETURNING *`;
     const result = await db.query(sql, queryParams);
-
-    if (result.rows.length === 0) {
-      throw new Error('Cliente não encontrado');
-    }
-
-    const data = result.rows[0];
-
-    // Converte snake_case para camelCase
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      document: data.document,
-      ci: data.ci,
-      ruc: data.ruc,
-      type: data.type,
-      address: data.address,
-      allowedPaymentMethods: data.allowed_payment_methods,
-      creditMaxDays: data.credit_max_days,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    if (result.rows.length === 0) throw new Error('Cliente não encontrado');
+    return mapRow(result.rows[0]);
   }
 
-  async delete(id: string) {
-    const sql = 'DELETE FROM customers WHERE id = $1';
-    const result = await db.query(sql, [id]);
+  async approve(id: string, approvedBy: string, responsibleUserId: string | null) {
+    const sql = `
+      UPDATE customers
+      SET approval_status = 'APPROVED',
+          approved_at = NOW(),
+          approved_by = $1,
+          responsible_user_id = COALESCE($2, responsible_user_id),
+          rejection_reason = NULL,
+          updated_at = NOW()
+      WHERE id = $3 AND deleted_at IS NULL
+      RETURNING *
+    `;
+    const result = await db.query(sql, [approvedBy, responsibleUserId, id]);
+    if (result.rows.length === 0) throw new Error('Cliente não encontrado');
+    return mapRow(result.rows[0]);
+  }
 
+  async reject(id: string, rejectedBy: string, reason: string) {
+    const sql = `
+      UPDATE customers
+      SET approval_status = 'REJECTED',
+          rejection_reason = $1,
+          approved_by = $2,
+          updated_at = NOW()
+      WHERE id = $3 AND deleted_at IS NULL
+      RETURNING *
+    `;
+    const result = await db.query(sql, [reason, rejectedBy, id]);
+    if (result.rows.length === 0) throw new Error('Cliente não encontrado');
+    return mapRow(result.rows[0]);
+  }
+
+  /** Soft delete — sets deleted_at so mobile sync can detect removal. */
+  async softDelete(id: string) {
+    const result = await db.query(
+      `UPDATE customers SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id`,
+      [id]
+    );
     if (result.rowCount === 0) {
       throw new Error('Cliente não encontrado');
     }
-
     return { success: true };
+  }
+
+  async delete(id: string) {
+    return this.softDelete(id);
   }
 }

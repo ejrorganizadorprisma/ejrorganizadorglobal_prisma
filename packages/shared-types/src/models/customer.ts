@@ -5,6 +5,12 @@ export enum CustomerType {
   BUSINESS = 'BUSINESS',
 }
 
+export enum CustomerApprovalStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
+
 export interface Address {
   street: string;
   number: string;
@@ -27,6 +33,14 @@ export interface Customer {
   address?: Address;
   allowedPaymentMethods?: string[];
   creditMaxDays?: number | null;
+  responsibleUserId?: string | null;
+  responsibleUserName?: string | null;
+  approvalStatus?: CustomerApprovalStatus;
+  approvedAt?: Date | null;
+  approvedBy?: string | null;
+  rejectionReason?: string | null;
+  deletedAt?: Date | null;
+  createdBy?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -67,6 +81,10 @@ export const CreateCustomerSchema = z.object({
     (val) => (val === '' || val === null ? null : val),
     z.number().int().min(1).nullable().optional()
   ),
+  responsibleUserId: z.preprocess(
+    (val) => (val === '' || val === null ? null : val),
+    z.string().nullable().optional()
+  ),
 });
 
 export const UpdateCustomerSchema = z.object({
@@ -94,6 +112,10 @@ export const UpdateCustomerSchema = z.object({
   creditMaxDays: z.preprocess(
     (val) => (val === '' || val === null ? null : val),
     z.number().int().min(1).nullable().optional()
+  ),
+  responsibleUserId: z.preprocess(
+    (val) => (val === '' || val === null ? null : val),
+    z.string().nullable().optional()
   ),
 });
 

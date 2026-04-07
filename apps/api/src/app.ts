@@ -7,6 +7,7 @@ import path from 'path';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './config/logger';
 import { env } from './config/env';
+import { ensureSchema } from './db/ensure-schema';
 import routes from './routes';
 
 export const app = express();
@@ -73,6 +74,18 @@ logger.info(`📁 Serving static files from: ${uploadsPath}`);
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`);
   next();
+});
+
+// Ensure DB schema is up to date before serving any API request.
+// Idempotent + memoized so it only runs once per cold start.
+app.use('/api/', async (_req, _res, next) => {
+  try {
+    await ensureSchema();
+    next();
+  } catch (err) {
+    logger.error('ensureSchema failed', err);
+    next(); // Don't block requests; the underlying query will surface a clearer error.
+  }
 });
 
 // API routes

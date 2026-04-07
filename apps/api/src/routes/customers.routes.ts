@@ -24,7 +24,13 @@ router.post('/', asyncHandler(controller.create));
 // PATCH /api/customers/:id - Atualizar cliente
 router.patch('/:id', asyncHandler(controller.update));
 
-// DELETE /api/customers/:id - Excluir cliente
+// POST /api/customers/:id/approve - Aprovar cliente pendente (admin)
+router.post('/:id/approve', asyncHandler(controller.approve));
+
+// POST /api/customers/:id/reject - Rejeitar cliente pendente (admin)
+router.post('/:id/reject', asyncHandler(controller.reject));
+
+// DELETE /api/customers/:id - Excluir cliente (soft delete)
 router.delete('/:id', asyncHandler(controller.delete));
 
 export default router;
