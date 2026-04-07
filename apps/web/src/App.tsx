@@ -76,10 +76,9 @@ import { DigitalFabricationDetailPage } from './pages/DigitalFabricationDetailPa
 import { FabricationMachinesPage } from './pages/FabricationMachinesPage';
 import { MobileAppPage } from './pages/MobileAppPage';
 
-// Collections, Commissions, GPS
+// Collections, Commissions
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CommissionsPage } from './pages/CommissionsPage';
-import { GpsLogPage } from './pages/GpsLogPage';
 
 // Financial Pages
 import { FinancialDashboardPage } from './pages/FinancialDashboardPage';
@@ -433,17 +432,6 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <CommissionsPage />
-            </MainLayout>
-          </ProtectedRoute>
-        }
-      />
-      {/* GPS Log */}
-      <Route
-        path="/gps-log"
-        element={
-          <ProtectedRoute>
-            <MainLayout>
-              <GpsLogPage />
             </MainLayout>
           </ProtectedRoute>
         }

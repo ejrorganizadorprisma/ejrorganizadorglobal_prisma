@@ -30,7 +30,6 @@ import {
   Smartphone,
   Receipt,
   Percent,
-  MapPin,
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -216,7 +215,6 @@ const menuItems: MenuItem[] = [
       { name: 'Ajuste de Estoque', path: '/stock-adjustment', icon: <ClipboardEdit className="w-4 h-4" />, page: 'stock_adjustment' as AppPage },
       { name: 'Backup', path: '/backup', icon: <Database className="w-4 h-4" />, page: 'backup' as AppPage },
       { name: 'Aplicativo Celular', path: '/settings/mobile-app', icon: <Smartphone className="w-4 h-4" />, page: 'users' as AppPage },
-      { name: 'Log GPS', path: '/gps-log', icon: <MapPin className="w-4 h-4" />, page: 'gps_log' as AppPage },
     ],
   },
 ];

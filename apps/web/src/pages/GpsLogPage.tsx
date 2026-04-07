@@ -35,7 +35,7 @@ export function GpsLogPage() {
   return <GpsLogPageContent />;
 }
 
-function GpsLogPageContent() {
+export function GpsLogPageContent({ embedded = false }: { embedded?: boolean } = {}) {
   const [page, setPage] = useState(1);
   const [userId, setUserId] = useState('');
   const [eventType, setEventType] = useState('');
@@ -59,17 +59,19 @@ function GpsLogPageContent() {
   const totalItems = data?.pagination?.total || 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-indigo-100 rounded-lg">
-          <MapPin className="w-6 h-6 text-indigo-600" />
+    <div className={embedded ? '' : 'container mx-auto px-4 py-8'}>
+      {/* Header (only shown when not embedded) */}
+      {!embedded && (
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <MapPin className="w-6 h-6 text-indigo-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Log GPS</h1>
+            <p className="text-sm text-gray-500">Registro de localizacao GPS de eventos</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Log GPS</h1>
-          <p className="text-sm text-gray-500">Registro de localizacao GPS de eventos</p>
-        </div>
-      </div>
+      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border p-4 mb-6 flex flex-wrap gap-3">

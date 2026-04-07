@@ -57,6 +57,8 @@ export function useQuotes(search?: string) {
     discount: number;
     validUntil: string;
     notes?: string;
+    latitude?: number;
+    longitude?: number;
   }) => {
     const db = await getDatabase();
     const id = `local-${generateId()}`;

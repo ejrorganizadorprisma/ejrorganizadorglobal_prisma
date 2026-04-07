@@ -98,7 +98,7 @@ export default function QuoteFormScreen({ navigation }: Props) {
         notes: notes.trim() || undefined,
         latitude: location?.latitude,
         longitude: location?.longitude,
-      } as any);
+      });
       Alert.alert('Sucesso', 'Orcamento criado com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);

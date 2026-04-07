@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Smartphone, Download, Shield, Copy, RefreshCw,
   ToggleLeft, ToggleRight, AlertTriangle, Wifi, Info,
-  CheckCircle2, Users, Clock, Eye, EyeOff,
+  CheckCircle2, Users, Clock, Eye, EyeOff, MapPin,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { AppPage } from '@ejr/shared-types';
+import { GpsLogPageContent } from './GpsLogPage';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -642,6 +643,22 @@ function MobileAppPageContent() {
           <p className="text-sm text-amber-700 mt-1">
             O app armazena dados localmente e sincroniza automaticamente quando o vendedor reconectar à internet.
           </p>
+        </div>
+      </div>
+
+      {/* ── GPS Log Section ── */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <MapPin className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Log GPS dos Vendedores</h3>
+            <p className="text-xs text-gray-500">Localizacao registrada em vendas, orcamentos e cobrancas</p>
+          </div>
+        </div>
+        <div className="p-6">
+          <GpsLogPageContent embedded />
         </div>
       </div>
 

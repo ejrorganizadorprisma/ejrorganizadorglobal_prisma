@@ -69,6 +69,8 @@ export function useSales(search?: string) {
     installments?: number;
     saleDate: string;
     notes?: string;
+    latitude?: number;
+    longitude?: number;
   }) => {
     const db = await getDatabase();
     const id = `local-${generateId()}`;

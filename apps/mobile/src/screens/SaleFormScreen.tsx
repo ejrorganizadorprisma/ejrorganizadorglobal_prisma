@@ -111,7 +111,7 @@ export default function SaleFormScreen({ navigation }: Props) {
         notes: notes.trim() || undefined,
         latitude: location?.latitude,
         longitude: location?.longitude,
-      } as any);
+      });
       Alert.alert('Sucesso', 'Venda registrada com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
