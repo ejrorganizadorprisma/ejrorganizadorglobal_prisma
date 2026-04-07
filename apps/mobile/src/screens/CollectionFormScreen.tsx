@@ -33,11 +33,11 @@ interface SaleOption {
 }
 
 const PAYMENT_METHODS = [
-  { value: 'CHEQUE', label: 'Cheque' },
-  { value: 'DINHEIRO', label: 'Dinheiro' },
+  { value: 'CASH', label: 'Dinheiro' },
   { value: 'PIX', label: 'PIX' },
-  { value: 'TRANSFERENCIA', label: 'Transferencia' },
-  { value: 'OUTRO', label: 'Outro' },
+  { value: 'CHECK', label: 'Cheque' },
+  { value: 'BANK_TRANSFER', label: 'Transferencia' },
+  { value: 'OTHER', label: 'Outro' },
 ];
 
 export default function CollectionFormScreen({ navigation }: Props) {
@@ -52,7 +52,7 @@ export default function CollectionFormScreen({ navigation }: Props) {
 
   // Form fields
   const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [showPaymentPicker, setShowPaymentPicker] = useState(false);
   const [checkNumber, setCheckNumber] = useState('');
   const [checkBank, setCheckBank] = useState('');
@@ -165,7 +165,7 @@ export default function CollectionFormScreen({ navigation }: Props) {
       return;
     }
 
-    if (paymentMethod === 'CHEQUE') {
+    if (paymentMethod === 'CHECK') {
       if (!checkNumber.trim()) {
         Alert.alert('Erro', 'Informe o numero do cheque.');
         return;
@@ -207,9 +207,9 @@ export default function CollectionFormScreen({ navigation }: Props) {
         customerName: selectedSale.customerName,
         amount: amountValue,
         paymentMethod,
-        checkNumber: paymentMethod === 'CHEQUE' ? checkNumber.trim() : undefined,
-        checkBank: paymentMethod === 'CHEQUE' ? checkBank.trim() : undefined,
-        checkDate: paymentMethod === 'CHEQUE' ? isoCheckDate : undefined,
+        checkNumber: paymentMethod === 'CHECK' ? checkNumber.trim() : undefined,
+        checkBank: paymentMethod === 'CHECK' ? checkBank.trim() : undefined,
+        checkDate: paymentMethod === 'CHECK' ? isoCheckDate : undefined,
         photoUrls: photos.length > 0 ? photos : undefined,
         notes: notes.trim() || undefined,
         latitude: loc?.latitude,
@@ -295,7 +295,7 @@ export default function CollectionFormScreen({ navigation }: Props) {
         </View>
 
         {/* Check Fields */}
-        {paymentMethod === 'CHEQUE' && (
+        {paymentMethod === 'CHECK' && (
           <>
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Numero do Cheque *</Text>

@@ -82,6 +82,13 @@ function sanitizePayload(entity: string, payload: any): any {
     delete clean.status;
     delete clean.synced;
     delete clean.createdAt;
+    // Map legacy PT payment methods to EN enum values
+    const methodMap: Record<string, string> = {
+      DINHEIRO: 'CASH', CHEQUE: 'CHECK', TRANSFERENCIA: 'BANK_TRANSFER', OUTRO: 'OTHER',
+    };
+    if (clean.paymentMethod && methodMap[clean.paymentMethod]) {
+      clean.paymentMethod = methodMap[clean.paymentMethod];
+    }
     if (clean.checkDate && !clean.checkDate.includes('T')) {
       clean.checkDate = `${clean.checkDate}T00:00:00.000Z`;
     }
