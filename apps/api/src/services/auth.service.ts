@@ -6,7 +6,7 @@ import { UnauthorizedError, ConflictError } from '../utils/errors';
 import type { LoginDTO, CreateUserDTO, AuthResponse } from '@ejr/shared-types';
 
 export class AuthService {
-  async login(data: LoginDTO): Promise<AuthResponse> {
+  async login(data: LoginDTO, isMobile: boolean = false): Promise<AuthResponse> {
     const { email, password } = data;
 
     // Busca usuário (incluindo password_version para validação de sessão)
@@ -32,12 +32,15 @@ export class AuthService {
       throw new UnauthorizedError('Usuário inativo');
     }
 
-    // Gera token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    // Gera token (mobile recebe token de 30 dias para suportar uso offline)
+    const token = generateToken(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      isMobile ? '30d' : '24h'
+    );
 
     // Remove password_hash da resposta e converte snake_case para camelCase
     const { password_hash, is_active, allowed_hours, created_at, updated_at, ...userData } = user;

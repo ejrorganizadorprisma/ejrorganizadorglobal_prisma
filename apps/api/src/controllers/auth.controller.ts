@@ -44,7 +44,8 @@ export class AuthController {
       await validateMobileAccess(req);
 
       const data: LoginDTO = req.body;
-      const result = await authService.login(data);
+      const isMobile = req.headers['x-client-type'] === 'mobile';
+      const result = await authService.login(data, isMobile);
 
       // If mobile login, update last_login and include permissions
       if (req.headers['x-client-type'] === 'mobile') {

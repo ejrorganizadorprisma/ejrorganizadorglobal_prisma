@@ -9,9 +9,9 @@ export interface JWTPayload {
   passwordVersion?: number; // Optional para compatibilidade
 }
 
-export function generateToken(payload: JWTPayload): string {
+export function generateToken(payload: JWTPayload, expiresIn: string = '24h'): string {
   return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: '24h',
+    expiresIn: expiresIn as any,
   });
 }
 

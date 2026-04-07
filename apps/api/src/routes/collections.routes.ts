@@ -76,7 +76,7 @@ router.post('/', upload.array('photos', 5), async (req: AuthRequest, res: Respon
       req.user!.id
     );
 
-    res.status(201).json({ data: collection });
+    res.status(201).json({ success: true, data: collection });
   } catch (error) {
     if (error instanceof ValidationError) {
       return res.status(400).json({ error: error.message, details: error.details });
@@ -127,7 +127,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     };
 
     const result = await repo.findAll(filters);
-    res.json(result);
+    res.json({ success: true, ...result });
   } catch (error: any) {
     if (error?.code === '42P01') {
       return res.json({ success: true, data: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 } });
