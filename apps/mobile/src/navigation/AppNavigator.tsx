@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, Image, StyleSheet } from 'react-native';
+import { Text, View, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
 
@@ -51,7 +51,43 @@ function HeaderLogo() {
         style={tabStyles.logoImage}
         resizeMode="contain"
       />
-      <Text style={tabStyles.logoText}>{companyName || 'EJR OrGlobal'}</Text>
+      <Text style={tabStyles.logoText} numberOfLines={1}>{companyName || 'EJR OrGlobal'}</Text>
+    </View>
+  );
+}
+
+function HeaderRight() {
+  const { user, logout } = useAuthStore();
+  const firstName = user?.name?.split(' ')[0] || 'Vendedor';
+  const initial = (user?.name?.[0] || 'V').toUpperCase();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Sair',
+      'Deseja realmente sair da sua conta?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', style: 'destructive', onPress: () => logout() },
+      ]
+    );
+  };
+
+  return (
+    <View style={tabStyles.headerRight}>
+      <View style={tabStyles.userBadge}>
+        <View style={tabStyles.avatar}>
+          <Text style={tabStyles.avatarText}>{initial}</Text>
+        </View>
+        <Text style={tabStyles.userName} numberOfLines={1}>{firstName}</Text>
+      </View>
+      <TouchableOpacity
+        style={tabStyles.logoutButton}
+        onPress={handleLogout}
+        activeOpacity={0.7}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Text style={tabStyles.logoutIcon}>⏻</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -65,6 +101,7 @@ function HomeTabs() {
         headerStyle: { backgroundColor: '#0B5C9A', elevation: 0, shadowOpacity: 0 },
         headerTintColor: '#FFF',
         headerTitle: () => <HeaderLogo />,
+        headerRight: () => <HeaderRight />,
         tabBarShowLabel: true,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: -2 },
         tabBarActiveTintColor: '#0B5C9A',
@@ -129,6 +166,7 @@ export default function AppNavigator() {
         headerTintColor: '#FFF',
         headerTitleStyle: { fontWeight: 'bold' },
         headerTitle: () => <HeaderLogo />,
+        headerRight: () => <HeaderRight />,
       }}>
         {!isAuthenticated ? (
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -172,6 +210,7 @@ const tabStyles = StyleSheet.create({
   headerLogo: {
     flexDirection: 'row',
     alignItems: 'center',
+    maxWidth: 180,
   },
   logoImage: {
     width: 30,
@@ -184,6 +223,56 @@ const tabStyles = StyleSheet.create({
     fontWeight: '700',
     marginLeft: 10,
     letterSpacing: 0.3,
+    flexShrink: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+    gap: 8,
+  },
+  userBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingRight: 10,
+    borderRadius: 16,
+    maxWidth: 130,
+  },
+  avatar: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 6,
+  },
+  avatarText: {
+    color: '#0B5C9A',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  userName: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  logoutButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoutIcon: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   splash: {
     flex: 1,

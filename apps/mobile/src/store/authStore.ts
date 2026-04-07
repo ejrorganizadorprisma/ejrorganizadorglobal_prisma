@@ -2,6 +2,24 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { apiRequest, setApiKey, clearApiKeyCache } from '../api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getDatabase } from '../db/migrations';
+
+// Check if API error indicates an expired/invalid token
+function isTokenExpiredError(message?: string): boolean {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return lower.includes('token') && (lower.includes('expirado') || lower.includes('inválido') || lower.includes('invalido'));
+}
+
+// Reset sync queue retry counter so stuck items get pushed again
+async function resetSyncQueueAttempts() {
+  try {
+    const db = await getDatabase();
+    await db.runAsync('UPDATE sync_queue SET attempts = 0');
+  } catch {
+    // table may not exist yet
+  }
+}
 
 interface User {
   id: string;
@@ -70,6 +88,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (mobilePermissions) {
           await AsyncStorage.setItem('@ejr_mobile_permissions', JSON.stringify(mobilePermissions));
         }
+        // Reset retry counters so previously failed items push again with the new token
+        await resetSyncQueueAttempts();
         const storedCompanyName = await AsyncStorage.getItem('@ejr_mobile_company_name');
         set({ user, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions, companyName: storedCompanyName });
         return { success: true };
@@ -120,6 +140,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (isMobileAccessError(errorMsg)) {
           await SecureStore.deleteItemAsync('auth_token');
           set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: true, mobileAccessError: errorMsg, mobilePermissions: null, companyName: null });
+          return;
+        }
+
+        // Token expired/invalid: force re-login (preserve local DB)
+        if (isTokenExpiredError(errorMsg)) {
+          await SecureStore.deleteItemAsync('auth_token');
+          set({ user: null, token: null, isAuthenticated: false, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions: null, companyName: null });
           return;
         }
 
