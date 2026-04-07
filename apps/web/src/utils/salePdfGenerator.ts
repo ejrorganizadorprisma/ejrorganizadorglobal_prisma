@@ -101,16 +101,21 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Cancelado',
 };
 
+export type SalePdfMode = 'elegant' | 'print';
+
 /**
  * Generates a professional PDF for a sale
+ * @param mode - 'elegant' (default, colorful) or 'print' (ink-saving grayscale)
  */
 export const generateSalePDF = (
   sale: SaleWithRelations,
   customer: Customer,
   settings?: DocumentSettings,
-  currency: Currency = 'BRL'
+  currency: Currency = 'BRL',
+  mode: SalePdfMode = 'elegant'
 ): void => {
   const doc = new jsPDF();
+  const isPrint = mode === 'print';
 
   // Settings or defaults
   const companyLogo = settings?.companyLogo;
@@ -121,7 +126,8 @@ export const generateSalePDF = (
   const footerEmail = settings?.footerEmail;
   const footerWebsite = settings?.footerWebsite;
 
-  const primaryRgb = hexToRgb(primaryColor);
+  // In print mode: force grayscale to save ink. Elegant: use brand color.
+  const primaryRgb = isPrint ? { r: 60, g: 60, b: 60 } : hexToRgb(primaryColor);
   const lightGrey = '#f3f4f6';
   const darkGrey = '#6b7280';
   const black = '#000000';
@@ -129,23 +135,48 @@ export const generateSalePDF = (
   let yPos = 20;
 
   // ========== HEADER SECTION ==========
-  doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
-  doc.rect(0, 0, 210, 35, 'F');
-
-  doc.setTextColor('#ffffff');
-
-  if (companyLogo) {
-    try {
-      doc.addImage(companyLogo, 'PNG', 10, 3, 70, 30);
-    } catch (error) {
-      console.error('Error adding logo:', error);
+  if (isPrint) {
+    // Print mode: no colored background, just logo and a thin separator line
+    if (companyLogo) {
+      try {
+        doc.addImage(companyLogo, 'PNG', 15, 8, 55, 22);
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    } else if (settings?.companyName) {
+      doc.setTextColor(black);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text(settings.companyName, 15, 20);
     }
-  }
+    // Thin separator line
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.3);
+    doc.line(15, 36, 195, 36);
 
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(255, 255, 255);
-  doc.text('EJR Organizador Global', 205, 32, { align: 'right' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(darkGrey);
+    doc.text('EJR Organizador Global', 195, 32, { align: 'right' });
+  } else {
+    // Elegant mode: colorful header
+    doc.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+    doc.rect(0, 0, 210, 35, 'F');
+    doc.setTextColor('#ffffff');
+
+    if (companyLogo) {
+      try {
+        doc.addImage(companyLogo, 'PNG', 10, 3, 70, 30);
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    }
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(255, 255, 255);
+    doc.text('EJR Organizador Global', 205, 32, { align: 'right' });
+  }
 
   yPos = 45;
 
@@ -167,12 +198,23 @@ export const generateSalePDF = (
   const statusX = 195 - statusWidth;
   const statusY = yPos - 4;
 
-  doc.setFillColor(statusInfo.color[0], statusInfo.color[1], statusInfo.color[2]);
-  doc.roundedRect(statusX, statusY, statusWidth, 7, 1.5, 1.5, 'F');
-  doc.setTextColor('#ffffff');
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.text(statusText, statusX + statusWidth / 2, statusY + 4.8, { align: 'center' });
+  if (isPrint) {
+    // Print mode: outline badge, no fill
+    doc.setDrawColor(80, 80, 80);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(statusX, statusY, statusWidth, 7, 1.5, 1.5, 'S');
+    doc.setTextColor(black);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(statusText, statusX + statusWidth / 2, statusY + 4.8, { align: 'center' });
+  } else {
+    doc.setFillColor(statusInfo.color[0], statusInfo.color[1], statusInfo.color[2]);
+    doc.roundedRect(statusX, statusY, statusWidth, 7, 1.5, 1.5, 'F');
+    doc.setTextColor('#ffffff');
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(statusText, statusX + statusWidth / 2, statusY + 4.8, { align: 'center' });
+  }
 
   // Date below status
   doc.setFontSize(10);
@@ -182,16 +224,25 @@ export const generateSalePDF = (
 
   yPos += 18;
 
+  // Helper: renders a section title bar (filled in elegant mode, bordered in print mode)
+  const renderSectionTitle = (title: string) => {
+    if (isPrint) {
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.3);
+      doc.rect(15, yPos, 180, 8, 'S');
+    } else {
+      doc.setFillColor(lightGrey);
+      doc.rect(15, yPos, 180, 8, 'F');
+    }
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(black);
+    doc.text(title, 20, yPos + 5.5);
+    yPos += 12;
+  };
+
   // ========== CUSTOMER SECTION ==========
-  doc.setFillColor(lightGrey);
-  doc.rect(15, yPos, 180, 8, 'F');
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(black);
-  doc.text('DADOS DO CLIENTE', 20, yPos + 5.5);
-
-  yPos += 12;
+  renderSectionTitle('DADOS DO CLIENTE');
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -219,15 +270,7 @@ export const generateSalePDF = (
   yPos += 5;
 
   // ========== ITEMS TABLE ==========
-  doc.setFillColor(lightGrey);
-  doc.rect(15, yPos, 180, 8, 'F');
-
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(black);
-  doc.text('ITENS DA VENDA', 20, yPos + 5.5);
-
-  yPos += 12;
+  renderSectionTitle('ITENS DA VENDA');
 
   const itemsData: any[] = [];
 
@@ -257,18 +300,35 @@ export const generateSalePDF = (
     startY: yPos,
     head: [['Cod.', 'Descricao', 'Qtd', 'Valor Unit.', 'Desc.', 'Total']],
     body: itemsData,
-    theme: 'striped',
-    headStyles: {
-      fillColor: [primaryRgb.r, primaryRgb.g, primaryRgb.b],
-      textColor: '#ffffff',
-      fontSize: 9,
-      fontStyle: 'bold',
-      halign: 'left'
-    },
-    bodyStyles: {
-      fontSize: 9,
-      textColor: black
-    },
+    theme: isPrint ? 'grid' : 'striped',
+    headStyles: isPrint
+      ? {
+          fillColor: false as any,
+          textColor: black,
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+          lineColor: [100, 100, 100],
+          lineWidth: 0.3,
+        }
+      : {
+          fillColor: [primaryRgb.r, primaryRgb.g, primaryRgb.b],
+          textColor: '#ffffff',
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left',
+        },
+    bodyStyles: isPrint
+      ? {
+          fontSize: 9,
+          textColor: black,
+          lineColor: [180, 180, 180],
+          lineWidth: 0.2,
+        }
+      : {
+          fontSize: 9,
+          textColor: black,
+        },
     columnStyles: {
       0: { cellWidth: 22 },
       1: { cellWidth: 'auto' },
@@ -306,7 +366,9 @@ export const generateSalePDF = (
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL:', totalsX, yPos);
-  doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+  if (!isPrint) {
+    doc.setTextColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+  }
   doc.text(formatCurrency(sale.total, currency), 195, yPos, { align: 'right' });
   doc.setTextColor(black);
 
@@ -315,12 +377,12 @@ export const generateSalePDF = (
   // Paid / Pending
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(5, 150, 105);
+  if (!isPrint) doc.setTextColor(5, 150, 105);
   doc.text('Pago:', totalsX, yPos);
   doc.text(formatCurrency(sale.totalPaid, currency), 195, yPos, { align: 'right' });
   yPos += 5;
 
-  doc.setTextColor(220, 38, 38);
+  if (!isPrint) doc.setTextColor(220, 38, 38);
   doc.text('Pendente:', totalsX, yPos);
   doc.text(formatCurrency(sale.totalPending, currency), 195, yPos, { align: 'right' });
   doc.setTextColor(black);
@@ -335,15 +397,7 @@ export const generateSalePDF = (
       yPos = 20;
     }
 
-    doc.setFillColor(lightGrey);
-    doc.rect(15, yPos, 180, 8, 'F');
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(black);
-    doc.text(`PARCELAS (${sale.installments}x)`, 20, yPos + 5.5);
-
-    yPos += 12;
+    renderSectionTitle(`PARCELAS (${sale.installments}x)`);
 
     const paymentsData = sale.payments
       .sort((a, b) => a.installmentNumber - b.installmentNumber)
@@ -360,18 +414,35 @@ export const generateSalePDF = (
       startY: yPos,
       head: [['Parcela', 'Metodo', 'Vencimento', 'Pagamento', 'Valor', 'Status']],
       body: paymentsData,
-      theme: 'striped',
-      headStyles: {
-        fillColor: [primaryRgb.r, primaryRgb.g, primaryRgb.b],
-        textColor: '#ffffff',
-        fontSize: 9,
-        fontStyle: 'bold',
-        halign: 'left'
-      },
-      bodyStyles: {
-        fontSize: 9,
-        textColor: black
-      },
+      theme: isPrint ? 'grid' : 'striped',
+      headStyles: isPrint
+        ? {
+            fillColor: false as any,
+            textColor: black,
+            fontSize: 9,
+            fontStyle: 'bold',
+            halign: 'left',
+            lineColor: [100, 100, 100],
+            lineWidth: 0.3,
+          }
+        : {
+            fillColor: [primaryRgb.r, primaryRgb.g, primaryRgb.b],
+            textColor: '#ffffff',
+            fontSize: 9,
+            fontStyle: 'bold',
+            halign: 'left',
+          },
+      bodyStyles: isPrint
+        ? {
+            fontSize: 9,
+            textColor: black,
+            lineColor: [180, 180, 180],
+            lineWidth: 0.2,
+          }
+        : {
+            fontSize: 9,
+            textColor: black,
+          },
       columnStyles: {
         0: { cellWidth: 22, halign: 'center' },
         1: { cellWidth: 'auto' },
@@ -381,17 +452,23 @@ export const generateSalePDF = (
         5: { cellWidth: 24, halign: 'center' },
       },
       didParseCell: (data) => {
-        // Color the status column
+        // In print mode, use font weight only to distinguish status — no colors
         if (data.section === 'body' && data.column.index === 5) {
           const status = data.cell.raw as string;
-          if (status === 'Pago') {
-            data.cell.styles.textColor = [5, 150, 105];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (status === 'Atrasado') {
-            data.cell.styles.textColor = [220, 38, 38];
-            data.cell.styles.fontStyle = 'bold';
-          } else if (status === 'Pendente') {
-            data.cell.styles.textColor = [217, 119, 6];
+          if (isPrint) {
+            if (status === 'Pago' || status === 'Atrasado') {
+              data.cell.styles.fontStyle = 'bold';
+            }
+          } else {
+            if (status === 'Pago') {
+              data.cell.styles.textColor = [5, 150, 105];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (status === 'Atrasado') {
+              data.cell.styles.textColor = [220, 38, 38];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (status === 'Pendente') {
+              data.cell.styles.textColor = [217, 119, 6];
+            }
           }
         }
       },
@@ -408,15 +485,7 @@ export const generateSalePDF = (
       yPos = 20;
     }
 
-    doc.setFillColor(lightGrey);
-    doc.rect(15, yPos, 180, 8, 'F');
-
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(black);
-    doc.text('OBSERVACOES', 20, yPos + 5.5);
-
-    yPos += 12;
+    renderSectionTitle('OBSERVACOES');
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -462,6 +531,7 @@ export const generateSalePDF = (
   // ========== SAVE ==========
   const safeName = (customer.name || 'Cliente').replace(/\s+/g, '_').replace(/[^\w-]/g, '');
   const safeNumber = sale.saleNumber.replace(/\//g, '-');
-  const fileName = `Venda_${safeNumber}_${safeName}.pdf`;
+  const suffix = isPrint ? '_impressao' : '';
+  const fileName = `Venda_${safeNumber}_${safeName}${suffix}.pdf`;
   doc.save(fileName);
 };

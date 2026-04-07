@@ -57,15 +57,15 @@ export function SaleDetailPage() {
   const { formatPrice, defaultCurrency } = useFormatPrice();
   const { data: documentSettings } = useDefaultDocumentSettings();
 
-  const handleGeneratePDF = () => {
+  const handleGeneratePDF = (mode: 'elegant' | 'print') => {
     if (!sale) return;
     if (!sale.customer) {
       toast.error('Dados do cliente nao disponiveis');
       return;
     }
     try {
-      generateSalePDF(sale as any, sale.customer as any, documentSettings, defaultCurrency);
-      toast.success('PDF gerado com sucesso');
+      generateSalePDF(sale as any, sale.customer as any, documentSettings, defaultCurrency, mode);
+      toast.success(mode === 'print' ? 'PDF para impressao gerado' : 'PDF elegante gerado');
     } catch (err: any) {
       toast.error('Erro ao gerar PDF: ' + (err?.message || 'desconhecido'));
     }
@@ -168,13 +168,22 @@ export function SaleDetailPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={handleGeneratePDF}
+              onClick={() => handleGeneratePDF('elegant')}
               className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200 transition-colors"
+              title="Versao colorida com logo e cores da empresa"
+            >
+              <FileText className="w-4 h-4" />
+              PDF Elegante
+            </button>
+            <button
+              onClick={() => handleGeneratePDF('print')}
+              className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-gray-300 transition-colors"
+              title="Versao em escala de cinza, otimizada para economia de tinta"
             >
               <Printer className="w-4 h-4" />
-              Imprimir PDF
+              PDF Impressao
             </button>
             {sale.status !== 'CANCELLED' && sale.status !== 'PAID' && (
               <button
