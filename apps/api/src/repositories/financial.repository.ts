@@ -13,6 +13,13 @@ import type {
   DebtorFilters,
   PaymentMethodBreakdown,
   AgingAnalysis,
+  CashBoxResponse,
+  CashBoxCurrentBalance,
+  CashBoxProjection,
+  CashBoxDailyFlow,
+  CashBoxAlert,
+  CashBoxAlertType,
+  HealthMetrics,
 } from '@ejr/shared-types';
 
 export class FinancialRepository {
@@ -1037,6 +1044,374 @@ export class FinancialRepository {
         totalPending: Number(totalsRow?.total_pending || 0),
         debtorCount: Number(totalsRow?.debtor_count || 0),
       },
+    };
+  }
+
+  /**
+   * Caixa: saldo atual, projeções, fluxo diário, alertas e métricas de saúde
+   */
+  async getCashBox(): Promise<CashBoxResponse> {
+    // ── Helper: query table that may not exist (42P01) ──
+    const safeQuery = async (sql: string, params?: any[]): Promise<any[]> => {
+      try {
+        const result = await db.query(sql, params);
+        return result.rows;
+      } catch (error: any) {
+        if (error.code === '42P01') {
+          return [];
+        }
+        throw error;
+      }
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // (a) CURRENT BALANCE
+    // ══════════════════════════════════════════════════════════════════════
+
+    const totalReceivedQuery = `
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total FROM sale_payments WHERE status = 'PAID'
+    `;
+
+    const totalPaidQuery = `
+      SELECT COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
+      FROM purchase_budgets pb, jsonb_array_elements(pb.payment_installments) AS inst
+      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
+        AND pb.payment_installments IS NOT NULL AND jsonb_array_length(pb.payment_installments) > 0
+        AND (inst->>'status') = 'PAID'
+    `;
+
+    const collectionsDepositedQuery = `
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total FROM collections WHERE status = 'DEPOSITED'
+    `;
+
+    const commissionsPaidQuery = `
+      SELECT COALESCE(SUM(total_amount), 0)::bigint AS total FROM commission_settlements WHERE status = 'PAID'
+    `;
+
+    const [
+      receivedRows,
+      paidRows,
+      collectionsDepositedRows,
+      commissionsPaidRows,
+    ] = await Promise.all([
+      db.query(totalReceivedQuery).then((r) => r.rows),
+      db.query(totalPaidQuery).then((r) => r.rows),
+      safeQuery(collectionsDepositedQuery),
+      safeQuery(commissionsPaidQuery),
+    ]);
+
+    const totalReceived = Number(receivedRows[0]?.total || 0);
+    const totalPaid = Number(paidRows[0]?.total || 0);
+    const collectionsDeposited = Number(collectionsDepositedRows[0]?.total || 0);
+    const commissionsPaid = Number(commissionsPaidRows[0]?.total || 0);
+    const estimatedBalance = totalReceived + collectionsDeposited - totalPaid - commissionsPaid;
+
+    const currentBalance: CashBoxCurrentBalance = {
+      totalReceived,
+      totalPaid,
+      collectionsDeposited,
+      commissionsPaid,
+      estimatedBalance,
+    };
+
+    // ══════════════════════════════════════════════════════════════════════
+    // (b) PROJECTIONS - query 30d window once and slice for 7d/15d
+    // ══════════════════════════════════════════════════════════════════════
+
+    const expectedIncomeQuery = `
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total FROM sale_payments
+      WHERE status = 'PENDING' AND due_date >= CURRENT_DATE AND due_date < CURRENT_DATE + $1::int
+    `;
+
+    const expectedExpensesQuery = `
+      SELECT COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
+      FROM purchase_budgets pb, jsonb_array_elements(pb.payment_installments) AS inst
+      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
+        AND (inst->>'status') = 'PENDING'
+        AND (inst->>'dueDate')::date >= CURRENT_DATE
+        AND (inst->>'dueDate')::date < CURRENT_DATE + $1::int
+    `;
+
+    const pendingCollectionsQuery = `
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total FROM collections WHERE status = 'APPROVED'
+    `;
+
+    const pendingCommissionsQuery = `
+      SELECT COALESCE(SUM(commission_amount), 0)::bigint AS total FROM commission_entries WHERE status = 'PENDING'
+    `;
+
+    // Query income/expenses for all 3 periods, plus collections/commissions once
+    const [
+      income7Rows,
+      income15Rows,
+      income30Rows,
+      expenses7Rows,
+      expenses15Rows,
+      expenses30Rows,
+      pendingCollectionsRows,
+      pendingCommissionsRows,
+    ] = await Promise.all([
+      db.query(expectedIncomeQuery, [7]).then((r) => r.rows),
+      db.query(expectedIncomeQuery, [15]).then((r) => r.rows),
+      db.query(expectedIncomeQuery, [30]).then((r) => r.rows),
+      db.query(expectedExpensesQuery, [7]).then((r) => r.rows),
+      db.query(expectedExpensesQuery, [15]).then((r) => r.rows),
+      db.query(expectedExpensesQuery, [30]).then((r) => r.rows),
+      safeQuery(pendingCollectionsQuery),
+      safeQuery(pendingCommissionsQuery),
+    ]);
+
+    const pendingCollections = Number(pendingCollectionsRows[0]?.total || 0);
+    const pendingCommissions = Number(pendingCommissionsRows[0]?.total || 0);
+
+    const buildProjection = (
+      period: string,
+      incomeRows: any[],
+      expenseRows: any[]
+    ): CashBoxProjection => {
+      const expectedIncome = Number(incomeRows[0]?.total || 0);
+      const expectedExpenses = Number(expenseRows[0]?.total || 0);
+      const projectedBalance =
+        estimatedBalance + expectedIncome + pendingCollections - expectedExpenses - pendingCommissions;
+      return {
+        period,
+        expectedIncome,
+        expectedExpenses,
+        pendingCollections,
+        pendingCommissions,
+        projectedBalance,
+      };
+    };
+
+    const projection7d = buildProjection('7d', income7Rows, expenses7Rows);
+    const projection15d = buildProjection('15d', income15Rows, expenses15Rows);
+    const projection30d = buildProjection('30d', income30Rows, expenses30Rows);
+
+    const projections: CashBoxProjection[] = [projection7d, projection15d, projection30d];
+
+    // ══════════════════════════════════════════════════════════════════════
+    // (c) DAILY CASH FLOW (30 days)
+    // ══════════════════════════════════════════════════════════════════════
+
+    const receivableByDayQuery = `
+      SELECT
+        sp.due_date::text AS day,
+        COALESCE(SUM(sp.amount), 0)::bigint AS total
+      FROM sale_payments sp
+      WHERE sp.status = 'PENDING'
+        AND sp.due_date >= CURRENT_DATE
+        AND sp.due_date < CURRENT_DATE + 30
+      GROUP BY sp.due_date
+      ORDER BY sp.due_date
+    `;
+
+    const payableByDayQuery = `
+      SELECT
+        (inst->>'dueDate')::date::text AS day,
+        COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
+      FROM purchase_budgets pb,
+           jsonb_array_elements(pb.payment_installments) AS inst
+      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
+        AND pb.payment_installments IS NOT NULL
+        AND jsonb_array_length(pb.payment_installments) > 0
+        AND (inst->>'status') = 'PENDING'
+        AND (inst->>'dueDate')::date >= CURRENT_DATE
+        AND (inst->>'dueDate')::date < CURRENT_DATE + 30
+      GROUP BY (inst->>'dueDate')::date
+      ORDER BY (inst->>'dueDate')::date
+    `;
+
+    const [receivableDayResult, payableDayResult] = await Promise.all([
+      db.query(receivableByDayQuery),
+      db.query(payableByDayQuery),
+    ]);
+
+    const receivableMap = new Map<string, number>();
+    for (const row of receivableDayResult.rows) {
+      receivableMap.set(row.day, Number(row.total));
+    }
+
+    const payableMap = new Map<string, number>();
+    for (const row of payableDayResult.rows) {
+      payableMap.set(row.day, Number(row.total));
+    }
+
+    const dailyCashFlow: CashBoxDailyFlow[] = [];
+    let cumulativeBalance = estimatedBalance;
+
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 30; i++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      const dateStr = currentDate.toISOString().split('T')[0];
+
+      const receivable = receivableMap.get(dateStr) || 0;
+      const payable = payableMap.get(dateStr) || 0;
+      const collections = 0;
+      const commissions = 0;
+      const netFlow = receivable - payable + collections - commissions;
+      cumulativeBalance += netFlow;
+
+      dailyCashFlow.push({
+        date: dateStr,
+        receivable,
+        payable,
+        collections,
+        commissions,
+        netFlow,
+        cumulativeBalance,
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // (d) ALERTS
+    // ══════════════════════════════════════════════════════════════════════
+
+    const formatDateBR = (dateStr: string): string => {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('pt-BR');
+    };
+
+    const alerts: CashBoxAlert[] = [];
+
+    // DANGER: negative cumulative balance
+    const negativeDays = dailyCashFlow.filter((d) => d.cumulativeBalance < 0);
+    if (negativeDays.length > 0) {
+      const firstNegative = negativeDays[0];
+      alerts.push({
+        type: 'DANGER' as CashBoxAlertType,
+        title: 'Saldo negativo projetado',
+        description: `Saldo projetado negativo em ${formatDateBR(firstNegative.date)}`,
+        amount: firstNegative.cumulativeBalance,
+        date: firstNegative.date,
+      });
+    }
+
+    // DANGER: payment spike (any day with payable > 2x average daily payable)
+    const totalDailyPayable = dailyCashFlow.reduce((sum, d) => sum + d.payable, 0);
+    const avgDailyPayable = totalDailyPayable / 30;
+    if (avgDailyPayable > 0) {
+      const spikeDays = dailyCashFlow.filter((d) => d.payable > 2 * avgDailyPayable);
+      if (spikeDays.length > 0) {
+        const firstSpike = spikeDays[0];
+        alerts.push({
+          type: 'DANGER' as CashBoxAlertType,
+          title: 'Pico de pagamentos',
+          description: `Pico de pagamentos em ${formatDateBR(firstSpike.date)}`,
+          amount: firstSpike.payable,
+          date: firstSpike.date,
+        });
+      }
+    }
+
+    // WARNING: pending collection approvals
+    const pendingApprovalRows = await safeQuery(
+      `SELECT COUNT(*)::int AS count FROM collections WHERE status = 'PENDING_APPROVAL'`
+    );
+    const pendingApprovalCount = Number(pendingApprovalRows[0]?.count || 0);
+    if (pendingApprovalCount > 0) {
+      alerts.push({
+        type: 'WARNING' as CashBoxAlertType,
+        title: 'Cobranças pendentes',
+        description: `${pendingApprovalCount} cobranças aguardando aprovação`,
+        amount: pendingApprovalCount,
+      });
+    }
+
+    // WARNING: pending commissions
+    if (pendingCommissions > 0) {
+      alerts.push({
+        type: 'WARNING' as CashBoxAlertType,
+        title: 'Comissões pendentes',
+        description: 'Comissões pendentes de acerto',
+        amount: pendingCommissions,
+      });
+    }
+
+    // INFO: strong receivable days (any day with receivable > 2x average daily receivable)
+    const totalDailyReceivable = dailyCashFlow.reduce((sum, d) => sum + d.receivable, 0);
+    const avgDailyReceivable = totalDailyReceivable / 30;
+    if (avgDailyReceivable > 0) {
+      const strongDays = dailyCashFlow.filter((d) => d.receivable > 2 * avgDailyReceivable);
+      if (strongDays.length > 0) {
+        const firstStrong = strongDays[0];
+        alerts.push({
+          type: 'INFO' as CashBoxAlertType,
+          title: 'Recebimentos fortes',
+          description: `Recebimentos fortes esperados em ${formatDateBR(firstStrong.date)}`,
+          amount: firstStrong.receivable,
+          date: firstStrong.date,
+        });
+      }
+    }
+
+    // SUCCESS: healthy liquidity
+    const liquidityRatio =
+      projection30d.expectedExpenses > 0
+        ? projection30d.expectedIncome / projection30d.expectedExpenses
+        : 999;
+    if (liquidityRatio > 1.5) {
+      alerts.push({
+        type: 'SUCCESS' as CashBoxAlertType,
+        title: 'Liquidez saudável',
+        description: 'Liquidez saudável',
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // (e) HEALTH METRICS
+    // ══════════════════════════════════════════════════════════════════════
+
+    const avgDaysToReceiveQuery = `
+      SELECT COALESCE(AVG(paid_date::date - due_date::date), 0)::numeric AS avg_days
+      FROM sale_payments WHERE status = 'PAID' AND paid_date IS NOT NULL AND paid_date >= CURRENT_DATE - 90
+    `;
+
+    const collectionEfficiencyQuery = `
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'DEPOSITED') as deposited,
+        COUNT(*) as total
+      FROM collections
+    `;
+
+    const overdueRatioQuery = `
+      SELECT
+        COALESCE(SUM(CASE WHEN status='PENDING' AND due_date < CURRENT_DATE THEN amount ELSE 0 END), 0)::bigint as overdue,
+        COALESCE(SUM(CASE WHEN status='PENDING' THEN amount ELSE 0 END), 0)::bigint as total_pending
+      FROM sale_payments
+    `;
+
+    const [avgDaysRows, collectionEffRows, overdueRatioRows] = await Promise.all([
+      db.query(avgDaysToReceiveQuery).then((r) => r.rows),
+      safeQuery(collectionEfficiencyQuery),
+      db.query(overdueRatioQuery).then((r) => r.rows),
+    ]);
+
+    const averageDaysToReceive = Number(avgDaysRows[0]?.avg_days || 0);
+
+    const collectionDeposited = Number(collectionEffRows[0]?.deposited || 0);
+    const collectionTotal = Number(collectionEffRows[0]?.total || 0);
+    const collectionEfficiency = collectionTotal > 0 ? collectionDeposited / collectionTotal : 0;
+
+    const overdueAmount = Number(overdueRatioRows[0]?.overdue || 0);
+    const totalPending = Number(overdueRatioRows[0]?.total_pending || 0);
+    const overdueRatio = totalPending > 0 ? overdueAmount / totalPending : 0;
+
+    const healthMetrics: HealthMetrics = {
+      liquidityRatio: Number(liquidityRatio.toFixed(2)),
+      averageDaysToReceive: Number(averageDaysToReceive.toFixed(1)),
+      collectionEfficiency: Number(collectionEfficiency.toFixed(2)),
+      overdueRatio: Number(overdueRatio.toFixed(2)),
+    };
+
+    return {
+      currentBalance,
+      projections,
+      dailyCashFlow,
+      alerts,
+      healthMetrics,
     };
   }
 

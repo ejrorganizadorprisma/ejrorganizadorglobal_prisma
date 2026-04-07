@@ -14,6 +14,9 @@ router.get('/summary', controller.getSummary);
 // GET /api/v1/financial/cash-flow?days=30
 router.get('/cash-flow', controller.getCashFlow);
 
+// GET /api/v1/financial/cashbox
+router.get('/cashbox', controller.getCashBox);
+
 // GET /api/v1/financial/calendar?month=2026-03
 router.get('/calendar', controller.getCalendar);
 

@@ -144,4 +144,17 @@ export class FinancialController {
       next(error);
     }
   };
+
+  /**
+   * GET /api/v1/financial/cashbox
+   * Dados do caixa: saldo, projeções, fluxo diário, alertas e métricas
+   */
+  getCashBox = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.getCashBox();
+      res.json({ success: true, data });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

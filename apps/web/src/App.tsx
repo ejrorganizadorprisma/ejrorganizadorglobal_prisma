@@ -87,6 +87,7 @@ import { FinancialCalendarPage } from './pages/FinancialCalendarPage';
 import { FinancialReceivablesPage } from './pages/FinancialReceivablesPage';
 import { FinancialPayablesPage } from './pages/FinancialPayablesPage';
 import { FinancialDebtorsPage } from './pages/FinancialDebtorsPage';
+import { CashBoxPage } from './pages/CashBoxPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -360,6 +361,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <FinancialDashboardPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/financial/cashbox"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <CashBoxPage />
             </MainLayout>
           </ProtectedRoute>
         }

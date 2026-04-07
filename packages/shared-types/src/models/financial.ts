@@ -160,3 +160,57 @@ export interface DebtorFilters {
   page?: number;
   limit?: number;
 }
+
+// ---- CashBox (Caixa) ----
+
+export interface CashBoxCurrentBalance {
+  totalReceived: number;
+  totalPaid: number;
+  collectionsDeposited: number;
+  commissionsPaid: number;
+  estimatedBalance: number;
+}
+
+export interface CashBoxProjection {
+  period: string;
+  expectedIncome: number;
+  expectedExpenses: number;
+  pendingCollections: number;
+  pendingCommissions: number;
+  projectedBalance: number;
+}
+
+export interface CashBoxDailyFlow {
+  date: string;
+  receivable: number;
+  payable: number;
+  collections: number;
+  commissions: number;
+  netFlow: number;
+  cumulativeBalance: number;
+}
+
+export type CashBoxAlertType = 'DANGER' | 'WARNING' | 'INFO' | 'SUCCESS';
+
+export interface CashBoxAlert {
+  type: CashBoxAlertType;
+  title: string;
+  description: string;
+  amount?: number;
+  date?: string;
+}
+
+export interface HealthMetrics {
+  liquidityRatio: number;
+  averageDaysToReceive: number;
+  collectionEfficiency: number;
+  overdueRatio: number;
+}
+
+export interface CashBoxResponse {
+  currentBalance: CashBoxCurrentBalance;
+  projections: CashBoxProjection[];
+  dailyCashFlow: CashBoxDailyFlow[];
+  alerts: CashBoxAlert[];
+  healthMetrics: HealthMetrics;
+}

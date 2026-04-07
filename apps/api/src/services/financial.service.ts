@@ -8,6 +8,7 @@ import type {
   FinancialListResponse,
   DebtorFilters,
   DebtorListResponse,
+  CashBoxResponse,
 } from '@ejr/shared-types';
 
 export class FinancialService {
@@ -67,5 +68,12 @@ export class FinancialService {
    */
   async getDebtors(filters: DebtorFilters): Promise<DebtorListResponse> {
     return this.repository.getDebtors(filters);
+  }
+
+  /**
+   * Obter dados do caixa: saldo, projeções, fluxo diário, alertas e métricas
+   */
+  async getCashBox(): Promise<CashBoxResponse> {
+    return this.repository.getCashBox();
   }
 }
