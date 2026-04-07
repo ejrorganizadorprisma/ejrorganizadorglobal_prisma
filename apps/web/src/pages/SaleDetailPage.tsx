@@ -18,10 +18,13 @@ import {
   Smartphone,
   Building,
   Receipt,
+  Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSale, useUpdateSale, useUpdatePayment } from '../hooks/useSales';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { generateSalePDF } from '../utils/salePdfGenerator';
 import { SaleStatus, PaymentStatus } from '@ejr/shared-types';
 
 const statusConfig: Record<SaleStatus, { label: string; bg: string; text: string; icon: any }> = {
@@ -51,7 +54,22 @@ export function SaleDetailPage() {
   const { data: sale, isLoading } = useSale(id!);
   const updateSale = useUpdateSale();
   const updatePayment = useUpdatePayment();
-  const { formatPrice } = useFormatPrice();
+  const { formatPrice, defaultCurrency } = useFormatPrice();
+  const { data: documentSettings } = useDefaultDocumentSettings();
+
+  const handleGeneratePDF = () => {
+    if (!sale) return;
+    if (!sale.customer) {
+      toast.error('Dados do cliente nao disponiveis');
+      return;
+    }
+    try {
+      generateSalePDF(sale as any, sale.customer as any, documentSettings, defaultCurrency);
+      toast.success('PDF gerado com sucesso');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.message || 'desconhecido'));
+    }
+  };
 
   const handleMarkPaymentAsPaid = async (paymentId: string) => {
     if (!id) return;
@@ -150,15 +168,24 @@ export function SaleDetailPage() {
             </div>
           </div>
 
-          {sale.status !== 'CANCELLED' && sale.status !== 'PAID' && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleCancelSale}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-red-200 transition-colors"
+              onClick={handleGeneratePDF}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200 transition-colors"
             >
-              <XCircle className="w-4 h-4" />
-              Cancelar Venda
+              <Printer className="w-4 h-4" />
+              Imprimir PDF
             </button>
-          )}
+            {sale.status !== 'CANCELLED' && sale.status !== 'PAID' && (
+              <button
+                onClick={handleCancelSale}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-red-200 transition-colors"
+              >
+                <XCircle className="w-4 h-4" />
+                Cancelar Venda
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
