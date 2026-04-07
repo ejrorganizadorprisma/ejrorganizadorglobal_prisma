@@ -108,7 +108,6 @@ const menuItems: MenuItem[] = [
     submenu: [
       { name: 'Lista de Vendas', path: '/sales', icon: <DollarSign className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'Nova Venda', path: '/sales/new', icon: <DollarSign className="w-4 h-4" />, page: 'sales' as AppPage },
-      { name: 'Cobrancas', path: '/collections', icon: <Receipt className="w-4 h-4" />, page: 'collections' as AppPage },
     ],
   },
   {
@@ -123,11 +122,12 @@ const menuItems: MenuItem[] = [
     page: 'sales' as AppPage,
     submenu: [
       { name: 'Dashboard', path: '/financial', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
+      { name: 'Cobrancas', path: '/collections', icon: <Receipt className="w-4 h-4" />, page: 'collections' as AppPage },
+      { name: 'Comissoes', path: '/commissions', icon: <Percent className="w-4 h-4" />, page: 'commissions' as AppPage },
       { name: 'Devedores', path: '/financial/debtors', icon: <Users className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'Calendário', path: '/financial/calendar', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'A Receber', path: '/financial/receivables', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
       { name: 'A Pagar', path: '/financial/payables', icon: <Wallet className="w-4 h-4" />, page: 'sales' as AppPage },
-      { name: 'Comissoes', path: '/commissions', icon: <Percent className="w-4 h-4" />, page: 'commissions' as AppPage },
     ],
   },
   {
