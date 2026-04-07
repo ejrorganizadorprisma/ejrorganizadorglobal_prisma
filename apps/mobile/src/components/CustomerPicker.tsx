@@ -12,6 +12,14 @@ export default function CustomerPicker({ visible, onSelect, onClose }: Props) {
   const [search, setSearch] = useState('');
   const { customers, loading } = useCustomers(search);
 
+  // Apenas clientes APROVADOS podem ser usados em vendas/orcamentos.
+  // Clientes locais ainda nao sincronizados (synced=false) tambem aparecem
+  // pois ja foram criados localmente — o backend bloqueara se nao aprovado.
+  const selectableCustomers = customers.filter((c) => {
+    const status = (c as any).approvalStatus;
+    return !status || status === 'APPROVED' || c.synced === false;
+  });
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.container}>
@@ -28,18 +36,33 @@ export default function CustomerPicker({ visible, onSelect, onClose }: Props) {
           onChangeText={setSearch}
         />
         <FlatList
-          data={customers}
+          data={selectableCustomers}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.item} onPress={() => { onSelect(item); onClose(); }}>
-              <View>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.detail}>{item.phone || item.email || item.type}</Text>
-              </View>
-              {!item.synced && <View style={styles.badge}><Text style={styles.badgeText}>Pendente</Text></View>}
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={<Text style={styles.empty}>{loading ? 'Carregando...' : 'Nenhum cliente'}</Text>}
+          renderItem={({ item }) => {
+            const status = (item as any).approvalStatus;
+            const isPending = status === 'PENDING' || item.synced === false;
+            return (
+              <TouchableOpacity
+                style={styles.item}
+                onPress={() => { onSelect(item); onClose(); }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.name}>{item.name}</Text>
+                  <Text style={styles.detail}>{item.phone || item.email || item.type}</Text>
+                </View>
+                {isPending && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>Aguard. aprov.</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          }}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {loading ? 'Carregando...' : 'Nenhum cliente aprovado'}
+            </Text>
+          }
         />
       </View>
     </Modal>

@@ -36,9 +36,11 @@ export default function CustomerFormScreen({ navigation }: Props) {
         ruc: ruc.trim() || undefined,
       };
       await createCustomer(data);
-      Alert.alert('Sucesso', 'Cliente criado com sucesso! Sera sincronizado quando houver conexao.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      Alert.alert(
+        'Cliente cadastrado',
+        'O cliente foi salvo localmente. Após a sincronização, ele ficará aguardando aprovação do administrador. Você só poderá vender para esse cliente depois que ele for aprovado.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch (error) {
       Alert.alert('Erro', 'Nao foi possivel salvar o cliente. Tente novamente.');
     } finally {

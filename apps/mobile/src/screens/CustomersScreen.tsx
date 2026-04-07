@@ -18,8 +18,17 @@ export default function CustomersScreen({ navigation }: Props) {
   };
 
   const showDetails = (customer: Customer) => {
+    const status = (customer as any).approvalStatus;
+    const statusLine =
+      status === 'PENDING'
+        ? 'Status: Aguardando aprovação do administrador'
+        : status === 'REJECTED'
+        ? `Status: REJEITADO${(customer as any).rejectionReason ? ` — ${(customer as any).rejectionReason}` : ''}`
+        : 'Status: Aprovado';
+
     const lines = [
       `Tipo: ${customer.type === 'INDIVIDUAL' ? 'Pessoa Fisica' : 'Empresa'}`,
+      statusLine,
       customer.phone ? `Telefone: ${customer.phone}` : null,
       customer.email ? `Email: ${customer.email}` : null,
       customer.document ? `Documento: ${customer.document}` : null,
@@ -79,6 +88,16 @@ export default function CustomersScreen({ navigation }: Props) {
                   </View>
                 </View>
                 <View style={styles.cardRight}>
+                  {(item as any).approvalStatus === 'PENDING' && (
+                    <View style={styles.pendingBadge}>
+                      <Text style={styles.pendingBadgeText}>Aguard. aprov.</Text>
+                    </View>
+                  )}
+                  {(item as any).approvalStatus === 'REJECTED' && (
+                    <View style={styles.rejectedBadge}>
+                      <Text style={styles.rejectedBadgeText}>Rejeitado</Text>
+                    </View>
+                  )}
                   {!item.synced && (
                     <View style={styles.syncBadge}>
                       <Text style={styles.syncBadgeText}>Pendente</Text>
@@ -234,6 +253,30 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#92400E',
     fontWeight: '600',
+  },
+  pendingBadge: {
+    backgroundColor: '#FED7AA',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  pendingBadgeText: {
+    fontSize: 10,
+    color: '#9A3412',
+    fontWeight: '700',
+  },
+  rejectedBadge: {
+    backgroundColor: '#FECACA',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  rejectedBadgeText: {
+    fontSize: 10,
+    color: '#991B1B',
+    fontWeight: '700',
   },
   chevron: {
     fontSize: 18,

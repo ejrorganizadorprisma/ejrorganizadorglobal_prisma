@@ -11,6 +11,10 @@ export interface Customer {
   ci?: string;
   ruc?: string;
   type: 'INDIVIDUAL' | 'BUSINESS';
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
+  responsibleUserId?: string | null;
+  allowedPaymentMethods?: string[] | null;
   synced?: boolean;
 }
 

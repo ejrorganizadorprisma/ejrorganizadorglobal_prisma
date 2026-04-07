@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useCustomer, useCreateCustomer, useUpdateCustomer } from '../hooks/useCustomers';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { useUsers } from '../hooks/useUsers';
+import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
 
 export function CustomerFormPage() {
@@ -12,9 +14,19 @@ export function CustomerFormPage() {
   const { data: systemSettings } = useSystemSettings();
   const country = systemSettings?.country || 'PY';
 
+  const { user } = useAuth();
+  const canAssignResponsible =
+    !!user && ['OWNER', 'DIRECTOR', 'MANAGER'].includes(user.role);
+
   const { data: customer, isLoading: loadingCustomer } = useCustomer(isEditing ? id : undefined);
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
+
+  // Carregar vendedores (SALESPERSON) apenas se o usuario atual pode atribuir
+  const { data: sellersData } = useUsers(
+    canAssignResponsible ? { role: 'SALESPERSON' as any, limit: 100, isActive: true } : {}
+  );
+  const sellers = (canAssignResponsible ? sellersData?.data : undefined) ?? [];
 
   const DEFAULT_PAYMENT_METHODS = ['CASH'];
 
@@ -47,6 +59,7 @@ export function CustomerFormPage() {
     },
     allowedPaymentMethods: DEFAULT_PAYMENT_METHODS as string[],
     creditMaxDays: null as number | null,
+    responsibleUserId: null as string | null,
   });
 
   const [ci, setCi] = useState('');
@@ -81,6 +94,7 @@ export function CustomerFormPage() {
             },
         allowedPaymentMethods: (customer as any).allowedPaymentMethods ?? DEFAULT_PAYMENT_METHODS,
         creditMaxDays: (customer as any).creditMaxDays ?? null,
+        responsibleUserId: (customer as any).responsibleUserId ?? null,
       });
       setCi(customer.ci || '');
       setRuc(customer.ruc || '');
@@ -117,7 +131,7 @@ export function CustomerFormPage() {
     }
 
     try {
-      const baseData = {
+      const baseData: any = {
         name: formData.name,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
@@ -128,6 +142,11 @@ export function CustomerFormPage() {
           ? formData.creditMaxDays
           : null,
       };
+
+      // Admin/gerente pode atribuir vendedor responsavel
+      if (canAssignResponsible) {
+        baseData.responsibleUserId = formData.responsibleUserId ?? null;
+      }
 
       let payload: any;
 
@@ -420,6 +439,41 @@ export function CustomerFormPage() {
                 placeholder={country === 'PY' ? '0981 123 456' : '(00) 00000-0000'}
               />
             </div>
+
+            {/* Vendedor Responsavel - apenas para admin/gerente */}
+            {canAssignResponsible && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vendedor Responsável
+                  <span className="ml-2 text-xs text-gray-500 font-normal">
+                    (quem poderá vender para este cliente pelo app mobile)
+                  </span>
+                </label>
+                <select
+                  value={formData.responsibleUserId ?? ''}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      responsibleUserId: e.target.value || null,
+                    }))
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— Sem vendedor atribuído (apenas web) —</option>
+                  {sellers.map((seller: any) => (
+                    <option key={seller.id} value={seller.id}>
+                      {seller.name} ({seller.email})
+                    </option>
+                  ))}
+                </select>
+                {sellers.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    Nenhum vendedor cadastrado. Crie usuários com papel SALESPERSON em
+                    "Usuários" para poder atribuir.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

@@ -198,7 +198,9 @@ async function pullEntity(
   if (!result.success || !result.data) return 0;
 
   const items = Array.isArray(result.data) ? result.data : [];
-  if (items.length === 0) return 0;
+
+  // IDs retornados pelo servidor para esta entidade
+  const serverIds = new Set<string>(items.map((it: any) => String(it.id)));
 
   await db.withTransactionAsync(async () => {
     for (const item of items) {
@@ -212,6 +214,23 @@ async function pullEntity(
         `INSERT OR REPLACE INTO ${table} ${cols} ${vals}`,
         [item.id, JSON.stringify(item)]
       );
+    }
+
+    // Detectar exclusões: linhas locais sincronizadas (synced=1) que nao
+    // existem mais na resposta do servidor devem ser removidas. Linhas com
+    // synced=0 sao novas criadas offline e nao podem ser apagadas aqui.
+    // Para tabelas sem coluna synced (products), todas as linhas locais
+    // ausentes do servidor sao removidas.
+    const localRows = hasSynced
+      ? await db.getAllAsync<{ id: string }>(
+          `SELECT id FROM ${table} WHERE synced = 1`
+        )
+      : await db.getAllAsync<{ id: string }>(`SELECT id FROM ${table}`);
+
+    for (const row of localRows) {
+      if (!serverIds.has(String(row.id))) {
+        await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, [row.id]);
+      }
     }
   });
 

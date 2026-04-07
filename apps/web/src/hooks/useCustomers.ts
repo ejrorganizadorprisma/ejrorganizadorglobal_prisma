@@ -12,6 +12,7 @@ interface FindManyParams {
   limit?: number;
   search?: string;
   type?: CustomerType;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export function useCustomers(params: FindManyParams = {}) {
@@ -71,6 +72,44 @@ export function useDeleteCustomer() {
   return useMutation({
     mutationFn: async (id: string) => {
       await api.delete(`/customers/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+}
+
+export function useApproveCustomer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      responsibleUserId,
+    }: {
+      id: string;
+      responsibleUserId?: string | null;
+    }) => {
+      const response = await api.post<{ data: Customer }>(`/customers/${id}/approve`, {
+        responsibleUserId: responsibleUserId ?? null,
+      });
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+    },
+  });
+}
+
+export function useRejectCustomer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const response = await api.post<{ data: Customer }>(`/customers/${id}/reject`, {
+        reason,
+      });
+      return response.data.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
