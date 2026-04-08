@@ -476,21 +476,21 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   return (
     <aside className="w-64 h-screen sticky top-0 flex flex-col bg-[#102246] border-r border-white/[0.06]">
       {/* Header */}
-      <div className="shrink-0 px-5 py-5 border-b border-white/[0.06]">
-        <div className="flex items-center justify-center mb-3">
+      <div className="shrink-0 px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-center mb-1.5">
           <img
             src={docSettings?.companyLogo || '/logo.jpeg'}
             alt={docSettings?.companyName || 'EJR Organizador'}
-            className="h-24 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+            className="h-14 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
           />
         </div>
-        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-slate-400 font-medium">
+        <p className="text-center text-[10px] uppercase tracking-[0.18em] text-slate-400 font-medium">
           ERP de Manufatura
         </p>
       </div>
 
       {/* Search */}
-      <div className="shrink-0 px-4 pt-4 pb-2">
+      <div className="shrink-0 px-4 pt-3 pb-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           <input
@@ -532,16 +532,18 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 px-5 py-4 border-t border-white/[0.06]">
-        <div className="flex justify-center mb-2">
+      <div className="shrink-0 px-4 py-2.5 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2.5">
           <img
             src="/logo.jpeg"
             alt="EJR Organizador"
-            className="h-[6.4rem] w-auto object-contain rounded-md drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+            className="h-7 w-7 object-contain rounded shrink-0 opacity-80"
           />
+          <div className="min-w-0 leading-tight">
+            <p className="text-[10px] text-slate-300 font-medium">EJR Organizador · v2.5.1</p>
+            <p className="text-[9px] text-slate-500">© 2026 Todos os direitos reservados</p>
+          </div>
         </div>
-        <p className="text-[11px] text-slate-300 text-center font-medium">Versão 2.5.1</p>
-        <p className="text-[11px] text-slate-500 text-center mt-0.5">© 2026 EJR Organizador Global</p>
       </div>
     </aside>
   );
