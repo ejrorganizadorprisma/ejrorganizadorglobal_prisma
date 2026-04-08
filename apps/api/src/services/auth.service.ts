@@ -59,7 +59,29 @@ export class AuthService {
   }
 
   async register(data: CreateUserDTO): Promise<AuthResponse> {
-    const { email, password, name, role, allowedHours } = data;
+    const {
+      email,
+      password,
+      name,
+      role,
+      allowedHours,
+      // Extended personal data
+      document,
+      birthDate,
+      phone,
+      whatsapp,
+      emailAlt,
+      address,
+      photoUrl,
+      // Commercial data
+      commissionRate,
+      monthlyTarget,
+      region,
+      // Contractual data
+      hireDate,
+      contractType,
+      notes,
+    } = data;
 
     // Verifica se email já existe
     const existingResult = await db.query(
@@ -79,10 +101,41 @@ export class AuthService {
 
     // Cria usuário
     const result = await db.query(
-      `INSERT INTO users (id, email, password_hash, name, role, allowed_hours, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (
+        id, email, password_hash, name, role, allowed_hours, is_active,
+        document, birth_date, phone, whatsapp, email_alt, address, photo_url,
+        commission_rate, monthly_target, region,
+        hire_date, contract_type, notes
+      )
+       VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12, $13, $14,
+        $15, $16, $17,
+        $18, $19, $20
+       )
        RETURNING *`,
-      [userId, email, passwordHash, name, role, allowedHours || null, true]
+      [
+        userId,
+        email,
+        passwordHash,
+        name,
+        role,
+        allowedHours || null,
+        true,
+        document ?? null,
+        birthDate ?? null,
+        phone ?? null,
+        whatsapp ?? null,
+        emailAlt ?? null,
+        address ?? null,
+        photoUrl ?? null,
+        commissionRate ?? null,
+        monthlyTarget ?? null,
+        region ?? null,
+        hireDate ?? null,
+        contractType ?? null,
+        notes ?? null,
+      ]
     );
 
     if (result.rowCount === 0) {
@@ -99,11 +152,35 @@ export class AuthService {
     });
 
     // Remove password_hash da resposta e converte snake_case para camelCase
-    const { password_hash, is_active, allowed_hours, created_at, updated_at, ...userData } = user;
+    const {
+      password_hash,
+      is_active,
+      allowed_hours,
+      created_at,
+      updated_at,
+      birth_date,
+      email_alt,
+      photo_url,
+      commission_rate,
+      monthly_target,
+      hire_date,
+      contract_type,
+      ...userData
+    } = user;
     const userWithoutPassword = {
       ...userData,
       isActive: is_active,
       allowedHours: allowed_hours,
+      birthDate: birth_date ?? null,
+      emailAlt: email_alt ?? null,
+      photoUrl: photo_url ?? null,
+      commissionRate:
+        commission_rate !== null && commission_rate !== undefined
+          ? Number(commission_rate)
+          : null,
+      monthlyTarget: monthly_target ?? null,
+      hireDate: hire_date ?? null,
+      contractType: contract_type ?? null,
       createdAt: created_at,
       updatedAt: updated_at,
     };
@@ -116,7 +193,12 @@ export class AuthService {
 
   async getCurrentUser(userId: string) {
     const result = await db.query(
-      'SELECT id, email, name, role, is_active, allowed_hours, created_at, updated_at FROM users WHERE id = $1 LIMIT 1',
+      `SELECT id, email, name, role, is_active, allowed_hours,
+              document, birth_date, phone, whatsapp, email_alt, address, photo_url,
+              commission_rate, monthly_target, region,
+              hire_date, contract_type, notes,
+              created_at, updated_at
+       FROM users WHERE id = $1 LIMIT 1`,
       [userId]
     );
 
@@ -134,6 +216,25 @@ export class AuthService {
       role: user.role,
       isActive: user.is_active,
       allowedHours: user.allowed_hours,
+      // Personal data
+      document: user.document ?? null,
+      birthDate: user.birth_date ?? null,
+      phone: user.phone ?? null,
+      whatsapp: user.whatsapp ?? null,
+      emailAlt: user.email_alt ?? null,
+      address: user.address ?? null,
+      photoUrl: user.photo_url ?? null,
+      // Commercial data
+      commissionRate:
+        user.commission_rate !== null && user.commission_rate !== undefined
+          ? Number(user.commission_rate)
+          : null,
+      monthlyTarget: user.monthly_target ?? null,
+      region: user.region ?? null,
+      // Contractual data
+      hireDate: user.hire_date ?? null,
+      contractType: user.contract_type ?? null,
+      notes: user.notes ?? null,
       createdAt: user.created_at,
       updatedAt: user.updated_at,
     };

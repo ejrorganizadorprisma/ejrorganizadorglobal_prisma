@@ -11,6 +11,48 @@ interface FindManyParams {
   isActive?: boolean;
 }
 
+// Lista compartilhada de colunas estendidas para SELECT/RETURNING
+const USER_COLUMNS = `
+  id, email, name, role, is_active, allowed_hours,
+  document, birth_date, phone, whatsapp, email_alt, address, photo_url,
+  commission_rate, monthly_target, region,
+  hire_date, contract_type, notes,
+  created_at, updated_at
+`;
+
+// Mapeia uma row crua (snake_case) para o formato camelCase usado pelo frontend
+function mapUserRow(user: any) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    isActive: user.is_active,
+    allowedHours: user.allowed_hours,
+    // Personal data
+    document: user.document ?? null,
+    birthDate: user.birth_date ?? null,
+    phone: user.phone ?? null,
+    whatsapp: user.whatsapp ?? null,
+    emailAlt: user.email_alt ?? null,
+    address: user.address ?? null,
+    photoUrl: user.photo_url ?? null,
+    // Commercial data
+    commissionRate:
+      user.commission_rate !== null && user.commission_rate !== undefined
+        ? Number(user.commission_rate)
+        : null,
+    monthlyTarget: user.monthly_target ?? null,
+    region: user.region ?? null,
+    // Contractual data
+    hireDate: user.hire_date ?? null,
+    contractType: user.contract_type ?? null,
+    notes: user.notes ?? null,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
+  };
+}
+
 export class UsersService {
   async findMany(params: FindManyParams = {}) {
     const {
@@ -21,7 +63,7 @@ export class UsersService {
       isActive,
     } = params;
 
-    if (page < 1 || limit < 1 || limit > 100) {
+    if (page < 1 || limit < 1 || limit > 1000) {
       throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
@@ -60,7 +102,7 @@ export class UsersService {
 
     // Query para buscar usuários
     const dataQuery = `
-      SELECT id, email, name, role, is_active, allowed_hours, created_at, updated_at
+      SELECT ${USER_COLUMNS}
       FROM users
       ${whereClause}
       ORDER BY created_at DESC
@@ -69,16 +111,7 @@ export class UsersService {
     const dataResult = await db.query(dataQuery, [...queryParams, limit, offset]);
 
     // Converter snake_case para camelCase
-    const usersFormatted = dataResult.rows.map((user) => ({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      isActive: user.is_active,
-      allowedHours: user.allowed_hours,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    }));
+    const usersFormatted = dataResult.rows.map(mapUserRow);
 
     return {
       data: usersFormatted,
@@ -93,7 +126,7 @@ export class UsersService {
 
   async findById(id: string) {
     const query = `
-      SELECT id, email, name, role, is_active, allowed_hours, created_at, updated_at
+      SELECT ${USER_COLUMNS}
       FROM users
       WHERE id = $1
     `;
@@ -103,18 +136,7 @@ export class UsersService {
       throw new AppError('Usuário não encontrado', 404, 'USER_NOT_FOUND');
     }
 
-    const user = result.rows[0];
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      isActive: user.is_active,
-      allowedHours: user.allowed_hours,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    };
+    return mapUserRow(result.rows[0]);
   }
 
   async update(id: string, data: UpdateUserDTO) {
@@ -126,35 +148,36 @@ export class UsersService {
     const updateValues: any[] = [];
     let paramIndex = 1;
 
-    if (data.name !== undefined) {
-      updateFields.push(`name = $${paramIndex}`);
-      updateValues.push(data.name);
+    const pushField = (column: string, value: any) => {
+      updateFields.push(`${column} = $${paramIndex}`);
+      updateValues.push(value);
       paramIndex++;
-    }
+    };
 
-    if (data.email !== undefined) {
-      updateFields.push(`email = $${paramIndex}`);
-      updateValues.push(data.email);
-      paramIndex++;
-    }
+    if (data.name !== undefined) pushField('name', data.name);
+    if (data.email !== undefined) pushField('email', data.email);
+    if (data.role !== undefined) pushField('role', data.role);
+    if (data.isActive !== undefined) pushField('is_active', data.isActive);
+    if (data.allowedHours !== undefined) pushField('allowed_hours', data.allowedHours);
 
-    if (data.role !== undefined) {
-      updateFields.push(`role = $${paramIndex}`);
-      updateValues.push(data.role);
-      paramIndex++;
-    }
+    // Personal data
+    if (data.document !== undefined) pushField('document', data.document);
+    if (data.birthDate !== undefined) pushField('birth_date', data.birthDate);
+    if (data.phone !== undefined) pushField('phone', data.phone);
+    if (data.whatsapp !== undefined) pushField('whatsapp', data.whatsapp);
+    if (data.emailAlt !== undefined) pushField('email_alt', data.emailAlt);
+    if (data.address !== undefined) pushField('address', data.address);
+    if (data.photoUrl !== undefined) pushField('photo_url', data.photoUrl);
 
-    if (data.isActive !== undefined) {
-      updateFields.push(`is_active = $${paramIndex}`);
-      updateValues.push(data.isActive);
-      paramIndex++;
-    }
+    // Commercial data
+    if (data.commissionRate !== undefined) pushField('commission_rate', data.commissionRate);
+    if (data.monthlyTarget !== undefined) pushField('monthly_target', data.monthlyTarget);
+    if (data.region !== undefined) pushField('region', data.region);
 
-    if (data.allowedHours !== undefined) {
-      updateFields.push(`allowed_hours = $${paramIndex}`);
-      updateValues.push(data.allowedHours);
-      paramIndex++;
-    }
+    // Contractual data
+    if (data.hireDate !== undefined) pushField('hire_date', data.hireDate);
+    if (data.contractType !== undefined) pushField('contract_type', data.contractType);
+    if (data.notes !== undefined) pushField('notes', data.notes);
 
     // Se uma senha foi fornecida, fazer o hash antes de salvar
     if (data.password && data.password.trim() !== '') {
@@ -162,9 +185,7 @@ export class UsersService {
       const passwordHash = await hashPassword(data.password);
       console.log('✅ Hash de senha gerado com sucesso');
 
-      updateFields.push(`password_hash = $${paramIndex}`);
-      updateValues.push(passwordHash);
-      paramIndex++;
+      pushField('password_hash', passwordHash);
 
       // Buscar password_version atual
       const versionQuery = `SELECT password_version FROM users WHERE id = $1`;
@@ -172,15 +193,11 @@ export class UsersService {
 
       // Incrementar password_version para invalidar tokens antigos
       const currentVersion = versionResult.rows[0]?.password_version || 1;
-      updateFields.push(`password_version = $${paramIndex}`);
-      updateValues.push(currentVersion + 1);
-      paramIndex++;
+      pushField('password_version', currentVersion + 1);
       console.log(`🔄 Incrementando password_version de ${currentVersion} para ${currentVersion + 1}`);
     }
 
-    updateFields.push(`updated_at = $${paramIndex}`);
-    updateValues.push(new Date().toISOString());
-    paramIndex++;
+    pushField('updated_at', new Date().toISOString());
 
     console.log('📝 Atualizando usuário:', { id, updateFields });
 
@@ -188,7 +205,7 @@ export class UsersService {
       UPDATE users
       SET ${updateFields.join(', ')}
       WHERE id = $${paramIndex}
-      RETURNING id, email, name, role, is_active, allowed_hours, created_at, updated_at
+      RETURNING ${USER_COLUMNS}
     `;
     updateValues.push(id);
 
@@ -199,19 +216,8 @@ export class UsersService {
       throw new AppError('Erro ao atualizar usuário: nenhum registro retornado', 500, 'UPDATE_ERROR');
     }
 
-    const user = result.rows[0];
-    console.log('✅ Usuário atualizado com sucesso:', user.id);
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      isActive: user.is_active,
-      allowedHours: user.allowed_hours,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    };
+    console.log('✅ Usuário atualizado com sucesso:', result.rows[0].id);
+    return mapUserRow(result.rows[0]);
   }
 
   async toggleStatus(id: string) {
@@ -226,7 +232,7 @@ export class UsersService {
       UPDATE users
       SET is_active = $1, updated_at = $2
       WHERE id = $3
-      RETURNING id, email, name, role, is_active, allowed_hours, created_at, updated_at
+      RETURNING ${USER_COLUMNS}
     `;
     const result = await db.query(query, [newStatus, new Date().toISOString(), id]);
 
@@ -234,18 +240,7 @@ export class UsersService {
       throw new AppError('Erro ao alterar status do usuário', 500, 'UPDATE_ERROR');
     }
 
-    const updatedUser = result.rows[0];
-
-    return {
-      id: updatedUser.id,
-      email: updatedUser.email,
-      name: updatedUser.name,
-      role: updatedUser.role,
-      isActive: updatedUser.is_active,
-      allowedHours: updatedUser.allowed_hours,
-      createdAt: updatedUser.created_at,
-      updatedAt: updatedUser.updated_at,
-    };
+    return mapUserRow(result.rows[0]);
   }
 
   async delete(id: string) {

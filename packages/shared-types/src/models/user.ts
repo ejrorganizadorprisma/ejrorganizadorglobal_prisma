@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Address } from './customer';
 
 export enum UserRole {
   OWNER = 'OWNER',
@@ -19,6 +20,22 @@ export interface User {
   name: string;
   role: UserRole;
   isActive: boolean;
+  // Extended profile - personal data
+  document?: string | null;
+  birthDate?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  emailAlt?: string | null;
+  address?: Address | null;
+  photoUrl?: string | null;
+  // Extended profile - commercial data (primarily for SALESPERSON role)
+  commissionRate?: number | null;
+  monthlyTarget?: number | null; // armazenado em centavos
+  region?: string | null;
+  // Extended profile - contractual data
+  hireDate?: string | null;
+  contractType?: string | null;
+  notes?: string | null;
   allowedHours?: {
     // Nova estrutura: horários por dia da semana
     weekSchedule?: {
@@ -43,11 +60,66 @@ const timeRangeSchema = z.object({
   end: z.string().regex(/^\d{2}:\d{2}$/, 'Formato inválido (HH:MM)'),
 });
 
+const userAddressSchema = z.object({
+  street: z.string().min(1, 'Rua é obrigatória'),
+  number: z.string().min(1, 'Número é obrigatório'),
+  complement: z.string().optional(),
+  district: z.string().min(1, 'Bairro é obrigatório'),
+  city: z.string().min(1, 'Cidade é obrigatória'),
+  state: z.string().length(2, 'Estado deve ter 2 caracteres (UF)'),
+  zipCode: z.string().optional(),
+});
+
+// Helper to coerce empty strings to null/undefined for optional text fields
+const optionalNullableString = z.preprocess(
+  (val) => (val === '' || val === null ? null : val),
+  z.string().nullable().optional()
+);
+
+const optionalNullableDate = z.preprocess(
+  (val) => (val === '' || val === null ? null : val),
+  z.string().nullable().optional()
+);
+
+const optionalNullableNumber = z.preprocess(
+  (val) => (val === '' || val === null ? null : val),
+  z.number().nullable().optional()
+);
+
+const optionalNullableInt = z.preprocess(
+  (val) => (val === '' || val === null ? null : val),
+  z.number().int().nullable().optional()
+);
+
+const optionalNullableAddress = z.preprocess(
+  (val) => (val === '' || val === null ? null : val),
+  userAddressSchema.nullable().optional()
+);
+
 export const CreateUserSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   role: z.nativeEnum(UserRole),
+  // Personal data
+  document: optionalNullableString,
+  birthDate: optionalNullableDate,
+  phone: optionalNullableString,
+  whatsapp: optionalNullableString,
+  emailAlt: z.preprocess(
+    (val) => (val === '' || val === null ? null : val),
+    z.string().email('Email alternativo inválido').nullable().optional()
+  ),
+  address: optionalNullableAddress,
+  photoUrl: optionalNullableString,
+  // Commercial data
+  commissionRate: optionalNullableNumber,
+  monthlyTarget: optionalNullableInt,
+  region: optionalNullableString,
+  // Contractual data
+  hireDate: optionalNullableDate,
+  contractType: optionalNullableString,
+  notes: optionalNullableString,
   allowedHours: z
     .object({
       weekSchedule: z.record(z.array(timeRangeSchema).min(1)).optional(),
@@ -70,6 +142,25 @@ export const UpdateUserSchema = z.object({
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').optional(),
   role: z.nativeEnum(UserRole).optional(),
   isActive: z.boolean().optional(),
+  // Personal data
+  document: optionalNullableString,
+  birthDate: optionalNullableDate,
+  phone: optionalNullableString,
+  whatsapp: optionalNullableString,
+  emailAlt: z.preprocess(
+    (val) => (val === '' || val === null ? null : val),
+    z.string().email('Email alternativo inválido').nullable().optional()
+  ),
+  address: optionalNullableAddress,
+  photoUrl: optionalNullableString,
+  // Commercial data
+  commissionRate: optionalNullableNumber,
+  monthlyTarget: optionalNullableInt,
+  region: optionalNullableString,
+  // Contractual data
+  hireDate: optionalNullableDate,
+  contractType: optionalNullableString,
+  notes: optionalNullableString,
   allowedHours: z
     .object({
       weekSchedule: z.record(z.array(timeRangeSchema).min(1)).optional(),
