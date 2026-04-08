@@ -2,6 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/migrations';
 import { generateId } from '../utils/generateId';
 
+export interface CustomerAddress {
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -11,6 +21,16 @@ export interface Customer {
   ci?: string;
   ruc?: string;
   type: 'INDIVIDUAL' | 'BUSINESS';
+  rg?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  maritalStatus?: string | null;
+  profession?: string | null;
+  whatsapp?: string | null;
+  phoneAlt?: string | null;
+  emailAlt?: string | null;
+  notes?: string | null;
+  address?: CustomerAddress | null;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
   rejectionReason?: string | null;
   responsibleUserId?: string | null;
