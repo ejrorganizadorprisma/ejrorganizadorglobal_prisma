@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuotes, Quote } from '../hooks/useQuotes';
+import { useSync } from '../hooks/useSync';
 import { formatPrice } from '../utils/formatPrice';
 import { fullSync, onSyncComplete, getSyncStatus } from '../db/sync';
 
@@ -35,6 +36,7 @@ function formatRelativeTime(iso: string | null): string {
 export default function QuotesScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const { quotes, loading, refresh, deleteQuote } = useQuotes(search);
+  const { isOnline } = useSync();
   const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
@@ -76,15 +78,44 @@ export default function QuotesScreen({ navigation }: Props) {
   };
 
   const handleQuoteTap = (quote: Quote) => {
+    const buttons: any[] = [
+      { text: 'Editar', onPress: () => navigation.navigate('QuoteForm', { quoteId: quote.id }) },
+    ];
+
+    const canConvert =
+      quote.status !== 'CONVERTED' &&
+      quote.status !== 'REJECTED' &&
+      quote.status !== 'EXPIRED' &&
+      quote.synced !== false; // must already be synced to server
+
+    if (canConvert && isOnline) {
+      buttons.push({
+        text: '💰 Converter em Venda',
+        onPress: () => convertToSale(quote),
+      });
+    } else if (canConvert && !isOnline) {
+      buttons.push({
+        text: '💰 Converter (requer internet)',
+        onPress: () =>
+          Alert.alert(
+            'Sem conexão',
+            'Para converter um orçamento em venda é necessário estar online.'
+          ),
+      });
+    }
+
+    buttons.push({ text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(quote) });
+    buttons.push({ text: 'Cancelar', style: 'cancel' });
+
     Alert.alert(
       quote.quoteNumber || 'Rascunho',
-      `Cliente: ${quote.customerName || 'Sem cliente'}\nTotal: ${formatPrice(quote.total)}`,
-      [
-        { text: 'Editar', onPress: () => navigation.navigate('QuoteForm', { quoteId: quote.id }) },
-        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(quote) },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
+      `Cliente: ${quote.customerName || 'Sem cliente'}\nTotal: ${formatPrice(quote.total)}\nStatus: ${quote.status}`,
+      buttons
     );
+  };
+
+  const convertToSale = (quote: Quote) => {
+    navigation.navigate('SaleForm', { fromQuoteId: quote.id });
   };
 
   const confirmDelete = (quote: Quote) => {

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal, FlatList, StyleSheet } from 'react-native';
 import { useSales, SaleItem } from '../hooks/useSales';
+import { useQuotes } from '../hooks/useQuotes';
 import { Customer } from '../hooks/useCustomers';
 import { Product } from '../hooks/useProducts';
 import CustomerPicker from '../components/CustomerPicker';
@@ -10,6 +11,7 @@ import { captureLocation } from '../utils/captureLocation';
 
 interface Props {
   navigation: any;
+  route?: any;
 }
 
 const PAYMENT_METHODS = [
@@ -24,8 +26,10 @@ const PAYMENT_METHODS = [
   { value: 'OTHER', label: 'Outro' },
 ];
 
-export default function SaleFormScreen({ navigation }: Props) {
-  const { createSale } = useSales();
+export default function SaleFormScreen({ navigation, route }: Props) {
+  const { fromQuoteId } = (route?.params || {}) as { fromQuoteId?: string };
+  const { createSale, convertFromQuote } = useSales();
+  const { getById } = useQuotes();
   const [saving, setSaving] = useState(false);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -35,10 +39,37 @@ export default function SaleFormScreen({ navigation }: Props) {
   const [saleDate, setSaleDate] = useState(new Date().toLocaleDateString('pt-BR'));
   const [discount, setDiscount] = useState('');
   const [notes, setNotes] = useState('');
+  const [quoteNumber, setQuoteNumber] = useState<string | undefined>();
 
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [showPaymentPicker, setShowPaymentPicker] = useState(false);
+
+  useEffect(() => {
+    if (!fromQuoteId) return;
+    (async () => {
+      const quote = await getById(fromQuoteId);
+      if (!quote) {
+        Alert.alert('Erro', 'Orçamento não encontrado.');
+        navigation.goBack();
+        return;
+      }
+      // Pre-populate customer (synthetic minimal Customer for picker label)
+      if (quote.customerId) {
+        setCustomer({ id: quote.customerId, name: quote.customerName || 'Cliente' } as any);
+      }
+      // Pre-populate items with stable keys
+      setItems(
+        (quote.items || []).map((it: any, i: number) => ({
+          ...it,
+          key: `quote-${i}`,
+        }))
+      );
+      if (quote.discount) setDiscount(String(quote.discount));
+      setQuoteNumber(quote.quoteNumber);
+      // NOTE: do NOT set saleDate / paymentMethod / installments — user must choose those
+    })();
+  }, [fromQuoteId]);
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountValue = parseInt(discount || '0', 10);
@@ -100,23 +131,36 @@ export default function SaleFormScreen({ navigation }: Props) {
 
     setSaving(true);
     try {
-      const location = await captureLocation();
-      await createSale({
-        customerId: customer.id,
-        items: items.map(({ key, ...rest }) => rest),
-        discount: discountValue,
-        paymentMethod,
-        installments: parseInt(installments, 10) || 1,
-        saleDate: isoDate,
-        notes: notes.trim() || undefined,
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-      });
-      Alert.alert('Sucesso', 'Venda registrada com sucesso!', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
-    } catch (error) {
-      Alert.alert('Erro', 'Nao foi possivel salvar a venda.');
+      if (fromQuoteId) {
+        await convertFromQuote(fromQuoteId, {
+          paymentMethod,
+          saleDate: isoDate || new Date().toISOString().slice(0, 10),
+          installments: parseInt(installments, 10) || 1,
+        });
+        Alert.alert(
+          'Sucesso',
+          'Venda criada com sucesso! Orçamento marcado como convertido.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Vendas') }]
+        );
+      } else {
+        const location = await captureLocation();
+        await createSale({
+          customerId: customer.id,
+          items: items.map(({ key, ...rest }) => rest),
+          discount: discountValue,
+          paymentMethod,
+          installments: parseInt(installments, 10) || 1,
+          saleDate: isoDate,
+          notes: notes.trim() || undefined,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+        });
+        Alert.alert('Sucesso', 'Venda registrada com sucesso!', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Nao foi possivel salvar a venda.');
     } finally {
       setSaving(false);
     }
@@ -126,6 +170,16 @@ export default function SaleFormScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+      {fromQuoteId && (
+        <View style={styles.conversionBanner}>
+          <Text style={styles.conversionBannerText}>
+            🔄 Convertendo orçamento {quoteNumber ? `#${quoteNumber}` : ''}
+          </Text>
+          <Text style={styles.conversionBannerSubtext}>
+            Itens e cliente já preenchidos. Escolha a forma de pagamento.
+          </Text>
+        </View>
+      )}
       <View style={styles.form}>
         {/* Customer */}
         <View style={styles.fieldGroup}>
@@ -361,6 +415,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F6',
+  },
+  conversionBanner: {
+    backgroundColor: '#EBF5FF',
+    borderLeftWidth: 4,
+    borderLeftColor: '#0B5C9A',
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 8,
+  },
+  conversionBannerText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0B5C9A',
+    marginBottom: 2,
+  },
+  conversionBannerSubtext: {
+    fontSize: 12,
+    color: '#374151',
   },
   form: {
     padding: 16,

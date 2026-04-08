@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDatabase } from '../db/migrations';
 import { generateId } from '../utils/generateId';
+import { apiRequest } from '../api/client';
+import { useAuthStore } from '../store/authStore';
+import { fullSync } from '../db/sync';
 
 export interface SaleItem {
   itemType: 'PRODUCT' | 'SERVICE';
@@ -102,6 +105,40 @@ export function useSales(search?: string) {
     return sale;
   }, [loadFromDb]);
 
+  const convertFromQuote = useCallback(async (
+    quoteId: string,
+    extra: { paymentMethod: string; saleDate: string; installments: number }
+  ) => {
+    const token = useAuthStore.getState().token;
+    if (!token) {
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
+    const result = await apiRequest<any>('/sales/convert-from-quote', {
+      method: 'POST',
+      token,
+      body: {
+        quoteId,
+        paymentMethod: extra.paymentMethod,
+        saleDate: extra.saleDate,
+        installments: extra.installments,
+      },
+    });
+
+    if (!result.success) {
+      const msg = result.error?.message || 'Não foi possível converter o orçamento em venda.';
+      throw new Error(msg);
+    }
+
+    // Pull updated quote status (CONVERTED) and the new sale from the server
+    try {
+      await fullSync({ force: true, resetAttempts: true });
+    } catch { /* ignore sync errors — local refresh below still runs */ }
+    await loadFromDb();
+
+    return result.data;
+  }, [loadFromDb]);
+
   const getStats = useCallback(async (): Promise<SaleStats> => {
     const db = await getDatabase();
     const rows = await db.getAllAsync<{ data: string }>('SELECT data FROM sales');
@@ -118,5 +155,5 @@ export function useSales(search?: string) {
 
   useEffect(() => { loadFromDb(); }, [loadFromDb]);
 
-  return { sales, loading, refresh, createSale, getStats };
+  return { sales, loading, refresh, createSale, getStats, convertFromQuote };
 }

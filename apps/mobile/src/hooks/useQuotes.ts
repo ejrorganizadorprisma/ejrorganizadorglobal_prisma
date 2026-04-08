@@ -131,6 +131,20 @@ export function useQuotes(search?: string) {
     return updated;
   }, [loadFromDb]);
 
+  const getById = useCallback(async (id: string): Promise<Quote | null> => {
+    try {
+      const db = await getDatabase();
+      const row = await db.getFirstAsync<{ id: string; data: string; synced: number }>(
+        'SELECT id, data, synced FROM quotes WHERE id = ?', [id]
+      );
+      if (!row) return null;
+      const parsed = JSON.parse(row.data) as Quote;
+      return { ...parsed, id: row.id, synced: row.synced === 1 };
+    } catch {
+      return null;
+    }
+  }, []);
+
   const deleteQuote = useCallback(async (id: string) => {
     const db = await getDatabase();
     const isLocalOnly = id.startsWith('local-');
@@ -152,5 +166,5 @@ export function useQuotes(search?: string) {
 
   useEffect(() => { loadFromDb(); }, [loadFromDb]);
 
-  return { quotes, loading, refresh, createQuote, updateQuote, deleteQuote };
+  return { quotes, loading, refresh, createQuote, updateQuote, deleteQuote, getById };
 }
