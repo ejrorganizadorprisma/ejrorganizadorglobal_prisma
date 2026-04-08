@@ -476,17 +476,20 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   return (
     <aside className="w-64 h-screen sticky top-0 flex flex-col bg-[#102246] border-r border-white/[0.06]">
       {/* Header */}
-      <div className="shrink-0 px-4 py-3 border-b border-white/[0.06]">
-        <div className="flex items-center justify-center mb-1.5">
+      <div className="shrink-0 px-4 py-5 border-b border-white/[0.06]">
+        <div className="flex flex-col items-center space-y-2">
           <img
             src={docSettings?.companyLogo || '/logo.jpeg'}
             alt={docSettings?.companyName || 'EJR Organizador'}
-            className="h-14 w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.4)]"
+            className="h-24 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           />
+          <h1 className="text-base font-bold text-white tracking-wide text-center leading-tight drop-shadow-md">
+            {docSettings?.companyName || 'EJR Organizador'}
+          </h1>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-amber-400/80 font-semibold">
+            ERP de Manufatura
+          </p>
         </div>
-        <p className="text-center text-[10px] uppercase tracking-[0.18em] text-slate-400 font-medium">
-          ERP de Manufatura
-        </p>
       </div>
 
       {/* Search */}
@@ -532,16 +535,17 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 px-4 py-2.5 border-t border-white/[0.06]">
+      <div className="shrink-0 px-4 py-3 border-t border-white/[0.06]">
         <div className="flex items-center gap-3">
           <img
             src="/logo.jpeg"
             alt="EJR Organizador"
-            className="h-11 w-auto max-w-[56px] object-contain rounded shrink-0 opacity-90 drop-shadow-[0_2px_6px_rgba(0,0,0,0.3)]"
+            className="h-16 w-auto max-w-[72px] object-contain rounded-md shrink-0 opacity-95 drop-shadow-[0_3px_8px_rgba(0,0,0,0.4)]"
           />
-          <div className="min-w-0 leading-tight">
-            <p className="text-[10px] text-slate-300 font-medium">EJR Organizador · v2.5.1</p>
-            <p className="text-[9px] text-slate-500">© 2026 Todos os direitos reservados</p>
+          <div className="min-w-0 leading-snug">
+            <p className="text-xs text-slate-200 font-semibold tracking-wide">EJR Organizador</p>
+            <p className="text-[10px] text-slate-400 font-medium">v2.5.1</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">© 2026 Todos os direitos reservados</p>
           </div>
         </div>
       </div>
