@@ -116,7 +116,8 @@ export default function DashboardScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await triggerSync();
+      // Pull-to-refresh é ação explícita do usuário → reseta tentativas
+      await triggerSync({ resetAttempts: true });
       await loadStats();
       await refreshCustomers();
       await refreshStatus();
@@ -126,6 +127,11 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, [triggerSync, loadStats, refreshCustomers, refreshStatus]);
+
+  const handleManualSync = useCallback(() => {
+    // Botão "Sincronizar" do dashboard: ação explícita → reseta tentativas
+    triggerSync({ resetAttempts: true });
+  }, [triggerSync]);
 
   const firstName = user?.name?.split(' ')[0] || 'Vendedor';
 
@@ -255,7 +261,7 @@ export default function DashboardScreen() {
             styles.syncButton,
             (isSyncing || !isOnline) && styles.syncButtonDisabled,
           ]}
-          onPress={triggerSync}
+          onPress={handleManualSync}
           disabled={isSyncing || !isOnline}
           activeOpacity={0.8}
         >

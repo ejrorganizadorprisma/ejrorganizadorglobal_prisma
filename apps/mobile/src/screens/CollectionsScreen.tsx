@@ -49,7 +49,7 @@ export default function CollectionsScreen({ navigation }: Props) {
       let cancelled = false;
       (async () => {
         try {
-          await fullSync(true);
+          await fullSync({ force: true, resetAttempts: true });
         } catch { /* ignore */ }
         if (!cancelled) await refresh();
       })();
@@ -71,7 +71,7 @@ export default function CollectionsScreen({ navigation }: Props) {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await fullSync(true);
+      await fullSync({ force: true, resetAttempts: true });
     } catch { /* ignore */ }
     await refresh();
     setRefreshing(false);

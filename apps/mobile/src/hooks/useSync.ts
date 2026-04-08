@@ -26,12 +26,12 @@ export function useSync() {
     }
   }, []);
 
-  const triggerSync = useCallback(async () => {
+  const triggerSync = useCallback(async (opts: { resetAttempts?: boolean } = {}) => {
     if (isSyncingRef.current) return;
     isSyncingRef.current = true;
     setIsSyncing(true);
     try {
-      await fullSync();
+      await fullSync({ resetAttempts: opts.resetAttempts });
       await refreshStatus();
     } catch {
       // ignore
@@ -46,6 +46,7 @@ export function useSync() {
       const online = !!state.isConnected && !!state.isInternetReachable;
       setIsOnline(online);
       if (online && !isSyncingRef.current) {
+        // auto-sync on reconnect: mantém limite de 5 tentativas
         triggerSync();
       }
     });
@@ -56,6 +57,7 @@ export function useSync() {
       if (isSyncingRef.current) return;
       NetInfo.fetch().then((state) => {
         if (state.isConnected && state.isInternetReachable) {
+          // auto-sync a cada 30s: mantém limite de 5 tentativas
           triggerSync();
         }
       });

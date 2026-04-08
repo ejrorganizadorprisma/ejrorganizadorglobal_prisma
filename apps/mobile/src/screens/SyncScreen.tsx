@@ -73,7 +73,9 @@ export default function SyncScreen() {
   const handleSync = useCallback(async () => {
     setSyncing(true);
     try {
-      await triggerSync();
+      // Botão manual: reseta contador de tentativas para reprocessar itens
+      // que bateram o limite de 5 tentativas em sincs anteriores.
+      await triggerSync({ resetAttempts: true });
       await loadData();
     } catch {
       // ignore

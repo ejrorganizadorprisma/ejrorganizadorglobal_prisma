@@ -118,10 +118,20 @@ function sanitizePayload(entity: string, payload: any): any {
   return payload;
 }
 
-export async function pushPendingChanges(): Promise<{ pushed: number; errors: number }> {
+export async function pushPendingChanges(
+  opts: { resetAttempts?: boolean } = {}
+): Promise<{ pushed: number; errors: number }> {
   const db = await getDatabase();
   const token = await getToken();
   if (!token) return { pushed: 0, errors: 0 };
+
+  // Quando o usuário clica manualmente em "Sincronizar Agora", zera o contador
+  // de tentativas para permitir que itens que bateram o limite de 5 sejam
+  // reprocessados. O contador existe para auto-sync (evita spam do servidor),
+  // mas uma ação manual explícita deve sempre ter uma chance fresca.
+  if (opts.resetAttempts) {
+    await db.runAsync("UPDATE sync_queue SET attempts = 0");
+  }
 
   const queue = await db.getAllAsync<{
     id: number; entity: string; action: string; entity_id: string; payload: string; attempts: number;
@@ -303,7 +313,10 @@ let inFlightSync: Promise<{ pushed: number; pulled: number; errors: number }> | 
 let lastSyncFinishedAt = 0;
 const MIN_SYNC_INTERVAL_MS = 3000;
 
-export async function fullSync(force = false): Promise<{ pushed: number; pulled: number; errors: number }> {
+export async function fullSync(
+  options: { force?: boolean; resetAttempts?: boolean } = {}
+): Promise<{ pushed: number; pulled: number; errors: number }> {
+  const { force = false, resetAttempts = false } = options;
   // Reuse in-flight sync if one is already running
   if (inFlightSync) return inFlightSync;
 
@@ -314,7 +327,7 @@ export async function fullSync(force = false): Promise<{ pushed: number; pulled:
 
   inFlightSync = (async () => {
     try {
-      const pushResult = await pushPendingChanges();
+      const pushResult = await pushPendingChanges({ resetAttempts });
       const pullResult = await pullServerData();
 
       try {
