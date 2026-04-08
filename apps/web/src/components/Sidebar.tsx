@@ -533,15 +533,15 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
       {/* Footer */}
       <div className="shrink-0 px-5 py-4 border-t border-white/[0.06]">
-        <div className="flex items-center justify-between">
-          <div className="text-[11px] text-slate-500 leading-tight">
-            <p className="text-slate-300 font-medium">Versão 2.5.1</p>
-            <p>© 2026 EJR Organizador</p>
-          </div>
-          <div className="w-8 h-8 rounded-md bg-gradient-to-br from-amber-400/20 to-amber-600/20 flex items-center justify-center border border-amber-400/20">
-            <div className="w-4 h-4 rounded-sm bg-gradient-to-br from-amber-400 to-amber-600 shadow-[0_0_8px_rgba(251,191,36,0.4)]" />
-          </div>
+        <div className="flex justify-center mb-2">
+          <img
+            src="/logo.jpeg"
+            alt="EJR Organizador"
+            className="h-[6.4rem] w-auto object-contain rounded-md drop-shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+          />
         </div>
+        <p className="text-[11px] text-slate-300 text-center font-medium">Versão 2.5.1</p>
+        <p className="text-[11px] text-slate-500 text-center mt-0.5">© 2026 EJR Organizador Global</p>
       </div>
     </aside>
   );
