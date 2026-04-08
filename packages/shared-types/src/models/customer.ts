@@ -30,6 +30,15 @@ export interface Customer {
   ruc?: string;      // Registro Único de Contribuyente (Paraguay)
   email?: string;
   phone?: string;
+  rg?: string | null;
+  birthDate?: string | null;
+  gender?: string | null;
+  maritalStatus?: string | null;
+  profession?: string | null;
+  whatsapp?: string | null;
+  phoneAlt?: string | null;
+  emailAlt?: string | null;
+  notes?: string | null;
   address?: Address;
   allowedPaymentMethods?: string[];
   creditMaxDays?: number | null;
@@ -55,6 +64,11 @@ const AddressSchema = z.object({
   zipCode: z.string().optional(),
 });
 
+const optionalNullableString = z.preprocess(
+  (val) => (val === '' || val === null ? null : val),
+  z.string().nullable().optional()
+);
+
 export const CreateCustomerSchema = z.object({
   type: z.nativeEnum(CustomerType),
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
@@ -72,6 +86,18 @@ export const CreateCustomerSchema = z.object({
     (val) => (val === '' || val === null ? undefined : val),
     z.string().optional()
   ),
+  rg: optionalNullableString,
+  birthDate: optionalNullableString,
+  gender: optionalNullableString,
+  maritalStatus: optionalNullableString,
+  profession: optionalNullableString,
+  whatsapp: optionalNullableString,
+  phoneAlt: optionalNullableString,
+  emailAlt: z.preprocess(
+    (val) => (val === '' || val === null ? null : val),
+    z.string().email('Email alternativo inválido').nullable().optional()
+  ),
+  notes: optionalNullableString,
   address: z.preprocess(
     (val) => (val === null ? undefined : val),
     AddressSchema.optional()
@@ -104,6 +130,18 @@ export const UpdateCustomerSchema = z.object({
     (val) => (val === '' || val === null ? undefined : val),
     z.string().optional()
   ),
+  rg: optionalNullableString,
+  birthDate: optionalNullableString,
+  gender: optionalNullableString,
+  maritalStatus: optionalNullableString,
+  profession: optionalNullableString,
+  whatsapp: optionalNullableString,
+  phoneAlt: optionalNullableString,
+  emailAlt: z.preprocess(
+    (val) => (val === '' || val === null ? null : val),
+    z.string().email('Email alternativo inválido').nullable().optional()
+  ),
+  notes: optionalNullableString,
   address: z.preprocess(
     (val) => (val === null ? undefined : val),
     AddressSchema.optional()

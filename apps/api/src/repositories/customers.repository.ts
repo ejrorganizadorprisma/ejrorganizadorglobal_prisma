@@ -30,6 +30,15 @@ function mapRow(row: any) {
     document: row.document,
     ci: row.ci,
     ruc: row.ruc,
+    rg: row.rg ?? null,
+    birthDate: row.birth_date ?? null,
+    gender: row.gender ?? null,
+    maritalStatus: row.marital_status ?? null,
+    profession: row.profession ?? null,
+    whatsapp: row.whatsapp ?? null,
+    phoneAlt: row.phone_alt ?? null,
+    emailAlt: row.email_alt ?? null,
+    notes: row.notes ?? null,
     type: row.type,
     address: row.address,
     allowedPaymentMethods: row.allowed_payment_methods,
@@ -155,11 +164,18 @@ export class CustomersRepository {
       INSERT INTO customers (
         id, name, email, phone, document, ci, ruc, type, address,
         allowed_payment_methods, credit_max_days, created_by,
-        responsible_user_id, approval_status, approved_at, approved_by
+        responsible_user_id, approval_status, approved_at, approved_by,
+        rg, birth_date, gender, marital_status, profession,
+        whatsapp, phone_alt, email_alt, notes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+        $17, $18, $19, $20, $21, $22, $23, $24, $25
+      )
       RETURNING *
     `;
+
+    const data: any = customerData;
 
     const result = await db.query(sql, [
       id,
@@ -178,6 +194,15 @@ export class CustomersRepository {
       approvalStatus,
       approvedAt,
       approvedBy,
+      data.rg ?? null,
+      data.birthDate ?? null,
+      data.gender ?? null,
+      data.maritalStatus ?? null,
+      data.profession ?? null,
+      data.whatsapp ?? null,
+      data.phoneAlt ?? null,
+      data.emailAlt ?? null,
+      data.notes ?? null,
     ]);
 
     return mapRow(result.rows[0]);
@@ -194,6 +219,8 @@ export class CustomersRepository {
       i++;
     };
 
+    const data: any = customerData;
+
     if (customerData.name !== undefined) setField('name', customerData.name);
     if (customerData.email !== undefined) setField('email', customerData.email);
     if (customerData.phone !== undefined) setField('phone', customerData.phone);
@@ -207,6 +234,16 @@ export class CustomersRepository {
     if (customerData.creditMaxDays !== undefined) setField('credit_max_days', customerData.creditMaxDays);
     if (customerData.responsibleUserId !== undefined)
       setField('responsible_user_id', customerData.responsibleUserId);
+
+    if (data.rg !== undefined) setField('rg', data.rg || null);
+    if (data.birthDate !== undefined) setField('birth_date', data.birthDate || null);
+    if (data.gender !== undefined) setField('gender', data.gender || null);
+    if (data.maritalStatus !== undefined) setField('marital_status', data.maritalStatus || null);
+    if (data.profession !== undefined) setField('profession', data.profession || null);
+    if (data.whatsapp !== undefined) setField('whatsapp', data.whatsapp || null);
+    if (data.phoneAlt !== undefined) setField('phone_alt', data.phoneAlt || null);
+    if (data.emailAlt !== undefined) setField('email_alt', data.emailAlt || null);
+    if (data.notes !== undefined) setField('notes', data.notes ?? null);
 
     if (updateFields.length === 0) {
       throw new Error('Nenhum campo para atualizar');
