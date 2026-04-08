@@ -73,6 +73,7 @@ router.get(
       const data = dataResult.rows.map((row: any) => ({
         id: row.id,
         userId: row.user_id,
+        userName: row.user_name,
         eventType: row.event_type,
         eventId: row.event_id,
         latitude: parseFloat(row.latitude),
