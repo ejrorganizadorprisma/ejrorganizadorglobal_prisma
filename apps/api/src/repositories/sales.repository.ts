@@ -212,185 +212,213 @@ export class SalesRepository {
 
   /**
    * Criar nova venda
+   * IMPORTANT: uses db.transaction() (pool.connect) so all statements run on the
+   * same client. db.query('BEGIN') would break on Supabase transaction-mode pgbouncer.
    */
   async create(saleData: CreateSaleDTO, userId: string, allowNegativeStock: boolean = false): Promise<Sale> {
-    await db.query('BEGIN');
+    const createdSaleId = await db.transaction(async (client) => {
+      const saleNumber = await this.generateSaleNumber();
 
-    try {
-    const saleNumber = await this.generateSaleNumber();
+      // Calcular totais
+      let subtotal = 0;
+      const items = saleData.items.map((item) => {
+        const itemDiscount = item.discount || 0;
+        const itemTotal = item.quantity * item.unitPrice - itemDiscount;
+        subtotal += itemTotal;
+        return { ...item, discount: itemDiscount, total: itemTotal };
+      });
 
-    // Calcular totais
-    let subtotal = 0;
-    const items = saleData.items.map((item) => {
-      const itemDiscount = item.discount || 0;
-      const itemTotal = item.quantity * item.unitPrice - itemDiscount;
-      subtotal += itemTotal;
-      return { ...item, discount: itemDiscount, total: itemTotal };
-    });
+      const discount = saleData.discount || 0;
+      const total = subtotal - discount;
+      const installments = saleData.installments || 1;
 
-    const discount = saleData.discount || 0;
-    const total = subtotal - discount;
-    const installments = saleData.installments || 1;
+      // Gerar ID único
+      const id = `sale-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-    // Gerar ID único
-    const id = `sale-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-    // Inserir venda
-    const insertSaleQuery = `
-      INSERT INTO sales (
-        id, sale_number, customer_id, quote_id, status, sale_date, due_date,
-        subtotal, discount, total, total_paid, total_pending, installments,
-        notes, internal_notes, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-      RETURNING *
-    `;
-
-    const saleResult = await db.query(insertSaleQuery, [
-      id,
-      saleNumber,
-      saleData.customerId,
-      saleData.quoteId || null,
-      'PENDING',
-      saleData.saleDate,
-      saleData.dueDate || null,
-      subtotal,
-      discount,
-      total,
-      0,
-      total,
-      installments,
-      saleData.notes || null,
-      saleData.internalNotes || null,
-      userId,
-    ]);
-
-    const createdSale = saleResult.rows[0];
-
-    // Inserir items
-    for (const item of items) {
-      const itemId = `sitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const insertItemQuery = `
-        INSERT INTO sale_items (
-          id, sale_id, item_type, product_id, service_name, service_description,
-          quantity, unit_price, discount, total
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      // Inserir venda
+      const insertSaleQuery = `
+        INSERT INTO sales (
+          id, sale_number, customer_id, quote_id, status, sale_date, due_date,
+          subtotal, discount, total, total_paid, total_pending, installments,
+          notes, internal_notes, created_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        RETURNING *
       `;
 
-      await db.query(insertItemQuery, [
-        itemId,
-        createdSale.id,
-        item.itemType,
-        item.productId || null,
-        item.serviceName || null,
-        item.serviceDescription || null,
-        item.quantity,
-        item.unitPrice,
-        item.discount,
-        item.total,
+      const saleResult = await client.query(insertSaleQuery, [
+        id,
+        saleNumber,
+        saleData.customerId,
+        saleData.quoteId || null,
+        'PENDING',
+        saleData.saleDate,
+        saleData.dueDate || null,
+        subtotal,
+        discount,
+        total,
+        0,
+        total,
+        installments,
+        saleData.notes || null,
+        saleData.internalNotes || null,
+        userId,
       ]);
-    }
 
-    // Criar parcelas de pagamento
-    const amountPerInstallment = Math.floor(total / installments);
-    const remainder = total - amountPerInstallment * installments;
-    const saleDate = new Date(saleData.saleDate);
-    const dueDate = saleData.dueDate ? new Date(saleData.dueDate) : saleDate;
+      const createdSale = saleResult.rows[0];
 
-    for (let i = 0; i < installments; i++) {
-      const installmentDueDate = new Date(dueDate);
-      installmentDueDate.setMonth(dueDate.getMonth() + i);
+      // Inserir items
+      for (const item of items) {
+        const itemId = `sitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const insertItemQuery = `
+          INSERT INTO sale_items (
+            id, sale_id, item_type, product_id, service_name, service_description,
+            quantity, unit_price, discount, total
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `;
 
-      let installmentAmount = amountPerInstallment;
-      // Adicionar o resto na primeira parcela
-      if (i === 0) {
-        installmentAmount += remainder;
+        await client.query(insertItemQuery, [
+          itemId,
+          createdSale.id,
+          item.itemType,
+          item.productId || null,
+          item.serviceName || null,
+          item.serviceDescription || null,
+          item.quantity,
+          item.unitPrice,
+          item.discount,
+          item.total,
+        ]);
       }
 
-      const paymentId = `spay-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${i}`;
-      const insertPaymentQuery = `
-        INSERT INTO sale_payments (
-          id, sale_id, installment_number, payment_method, amount, due_date, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `;
+      // Criar parcelas de pagamento
+      const amountPerInstallment = Math.floor(total / installments);
+      const remainder = total - amountPerInstallment * installments;
+      const saleDate = new Date(saleData.saleDate);
+      const dueDate = saleData.dueDate ? new Date(saleData.dueDate) : saleDate;
 
-      await db.query(insertPaymentQuery, [
-        paymentId,
-        createdSale.id,
-        i + 1,
-        saleData.paymentMethod,
-        installmentAmount,
-        installmentDueDate.toISOString().split('T')[0],
-        'PENDING',
-      ]);
-    }
+      for (let i = 0; i < installments; i++) {
+        const installmentDueDate = new Date(dueDate);
+        installmentDueDate.setMonth(dueDate.getMonth() + i);
 
-    // Atualizar estoque dos produtos
-    for (const item of items) {
-      if (item.itemType === 'PRODUCT' && item.productId) {
-        if (allowNegativeStock) {
-          // Vendedor mobile: bypass da function (que rejeita estoque negativo).
-          // A venda offline ja aconteceu — sincronizamos a realidade, mesmo
-          // que isso deixe o estoque em valor negativo (para o gestor corrigir depois).
-          const prevResult = await db.query(
-            'SELECT current_stock FROM products WHERE id = $1 FOR UPDATE',
-            [item.productId]
-          );
-          const prevStock = prevResult.rows[0]?.current_stock ?? 0;
-          const newStock = prevStock - item.quantity;
-          await db.query(
-            'UPDATE products SET current_stock = $1, updated_at = NOW() WHERE id = $2',
-            [newStock, item.productId]
-          );
-          await db.query(
-            `INSERT INTO inventory_movements (id, product_id, user_id, type, quantity, previous_stock, new_stock, reason, reference_id, reference_type)
-             VALUES (gen_random_uuid()::text, $1, $2, 'SALE', $3, $4, $5, $6, $7, 'SALE')`,
-            [item.productId, userId, -item.quantity, prevStock, newStock, `Venda ${saleNumber} (mobile)`, createdSale.id]
-          );
-        } else {
-          const stockQuery = `
-            SELECT update_product_stock(
-              $1::TEXT, $2::INTEGER, $3::TEXT, $4::VARCHAR, $5::TEXT, $6::TEXT, $7::VARCHAR
-            )
-          `;
+        let installmentAmount = amountPerInstallment;
+        // Adicionar o resto na primeira parcela
+        if (i === 0) {
+          installmentAmount += remainder;
+        }
 
-          await db.query(stockQuery, [
-            item.productId,
-            -item.quantity,
-            userId,
-            'SALE',
-            `Venda ${saleNumber}`,
-            createdSale.id,
-            'SALE',
-          ]);
+        const paymentId = `spay-${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${i}`;
+        const insertPaymentQuery = `
+          INSERT INTO sale_payments (
+            id, sale_id, installment_number, payment_method, amount, due_date, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `;
+
+        await client.query(insertPaymentQuery, [
+          paymentId,
+          createdSale.id,
+          i + 1,
+          saleData.paymentMethod,
+          installmentAmount,
+          installmentDueDate.toISOString().split('T')[0],
+          'PENDING',
+        ]);
+      }
+
+      // Atualizar estoque dos produtos
+      for (const item of items) {
+        if (item.itemType === 'PRODUCT' && item.productId) {
+          if (allowNegativeStock) {
+            // Vendedor mobile: bypass da function (que rejeita estoque negativo).
+            // A venda offline ja aconteceu — sincronizamos a realidade, mesmo
+            // que isso deixe o estoque em valor negativo (para o gestor corrigir depois).
+            const prevResult = await client.query(
+              'SELECT current_stock FROM products WHERE id = $1 FOR UPDATE',
+              [item.productId]
+            );
+            const prevStock = prevResult.rows[0]?.current_stock ?? 0;
+            const newStock = prevStock - item.quantity;
+            await client.query(
+              'UPDATE products SET current_stock = $1, updated_at = NOW() WHERE id = $2',
+              [newStock, item.productId]
+            );
+            await client.query(
+              `INSERT INTO inventory_movements (id, product_id, user_id, type, quantity, previous_stock, new_stock, reason, reference_id, reference_type)
+               VALUES (gen_random_uuid()::text, $1, $2, 'SALE', $3, $4, $5, $6, $7, 'SALE')`,
+              [item.productId, userId, -item.quantity, prevStock, newStock, `Venda ${saleNumber} (mobile)`, createdSale.id]
+            );
+          } else {
+            const stockQuery = `
+              SELECT update_product_stock(
+                $1::TEXT, $2::INTEGER, $3::TEXT, $4::VARCHAR, $5::TEXT, $6::TEXT, $7::VARCHAR
+              )
+            `;
+
+            await client.query(stockQuery, [
+              item.productId,
+              -item.quantity,
+              userId,
+              'SALE',
+              `Venda ${saleNumber}`,
+              createdSale.id,
+              'SALE',
+            ]);
+          }
         }
       }
-    }
 
-    // Se foi criado a partir de um orçamento, marcar como convertido
-    if (saleData.quoteId) {
-      try {
-        await db.query(
-          'UPDATE quotes SET status = $1 WHERE id = $2',
-          ['CONVERTED', saleData.quoteId]
-        );
-      } catch (error) {
-        console.error('Erro ao atualizar status do orçamento:', error);
+      // Se foi criado a partir de um orçamento, marcar como convertido
+      if (saleData.quoteId) {
+        try {
+          await client.query(
+            'UPDATE quotes SET status = $1 WHERE id = $2',
+            ['CONVERTED', saleData.quoteId]
+          );
+        } catch (error) {
+          console.error('Erro ao atualizar status do orçamento:', error);
+        }
       }
-    }
 
-    // Buscar venda completa
-    const sale = await this.findById(createdSale.id);
+      // Criar commission entry se vendedor tem config de comissão sobre vendas
+      // base_amount = total da venda (em centavos). commission_amount calculado em SQL.
+      // Falhas em tabelas inexistentes (42P01) são silenciosamente ignoradas para
+      // não bloquear a criação da venda quando o módulo de comissões não está provisionado.
+      try {
+        const configResult = await client.query(
+          `SELECT commission_on_sales FROM seller_commission_configs
+           WHERE seller_id = $1 AND active = true`,
+          [userId]
+        );
+
+        if (configResult.rows.length > 0) {
+          const rate = parseFloat(configResult.rows[0].commission_on_sales);
+          if (rate > 0) {
+            try {
+              await client.query(
+                `INSERT INTO commission_entries (seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, status)
+                 VALUES ($1, 'SALE', $2, $3, $4, ROUND($3 * $4 / 100), 'PENDING')`,
+                [userId, createdSale.id, total, rate]
+              );
+            } catch (insertErr: any) {
+              if (insertErr?.code !== '42P01') throw insertErr;
+              // commission_entries table missing, ignore
+            }
+          }
+        }
+      } catch (configErr: any) {
+        if (configErr?.code !== '42P01') throw configErr;
+        // seller_commission_configs table missing, ignore
+      }
+
+      return createdSale.id as string;
+    });
+
+    // Buscar venda completa fora da transação — dados já commitados
+    const sale = await this.findById(createdSaleId);
     if (!sale) {
       throw new Error('Erro ao buscar venda criada');
     }
 
-    await db.query('COMMIT');
-
     return sale;
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
   }
 
   /**

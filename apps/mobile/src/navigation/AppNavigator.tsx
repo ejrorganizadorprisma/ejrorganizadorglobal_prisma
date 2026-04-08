@@ -13,6 +13,7 @@ import CustomerFormScreen from '../screens/CustomerFormScreen';
 import ProductsScreen from '../screens/ProductsScreen';
 import QuotesScreen from '../screens/QuotesScreen';
 import QuoteFormScreen from '../screens/QuoteFormScreen';
+import MyCommissionsScreen from '../screens/MyCommissionsScreen';
 import SalesScreen from '../screens/SalesScreen';
 import SaleFormScreen from '../screens/SaleFormScreen';
 import CollectionsScreen from '../screens/CollectionsScreen';
@@ -174,7 +175,19 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
             <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ title: 'Novo Cliente', headerTitle: 'Novo Cliente' }} />
-            <Stack.Screen name="QuoteForm" component={QuoteFormScreen} options={{ title: 'Novo Orcamento', headerTitle: 'Novo Orcamento' }} />
+            <Stack.Screen
+              name="MyCommissions"
+              component={MyCommissionsScreen}
+              options={{ title: 'Minhas Comissões', headerTitle: 'Minhas Comissões' }}
+            />
+            <Stack.Screen
+              name="QuoteForm"
+              component={QuoteFormScreen}
+              options={({ route }: any) => ({
+                title: route?.params?.quoteId ? 'Editar Orçamento' : 'Novo Orçamento',
+                headerTitle: route?.params?.quoteId ? 'Editar Orçamento' : 'Novo Orçamento',
+              })}
+            />
             <Stack.Screen name="SaleForm" component={SaleFormScreen} options={{ title: 'Nova Venda', headerTitle: 'Nova Venda' }} />
             <Stack.Screen name="CollectionForm" component={CollectionFormScreen} options={{ title: 'Nova Cobranca', headerTitle: 'Nova Cobranca' }} />
             <Stack.Screen name="Sync" component={SyncScreen} options={{ title: 'Sincronizacao', headerTitle: 'Sincronizacao' }} />

@@ -13,9 +13,64 @@ import { useAuthStore } from '../store/authStore';
 import { useSync } from '../hooks/useSync';
 import { useSales } from '../hooks/useSales';
 import { useCustomers } from '../hooks/useCustomers';
+import { useMyCommissions } from '../hooks/useMyCommissions';
 import { formatPrice } from '../utils/formatPrice';
 import KpiCard from '../components/KpiCard';
 import SyncBadge from '../components/SyncBadge';
+
+interface CommissionHeroCardProps {
+  onPress: () => void;
+}
+
+function CommissionHeroCard({ onPress }: CommissionHeroCardProps) {
+  const { summary, loading, error } = useMyCommissions();
+
+  // Hide on error
+  if (error) return null;
+
+  const hasConfig = summary.configSalesRate > 0 || summary.configCollectionsRate > 0;
+  const hasCurrent = summary.currentMonth > 0;
+  const deltaIsPositive = summary.deltaPercent >= 0;
+  const deltaColor = deltaIsPositive ? '#10B981' : '#EF4444';
+
+  return (
+    <TouchableOpacity
+      style={heroStyles.card}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={heroStyles.accent} />
+      <View style={heroStyles.content}>
+        <View style={heroStyles.titleRow}>
+          <Text style={heroStyles.icon}>💰</Text>
+          <Text style={heroStyles.title}>Suas comissoes</Text>
+        </View>
+        {!hasConfig ? (
+          <Text style={heroStyles.softCopy}>
+            💡 Pergunte ao seu gestor sobre suas comissoes
+          </Text>
+        ) : (
+          <>
+            <Text style={heroStyles.subLabel}>Este mes</Text>
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" style={{ marginTop: 6, alignSelf: 'flex-start' }} />
+            ) : hasCurrent ? (
+              <View style={heroStyles.amountRow}>
+                <Text style={heroStyles.amount}>{formatPrice(summary.currentMonth)}</Text>
+                <Text style={[heroStyles.delta, { color: deltaColor }]}>
+                  {' '}{deltaIsPositive ? '↑' : '↓'}{Math.abs(summary.deltaPercent).toFixed(0)}%
+                </Text>
+              </View>
+            ) : (
+              <Text style={heroStyles.emptyAmount}>Sem comissoes este mes</Text>
+            )}
+          </>
+        )}
+        <Text style={heroStyles.detailsLink}>Ver detalhes {'>'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function DashboardScreen() {
   const navigation = useNavigation<any>();
@@ -104,6 +159,9 @@ export default function DashboardScreen() {
           />
         }
       >
+        {/* Commission hero card */}
+        <CommissionHeroCard onPress={() => navigation.navigate('MyCommissions')} />
+
         {/* Sync warning banner */}
         {pendingCount > 0 && (
           <TouchableOpacity
@@ -302,4 +360,78 @@ const styles = StyleSheet.create({
   syncButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 
   bottomSpacer: { height: 24 },
+});
+
+const heroStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#0B5C9A',
+    borderRadius: 14,
+    marginBottom: 16,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    minHeight: 110,
+  },
+  accent: {
+    width: 4,
+    backgroundColor: '#F59E0B',
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  icon: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  subLabel: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  amountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginTop: 4,
+  },
+  amount: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '800',
+  },
+  delta: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  emptyAmount: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  softCopy: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 13,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  detailsLink: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
 });

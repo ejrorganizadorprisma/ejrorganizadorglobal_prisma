@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useQuotes, QuoteItem } from '../hooks/useQuotes';
 import { Customer } from '../hooks/useCustomers';
 import { Product } from '../hooks/useProducts';
@@ -7,23 +8,50 @@ import CustomerPicker from '../components/CustomerPicker';
 import ProductPicker from '../components/ProductPicker';
 import { formatPrice } from '../utils/formatPrice';
 import { captureLocation } from '../utils/captureLocation';
+import { getDatabase } from '../db/migrations';
 
 interface Props {
   navigation: any;
+  route?: any;
 }
 
-export default function QuoteFormScreen({ navigation }: Props) {
-  const { createQuote } = useQuotes();
+export default function QuoteFormScreen({ navigation, route }: Props) {
+  const quoteId = route?.params?.quoteId as string | undefined;
+  const isEditMode = Boolean(quoteId);
+  const { createQuote, updateQuote } = useQuotes();
   const [saving, setSaving] = useState(false);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [items, setItems] = useState<(QuoteItem & { key: string })[]>([]);
   const [discount, setDiscount] = useState('');
-  const [validUntil, setValidUntil] = useState('');
+  const [validUntilDate, setValidUntilDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [notes, setNotes] = useState('');
 
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [showProductPicker, setShowProductPicker] = useState(false);
+
+  useEffect(() => {
+    if (!quoteId) return;
+    (async () => {
+      const db = await getDatabase();
+      const row = await db.getFirstAsync<{ data: string }>(
+        'SELECT data FROM quotes WHERE id = ?', [quoteId]
+      );
+      if (!row) { Alert.alert('Erro', 'Orçamento não encontrado'); navigation.goBack(); return; }
+      const quote = JSON.parse(row.data);
+      // Find customer from local db if needed — for simplicity, create a synthetic one
+      if (quote.customer) {
+        setCustomer(quote.customer);
+      } else if (quote.customerId) {
+        setCustomer({ id: quote.customerId, name: quote.customerName || 'Cliente' } as any);
+      }
+      setItems((quote.items || []).map((it: any, i: number) => ({ ...it, key: `edit-${i}` })));
+      setDiscount(String(quote.discount || ''));
+      if (quote.validUntil) setValidUntilDate(new Date(quote.validUntil));
+      setNotes(quote.notes || '');
+    })();
+  }, [quoteId]);
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const discountValue = parseInt(discount || '0', 10);
@@ -75,35 +103,43 @@ export default function QuoteFormScreen({ navigation }: Props) {
       Alert.alert('Erro', 'Adicione ao menos um produto.');
       return;
     }
-    if (!validUntil.trim()) {
-      Alert.alert('Erro', 'Informe a data de validade (DD/MM/AAAA).');
+    if (!validUntilDate) {
+      Alert.alert('Erro', 'Selecione a data de validade.');
       return;
     }
 
-    // Parse date DD/MM/YYYY to ISO
-    const dateParts = validUntil.trim().split('/');
-    let isoDate = validUntil.trim();
-    if (dateParts.length === 3) {
-      isoDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
-    }
+    const isoDate = validUntilDate.toISOString().split('T')[0];
 
     setSaving(true);
     try {
       const location = await captureLocation();
-      await createQuote({
-        customerId: customer.id,
-        items: items.map(({ key, ...rest }) => rest),
-        discount: discountValue,
-        validUntil: isoDate,
-        notes: notes.trim() || undefined,
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-      });
-      Alert.alert('Sucesso', 'Orcamento criado com sucesso!', [
+      const cleanItems = items.map(({ key, ...rest }) => rest);
+      if (isEditMode) {
+        await updateQuote(quoteId!, {
+          customerId: customer.id,
+          items: cleanItems,
+          discount: discountValue,
+          validUntil: isoDate,
+          notes: notes.trim() || undefined,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+        });
+      } else {
+        await createQuote({
+          customerId: customer.id,
+          items: cleanItems,
+          discount: discountValue,
+          validUntil: isoDate,
+          notes: notes.trim() || undefined,
+          latitude: location?.latitude,
+          longitude: location?.longitude,
+        });
+      }
+      Alert.alert('Sucesso', isEditMode ? 'Orçamento atualizado!' : 'Orçamento criado com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (error) {
-      Alert.alert('Erro', 'Nao foi possivel salvar o orcamento.');
+    } catch (error: any) {
+      Alert.alert('Erro', error?.message || 'Não foi possível salvar o orçamento.');
     } finally {
       setSaving(false);
     }
@@ -188,17 +224,28 @@ export default function QuoteFormScreen({ navigation }: Props) {
         {/* Validity Date */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Validade *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="DD/MM/AAAA"
-            placeholderTextColor="#9CA3AF"
-            value={validUntil}
-            onChangeText={setValidUntil}
-            keyboardType="numeric"
-            maxLength={10}
-            returnKeyType="next"
-            blurOnSubmit={false}
-          />
+          <TouchableOpacity
+            style={styles.datePickerButton}
+            onPress={() => setShowDatePicker(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={validUntilDate ? styles.datePickerValue : styles.datePickerPlaceholder}>
+              {validUntilDate ? validUntilDate.toLocaleDateString('pt-BR') : 'Selecionar data'}
+            </Text>
+            <Text style={styles.datePickerIcon}>📅</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={validUntilDate || new Date()}
+              mode="date"
+              display="default"
+              minimumDate={new Date()}
+              onChange={(event: DateTimePickerEvent, date?: Date) => {
+                setShowDatePicker(false);
+                if (event.type === 'set' && date) setValidUntilDate(date);
+              }}
+            />
+          )}
         </View>
 
         {/* Notes */}
@@ -321,6 +368,28 @@ const styles = StyleSheet.create({
   pickerArrow: {
     fontSize: 18,
     color: '#D1D5DB',
+  },
+  datePickerButton: {
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  datePickerValue: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '500',
+  },
+  datePickerPlaceholder: {
+    fontSize: 15,
+    color: '#9CA3AF',
+  },
+  datePickerIcon: {
+    fontSize: 18,
   },
   addItemButton: {
     backgroundColor: '#EBF5FF',

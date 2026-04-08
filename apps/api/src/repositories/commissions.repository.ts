@@ -8,6 +8,56 @@ import type {
   CommissionSummary,
 } from '@ejr/shared-types';
 
+// ─── Local types for /my/* endpoints ─────────────────────
+interface MySummary {
+  currentMonth: number;
+  previousMonth: number;
+  deltaPercent: number;
+  totalPending: number;
+  totalSettled: number;
+  totalAllTime: number;
+  entriesCount: number;
+  configSalesRate: number;
+  configCollectionsRate: number;
+}
+
+interface MyEntriesFilters {
+  startDate?: string;
+  endDate?: string;
+  customerId?: string;
+  sourceType?: 'SALE' | 'COLLECTION';
+  status?: 'PENDING' | 'SETTLED';
+  page?: number;
+  limit?: number;
+}
+
+interface MyEntry {
+  id: string;
+  sourceType: string;
+  sourceId: string;
+  sourceNumber: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  baseAmount: number;
+  commissionRate: number;
+  commissionAmount: number;
+  status: string;
+  createdAt: any;
+}
+
+interface MyMonthlyPoint {
+  month: string;
+  amount: number;
+  entriesCount: number;
+}
+
+interface MyCustomerAgg {
+  customerId: string;
+  customerName: string;
+  totalAmount: number;
+  entriesCount: number;
+}
+
 export class CommissionsRepository {
   /**
    * Get commission config for a specific seller
@@ -417,6 +467,270 @@ export class CommissionsRepository {
     settlement.entries = entriesResult.rows.map((row: any) => this.mapEntry(row));
 
     return settlement;
+  }
+
+  // ─── My (authenticated seller) ───────────────────────────
+
+  /**
+   * Get summary metrics for the authenticated seller
+   */
+  async getMySummary(sellerId: string): Promise<MySummary> {
+    // Aggregate counters in a single query for efficiency
+    const aggResult = await db.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE) THEN commission_amount ELSE 0 END), 0) AS current_month,
+         COALESCE(SUM(CASE WHEN date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE - INTERVAL '1 month') THEN commission_amount ELSE 0 END), 0) AS previous_month,
+         COALESCE(SUM(CASE WHEN status = 'PENDING' THEN commission_amount ELSE 0 END), 0) AS total_pending,
+         COALESCE(SUM(CASE WHEN status = 'SETTLED' THEN commission_amount ELSE 0 END), 0) AS total_settled,
+         COALESCE(SUM(commission_amount), 0) AS total_all_time,
+         COUNT(*)::int AS entries_count
+       FROM commission_entries
+       WHERE seller_id = $1`,
+      [sellerId]
+    );
+
+    const row = aggResult.rows[0];
+    const currentMonth = parseInt(row.current_month);
+    const previousMonth = parseInt(row.previous_month);
+
+    let deltaPercent = 0;
+    if (previousMonth === 0 && currentMonth > 0) {
+      deltaPercent = 100;
+    } else if (previousMonth === 0 && currentMonth === 0) {
+      deltaPercent = 0;
+    } else {
+      deltaPercent = Math.round(((currentMonth - previousMonth) / previousMonth) * 100);
+    }
+
+    // Fetch config (may not exist)
+    const configResult = await db.query(
+      `SELECT commission_on_sales, commission_on_collections
+       FROM seller_commission_configs
+       WHERE seller_id = $1`,
+      [sellerId]
+    );
+
+    const configSalesRate = configResult.rows.length > 0
+      ? parseFloat(configResult.rows[0].commission_on_sales)
+      : 0;
+    const configCollectionsRate = configResult.rows.length > 0
+      ? parseFloat(configResult.rows[0].commission_on_collections)
+      : 0;
+
+    return {
+      currentMonth,
+      previousMonth,
+      deltaPercent,
+      totalPending: parseInt(row.total_pending),
+      totalSettled: parseInt(row.total_settled),
+      totalAllTime: parseInt(row.total_all_time),
+      entriesCount: parseInt(row.entries_count),
+      configSalesRate,
+      configCollectionsRate,
+    };
+  }
+
+  /**
+   * Get paginated commission entries for the authenticated seller
+   * with customer and source info via JOINs.
+   */
+  async getMyEntries(sellerId: string, filters: MyEntriesFilters) {
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit = filters.limit && filters.limit > 0 ? filters.limit : 20;
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [`ce.seller_id = $1`];
+    const params: any[] = [sellerId];
+    let paramIndex = 2;
+
+    if (filters.startDate) {
+      conditions.push(`ce.created_at >= $${paramIndex}`);
+      params.push(filters.startDate);
+      paramIndex++;
+    }
+    if (filters.endDate) {
+      conditions.push(`ce.created_at <= $${paramIndex}::date + interval '1 day'`);
+      params.push(filters.endDate);
+      paramIndex++;
+    }
+    if (filters.sourceType) {
+      conditions.push(`ce.source_type = $${paramIndex}`);
+      params.push(filters.sourceType);
+      paramIndex++;
+    }
+    if (filters.status) {
+      conditions.push(`ce.status = $${paramIndex}`);
+      params.push(filters.status);
+      paramIndex++;
+    }
+    if (filters.customerId) {
+      conditions.push(`(col.customer_id = $${paramIndex} OR s.customer_id = $${paramIndex})`);
+      params.push(filters.customerId);
+      paramIndex++;
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    const baseFrom = `
+      FROM commission_entries ce
+      LEFT JOIN collections col ON ce.source_type = 'COLLECTION' AND ce.source_id = col.id
+      LEFT JOIN sales s ON ce.source_type = 'SALE' AND ce.source_id = s.id
+      LEFT JOIN customers c ON c.id = (
+        CASE ce.source_type
+          WHEN 'COLLECTION' THEN col.customer_id
+          WHEN 'SALE' THEN s.customer_id
+        END
+      )
+    `;
+
+    // Count
+    const countResult = await db.query(
+      `SELECT COUNT(*) AS total ${baseFrom} ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0]?.total || '0');
+
+    // Data
+    const dataResult = await db.query(
+      `SELECT ce.*,
+         CASE ce.source_type
+           WHEN 'COLLECTION' THEN col.collection_number
+           WHEN 'SALE' THEN s.sale_number
+         END AS source_number,
+         CASE ce.source_type
+           WHEN 'COLLECTION' THEN col.customer_id
+           WHEN 'SALE' THEN s.customer_id
+         END AS resolved_customer_id,
+         c.name AS customer_name
+       ${baseFrom}
+       ${whereClause}
+       ORDER BY ce.created_at DESC
+       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      [...params, limit, offset]
+    );
+
+    const data: MyEntry[] = dataResult.rows.map((row: any) => ({
+      id: row.id,
+      sourceType: row.source_type,
+      sourceId: row.source_id,
+      sourceNumber: row.source_number || null,
+      customerId: row.resolved_customer_id || null,
+      customerName: row.customer_name || null,
+      baseAmount: row.base_amount,
+      commissionRate: parseFloat(row.commission_rate),
+      commissionAmount: row.commission_amount,
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get commission amounts grouped by month for the last N months
+   */
+  async getMyMonthly(sellerId: string, months: number): Promise<MyMonthlyPoint[]> {
+    const result = await db.query(
+      `WITH months AS (
+         SELECT date_trunc('month', generate_series(
+           date_trunc('month', CURRENT_DATE) - ((($2::int - 1))::text || ' months')::interval,
+           date_trunc('month', CURRENT_DATE),
+           '1 month'::interval
+         )) AS month_start
+       )
+       SELECT
+         to_char(m.month_start, 'YYYY-MM') AS month,
+         COALESCE(SUM(ce.commission_amount), 0)::bigint AS amount,
+         COUNT(ce.id)::int AS entries_count
+       FROM months m
+       LEFT JOIN commission_entries ce
+         ON ce.seller_id = $1
+        AND date_trunc('month', ce.created_at) = m.month_start
+       GROUP BY m.month_start
+       ORDER BY m.month_start ASC`,
+      [sellerId, months]
+    );
+
+    return result.rows.map((row: any) => ({
+      month: row.month,
+      amount: parseInt(row.amount),
+      entriesCount: parseInt(row.entries_count),
+    }));
+  }
+
+  /**
+   * Get top customers ranked by commission amount generated for this seller
+   */
+  async getMyByCustomer(
+    sellerId: string,
+    limit: number,
+    startDate?: string,
+    endDate?: string
+  ): Promise<MyCustomerAgg[]> {
+    const conditions: string[] = [`ce.seller_id = $1`];
+    const params: any[] = [sellerId];
+    let paramIndex = 2;
+
+    if (startDate) {
+      conditions.push(`ce.created_at >= $${paramIndex}`);
+      params.push(startDate);
+      paramIndex++;
+    }
+    if (endDate) {
+      conditions.push(`ce.created_at <= $${paramIndex}::date + interval '1 day'`);
+      params.push(endDate);
+      paramIndex++;
+    }
+
+    // Exclude entries whose customer cannot be resolved (orphaned source rows)
+    conditions.push(`(
+      CASE ce.source_type
+        WHEN 'COLLECTION' THEN col.customer_id
+        WHEN 'SALE' THEN s.customer_id
+      END
+    ) IS NOT NULL`);
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    const result = await db.query(
+      `SELECT
+         (CASE ce.source_type
+           WHEN 'COLLECTION' THEN col.customer_id
+           WHEN 'SALE' THEN s.customer_id
+         END) AS customer_id,
+         c.name AS customer_name,
+         COALESCE(SUM(ce.commission_amount), 0)::bigint AS total_amount,
+         COUNT(ce.id)::int AS entries_count
+       FROM commission_entries ce
+       LEFT JOIN collections col ON ce.source_type = 'COLLECTION' AND ce.source_id = col.id
+       LEFT JOIN sales s ON ce.source_type = 'SALE' AND ce.source_id = s.id
+       LEFT JOIN customers c ON c.id = (
+         CASE ce.source_type
+           WHEN 'COLLECTION' THEN col.customer_id
+           WHEN 'SALE' THEN s.customer_id
+         END
+       )
+       ${whereClause}
+       GROUP BY 1, c.name
+       ORDER BY total_amount DESC
+       LIMIT $${paramIndex}`,
+      [...params, limit]
+    );
+
+    return result.rows.map((row: any) => ({
+      customerId: row.customer_id,
+      customerName: row.customer_name,
+      totalAmount: parseInt(row.total_amount),
+      entriesCount: parseInt(row.entries_count),
+    }));
   }
 
   // ─── Mappers ─────────────────────────────────────────────

@@ -53,8 +53,18 @@ export async function getSyncStatus(): Promise<SyncStatus> {
 function sanitizePayload(entity: string, payload: any): any {
   if (entity === 'quotes') {
     const clean = { ...payload };
-    if (clean.validUntil && !clean.validUntil.includes('T')) {
-      clean.validUntil = `${clean.validUntil}T23:59:59.000Z`;
+    if (clean.validUntil) {
+      let v = String(clean.validUntil).trim();
+      // Legacy DD/MM/YYYY format from old mobile versions → convert to YYYY-MM-DD
+      const ddmm = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (ddmm) {
+        v = `${ddmm[3]}-${ddmm[2]}-${ddmm[1]}`;
+      }
+      // Date-only → append time for ISO format
+      if (!v.includes('T')) {
+        v = `${v}T23:59:59.000Z`;
+      }
+      clean.validUntil = v;
     }
     if (Array.isArray(clean.items)) {
       clean.items = clean.items.map((item: any) => {

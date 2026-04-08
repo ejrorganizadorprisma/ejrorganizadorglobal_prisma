@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useQuotes, Quote } from '../hooks/useQuotes';
 import { formatPrice } from '../utils/formatPrice';
@@ -34,7 +34,7 @@ function formatRelativeTime(iso: string | null): string {
 
 export default function QuotesScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
-  const { quotes, loading, refresh } = useQuotes(search);
+  const { quotes, loading, refresh, deleteQuote } = useQuotes(search);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
@@ -75,10 +75,43 @@ export default function QuotesScreen({ navigation }: Props) {
     return STATUS_CONFIG[status] || { label: status, bg: '#F3F4F6', text: '#6B7280' };
   };
 
+  const handleQuoteTap = (quote: Quote) => {
+    Alert.alert(
+      quote.quoteNumber || 'Rascunho',
+      `Cliente: ${quote.customerName || 'Sem cliente'}\nTotal: ${formatPrice(quote.total)}`,
+      [
+        { text: 'Editar', onPress: () => navigation.navigate('QuoteForm', { quoteId: quote.id }) },
+        { text: 'Excluir', style: 'destructive', onPress: () => confirmDelete(quote) },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    );
+  };
+
+  const confirmDelete = (quote: Quote) => {
+    Alert.alert(
+      'Excluir orçamento',
+      `Deseja realmente excluir ${quote.quoteNumber || 'este rascunho'}? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteQuote(quote.id);
+            } catch (error: any) {
+              Alert.alert('Erro', error?.message || 'Não foi possível excluir o orçamento.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderQuote = ({ item }: { item: Quote }) => {
     const statusCfg = getStatusConfig(item.status);
     return (
-      <TouchableOpacity style={styles.card} activeOpacity={0.7}>
+      <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => handleQuoteTap(item)}>
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
             <Text style={styles.quoteNumber}>
