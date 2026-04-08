@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useCustomers, Customer } from '../hooks/useCustomers';
+import { formatPhone, formatDocument, onlyDigits } from '../utils/masks';
 
 interface Props {
   navigation: any;
@@ -29,11 +30,11 @@ export default function CustomerFormScreen({ navigation }: Props) {
       const data: Omit<Customer, 'id' | 'synced'> = {
         name: name.trim(),
         type,
-        phone: phone.trim() || undefined,
+        phone: phone.trim() ? onlyDigits(phone) : undefined,
         email: email.trim() || undefined,
-        document: document.trim() || undefined,
-        ci: ci.trim() || undefined,
-        ruc: ruc.trim() || undefined,
+        document: document.trim() ? onlyDigits(document) : undefined,
+        ci: ci.trim() ? onlyDigits(ci) : undefined,
+        ruc: ruc.trim() ? onlyDigits(ruc) : undefined,
       };
       await createCustomer(data);
       Alert.alert(
@@ -41,8 +42,11 @@ export default function CustomerFormScreen({ navigation }: Props) {
         'O cliente foi salvo localmente. Após a sincronização, ele ficará aguardando aprovação do administrador. Você só poderá vender para esse cliente depois que ele for aprovado.',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
-    } catch (error) {
-      Alert.alert('Erro', 'Nao foi possivel salvar o cliente. Tente novamente.');
+    } catch (error: any) {
+      Alert.alert(
+        'Erro ao salvar cliente',
+        error?.message || 'Nao foi possivel salvar. Verifique sua conexao e tente novamente.'
+      );
     } finally {
       setSaving(false);
     }
@@ -71,6 +75,9 @@ export default function CustomerFormScreen({ navigation }: Props) {
             <TouchableOpacity
               style={[styles.toggleButton, type === 'INDIVIDUAL' && styles.toggleActive]}
               onPress={() => setType('INDIVIDUAL')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: type === 'INDIVIDUAL' }}
+              accessibilityLabel="Tipo Pessoa Fisica"
             >
               <Text style={[styles.toggleText, type === 'INDIVIDUAL' && styles.toggleTextActive]}>
                 Pessoa Fisica
@@ -79,6 +86,9 @@ export default function CustomerFormScreen({ navigation }: Props) {
             <TouchableOpacity
               style={[styles.toggleButton, type === 'BUSINESS' && styles.toggleActive]}
               onPress={() => setType('BUSINESS')}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: type === 'BUSINESS' }}
+              accessibilityLabel="Tipo Empresa"
             >
               <Text style={[styles.toggleText, type === 'BUSINESS' && styles.toggleTextActive]}>
                 Empresa
@@ -95,7 +105,7 @@ export default function CustomerFormScreen({ navigation }: Props) {
             placeholder="Numero de telefone"
             placeholderTextColor="#9CA3AF"
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(t) => setPhone(formatPhone(t))}
             keyboardType="phone-pad"
           />
         </View>
@@ -122,7 +132,7 @@ export default function CustomerFormScreen({ navigation }: Props) {
             placeholder="Numero do documento"
             placeholderTextColor="#9CA3AF"
             value={document}
-            onChangeText={setDocument}
+            onChangeText={(t) => setDocument(formatDocument(t))}
           />
         </View>
 
@@ -134,7 +144,7 @@ export default function CustomerFormScreen({ navigation }: Props) {
             placeholder="Numero da CI"
             placeholderTextColor="#9CA3AF"
             value={ci}
-            onChangeText={setCi}
+            onChangeText={(t) => setCi(formatDocument(t))}
           />
         </View>
 
@@ -146,7 +156,7 @@ export default function CustomerFormScreen({ navigation }: Props) {
             placeholder="Numero do RUC"
             placeholderTextColor="#9CA3AF"
             value={ruc}
-            onChangeText={setRuc}
+            onChangeText={(t) => setRuc(formatDocument(t))}
           />
         </View>
 

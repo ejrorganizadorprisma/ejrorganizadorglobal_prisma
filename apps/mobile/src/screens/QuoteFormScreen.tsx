@@ -158,6 +158,8 @@ export default function QuoteFormScreen({ navigation }: Props) {
                     onChangeText={(val) => updateQuantity(item.key, val)}
                     keyboardType="numeric"
                     selectTextOnFocus
+                    returnKeyType="next"
+                    blurOnSubmit={false}
                   />
                   <TouchableOpacity onPress={() => removeItem(item.key)} style={styles.removeButton}>
                     <Text style={styles.removeText}>X</Text>
@@ -178,6 +180,8 @@ export default function QuoteFormScreen({ navigation }: Props) {
             value={discount}
             onChangeText={setDiscount}
             keyboardType="numeric"
+            returnKeyType="next"
+            blurOnSubmit={false}
           />
         </View>
 
@@ -192,6 +196,8 @@ export default function QuoteFormScreen({ navigation }: Props) {
             onChangeText={setValidUntil}
             keyboardType="numeric"
             maxLength={10}
+            returnKeyType="next"
+            blurOnSubmit={false}
           />
         </View>
 
@@ -206,6 +212,7 @@ export default function QuoteFormScreen({ navigation }: Props) {
             onChangeText={setNotes}
             multiline
             numberOfLines={3}
+            returnKeyType="done"
           />
         </View>
 
@@ -369,11 +376,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qtyInput: {
-    width: 50,
+    width: 70,
     textAlign: 'center',
     backgroundColor: '#F3F4F6',
     borderRadius: 6,
     padding: 6,
+    paddingVertical: 10,
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',

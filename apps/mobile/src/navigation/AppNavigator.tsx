@@ -173,11 +173,11 @@ export default function AppNavigator() {
         ) : (
           <>
             <Stack.Screen name="Main" component={HomeTabs} options={{ headerShown: false }} />
-            <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ title: 'Cliente' }} />
-            <Stack.Screen name="QuoteForm" component={QuoteFormScreen} options={{ title: 'Orcamento' }} />
-            <Stack.Screen name="SaleForm" component={SaleFormScreen} options={{ title: 'Nova Venda' }} />
-            <Stack.Screen name="CollectionForm" component={CollectionFormScreen} options={{ title: 'Nova Cobranca' }} />
-            <Stack.Screen name="Sync" component={SyncScreen} options={{ title: 'Sincronizacao' }} />
+            <Stack.Screen name="CustomerForm" component={CustomerFormScreen} options={{ title: 'Novo Cliente', headerTitle: 'Novo Cliente' }} />
+            <Stack.Screen name="QuoteForm" component={QuoteFormScreen} options={{ title: 'Novo Orcamento', headerTitle: 'Novo Orcamento' }} />
+            <Stack.Screen name="SaleForm" component={SaleFormScreen} options={{ title: 'Nova Venda', headerTitle: 'Nova Venda' }} />
+            <Stack.Screen name="CollectionForm" component={CollectionFormScreen} options={{ title: 'Nova Cobranca', headerTitle: 'Nova Cobranca' }} />
+            <Stack.Screen name="Sync" component={SyncScreen} options={{ title: 'Sincronizacao', headerTitle: 'Sincronizacao' }} />
           </>
         )}
       </Stack.Navigator>

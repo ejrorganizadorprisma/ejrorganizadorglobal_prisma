@@ -17,6 +17,7 @@ import { useCollections } from '../hooks/useCollections';
 import { getDatabase } from '../db/migrations';
 import { captureLocation, LocationResult } from '../utils/captureLocation';
 import { formatPrice } from '../utils/formatPrice';
+import { formatGuarani, onlyDigits } from '../utils/masks';
 
 interface Props {
   navigation: any;
@@ -219,8 +220,11 @@ export default function CollectionFormScreen({ navigation }: Props) {
       Alert.alert('Sucesso', 'Cobranca registrada com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (error) {
-      Alert.alert('Erro', 'Nao foi possivel salvar a cobranca.');
+    } catch (error: any) {
+      Alert.alert(
+        'Erro ao registrar cobranca',
+        error?.message || 'Nao foi possivel salvar. Verifique sua conexao e tente novamente.'
+      );
     } finally {
       setSaving(false);
     }
@@ -268,8 +272,8 @@ export default function CollectionFormScreen({ navigation }: Props) {
             style={styles.input}
             placeholder="0"
             placeholderTextColor="#9CA3AF"
-            value={amount}
-            onChangeText={setAmount}
+            value={amount ? formatGuarani(amount) : ''}
+            onChangeText={(t) => setAmount(onlyDigits(t))}
             keyboardType="numeric"
           />
           {selectedSale && amount && parseInt(amount, 10) > 0 && (

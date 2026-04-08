@@ -105,6 +105,7 @@ export default function ProductsScreen() {
               <Text style={styles.emptySubtitle}>
                 {search ? 'Tente outra busca' : 'Os produtos serao sincronizados do servidor'}
               </Text>
+              {!search && <Text style={styles.emptyHint}>Puxe para baixo para atualizar</Text>}
             </View>
           }
         />
@@ -272,6 +273,12 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     paddingHorizontal: 40,
+  },
+  emptyHint: {
+    fontSize: 12,
+    color: '#0B5C9A',
+    marginTop: 12,
+    fontWeight: '600',
   },
   titleBar: {
     backgroundColor: '#FFF',

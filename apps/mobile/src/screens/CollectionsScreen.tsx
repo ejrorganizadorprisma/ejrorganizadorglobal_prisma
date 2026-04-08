@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, S
 import { useFocusEffect } from '@react-navigation/native';
 import { useCollections, CollectionItem } from '../hooks/useCollections';
 import { formatPrice } from '../utils/formatPrice';
-import { fullSync, onSyncComplete } from '../db/sync';
+import { fullSync, onSyncComplete, getSyncStatus } from '../db/sync';
 
 interface Props {
   navigation: any;
@@ -24,10 +24,25 @@ const PAYMENT_LABELS: Record<string, string> = {
   OUTRO: 'Outro',
 };
 
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffSec = Math.max(0, Math.floor((now - then) / 1000));
+  if (diffSec < 60) return 'agora mesmo';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `ha ${diffMin}min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `ha ${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  return `ha ${diffD}d`;
+}
+
 export default function CollectionsScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const { collections, loading, refresh } = useCollections(search);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,7 +62,9 @@ export default function CollectionsScreen({ navigation }: Props) {
   // the case where the seller is already on this tab when the admin
   // approves/updates data on the web.
   useEffect(() => {
-    const unsub = onSyncComplete(() => { refresh(); });
+    const loadSync = () => getSyncStatus().then(s => setLastSync(s.lastSync)).catch(() => {});
+    loadSync();
+    const unsub = onSyncComplete(() => { refresh(); loadSync(); });
     return unsub;
   }, [refresh]);
 
@@ -115,6 +132,7 @@ export default function CollectionsScreen({ navigation }: Props) {
     <View style={styles.container}>
       <View style={styles.titleBar}>
         <Text style={styles.titleText}>Cobrancas</Text>
+        {lastSync && <Text style={styles.syncHint}>Sincronizado {formatRelativeTime(lastSync)}</Text>}
       </View>
       <View style={styles.searchContainer}>
         <TextInput
@@ -177,6 +195,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#111827',
+  },
+  syncHint: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
   },
   searchContainer: {
     padding: 12,
