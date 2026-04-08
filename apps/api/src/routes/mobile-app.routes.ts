@@ -8,7 +8,9 @@ import fs from 'fs';
 const router = Router();
 
 // Default GitHub release URL (used when MOBILE_APP_DOWNLOAD_URL env var is not set)
-const DEFAULT_APK_URL = 'https://github.com/ejrorganizadorprisma/ejrorganizadorglobal_prisma/releases/download/v1.3.11/EJR-OrGlobal-v1.3.11.apk';
+const DEFAULT_APK_URL = 'https://github.com/ejrorganizadorprisma/ejrorganizadorglobal_prisma/releases/download/v1.4.0/EJR-OrGlobal-v1.4.0.apk';
+const DEFAULT_APK_VERSION = '1.4.0';
+const DEFAULT_APK_SIZE = 74_701_407;
 
 // PUBLIC: validate seller's token before login
 router.post('/check', async (req: Request, res: Response) => {
@@ -92,10 +94,10 @@ router.get('/settings', async (_req: Request, res: Response) => {
         })),
         stats: { authorizedCount, activeToday, totalSellers: sellers.length },
         download: {
-          appVersion: '1.3.11',
+          appVersion: DEFAULT_APK_VERSION,
           appName: 'EJR OrGlobal',
           platform: 'Android',
-          fileSize: fileSize || 74_672_791,
+          fileSize: fileSize || DEFAULT_APK_SIZE,
           available: !!(externalUrl || localExists),
           url: externalUrl || (localExists ? '/mobile-app/download' : null),
         },
