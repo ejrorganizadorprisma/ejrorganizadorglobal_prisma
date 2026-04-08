@@ -21,7 +21,8 @@ export class CustomersService {
   }) {
     const { page, limit, search, type, createdBy, responsibleUserId, approvalStatus, includeDeleted } = params;
 
-    if (page < 1 || limit < 1 || limit > 100) {
+    // Cap matches customers.controller.ts (Math.min(1000, ...)) so mobile sync (limit=1000) works
+    if (page < 1 || limit < 1 || limit > 1000) {
       throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
