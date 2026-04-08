@@ -52,44 +52,30 @@ function HeaderLogo() {
         style={tabStyles.logoImage}
         resizeMode="contain"
       />
-      <Text style={tabStyles.logoText} numberOfLines={1}>{companyName || 'EJR OrGlobal'}</Text>
+      <View style={tabStyles.logoTextWrapper}>
+        <Text style={tabStyles.logoText} numberOfLines={1}>{companyName || 'EJR OrGlobal'}</Text>
+        <Text style={tabStyles.logoBrand} numberOfLines={1}>EJR Organizador</Text>
+      </View>
     </View>
   );
 }
 
 function HeaderRight() {
-  const { user, logout } = useAuthStore();
-  const firstName = user?.name?.split(' ')[0] || 'Vendedor';
-  const initial = (user?.name?.[0] || 'V').toUpperCase();
-
+  const { logout } = useAuth();
   const handleLogout = () => {
-    Alert.alert(
-      'Sair',
-      'Deseja realmente sair da sua conta?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: () => logout() },
-      ]
-    );
+    Alert.alert('Sair', 'Deseja realmente sair?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: logout },
+    ]);
   };
-
   return (
-    <View style={tabStyles.headerRight}>
-      <View style={tabStyles.userBadge}>
-        <View style={tabStyles.avatar}>
-          <Text style={tabStyles.avatarText}>{initial}</Text>
-        </View>
-        <Text style={tabStyles.userName} numberOfLines={1}>{firstName}</Text>
-      </View>
-      <TouchableOpacity
-        style={tabStyles.logoutButton}
-        onPress={handleLogout}
-        activeOpacity={0.7}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Text style={tabStyles.logoutText}>Sair</Text>
-      </TouchableOpacity>
-    </View>
+    <TouchableOpacity
+      style={tabStyles.logoutButton}
+      onPress={handleLogout}
+      activeOpacity={0.8}
+    >
+      <Text style={tabStyles.logoutText}>Sair</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -145,6 +131,7 @@ function HomeTabs() {
 
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { companyName } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -154,7 +141,8 @@ export default function AppNavigator() {
           style={tabStyles.splashLogo}
           resizeMode="contain"
         />
-        <Text style={tabStyles.splashTitle}>EJR OrGlobal</Text>
+        <Text style={tabStyles.splashTitle}>{companyName || 'EJR OrGlobal'}</Text>
+        <Text style={tabStyles.splashBrand}>EJR Organizador</Text>
         <Text style={tabStyles.splashSub}>Carregando...</Text>
       </View>
     );
@@ -223,60 +211,37 @@ const tabStyles = StyleSheet.create({
   headerLogo: {
     flexDirection: 'row',
     alignItems: 'center',
-    maxWidth: 180,
+    maxWidth: 240,
   },
   logoImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 6,
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+  },
+  logoTextWrapper: {
+    flexDirection: 'column',
+    marginLeft: 12,
+    maxWidth: 200,
   },
   logoText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
-    marginLeft: 10,
     letterSpacing: 0.3,
     flexShrink: 1,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 12,
-    gap: 8,
-  },
-  userBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    paddingRight: 10,
-    borderRadius: 16,
-    maxWidth: 130,
-  },
-  avatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#FFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 6,
-  },
-  avatarText: {
-    color: '#0B5C9A',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  userName: {
+  logoBrand: {
     color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '500',
+    opacity: 0.75,
+    marginTop: 1,
+    letterSpacing: 0.3,
   },
   logoutButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
+    marginRight: 12,
     borderRadius: 14,
     backgroundColor: '#DC2626',
     borderWidth: 1,
@@ -297,19 +262,28 @@ const tabStyles = StyleSheet.create({
     backgroundColor: '#0B5C9A',
   },
   splashLogo: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    marginBottom: 16,
+    width: 220,
+    height: 220,
+    borderRadius: 44,
+    marginBottom: 28,
   },
   splashTitle: {
     color: '#FFF',
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 38,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  splashBrand: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '600',
+    opacity: 0.88,
+    marginTop: 6,
+    letterSpacing: 0.6,
   },
   splashSub: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 14,
-    marginTop: 8,
+    marginTop: 32,
   },
 });
