@@ -48,6 +48,15 @@ export function CustomerFormPage() {
     phone: '',
     document: '',
     type: 'INDIVIDUAL' as 'INDIVIDUAL' | 'BUSINESS',
+    rg: '',
+    birthDate: '',
+    gender: '',
+    maritalStatus: '',
+    profession: '',
+    whatsapp: '',
+    phoneAlt: '',
+    emailAlt: '',
+    notes: '',
     address: {
       street: '',
       number: '',
@@ -73,6 +82,15 @@ export function CustomerFormPage() {
         phone: customer.phone || '',
         document: customer.document || '',
         type: customer.type,
+        rg: customer.rg || '',
+        birthDate: customer.birthDate ? String(customer.birthDate).slice(0, 10) : '',
+        gender: customer.gender || '',
+        maritalStatus: customer.maritalStatus || '',
+        profession: customer.profession || '',
+        whatsapp: customer.whatsapp || '',
+        phoneAlt: customer.phoneAlt || '',
+        emailAlt: customer.emailAlt || '',
+        notes: customer.notes || '',
         address: customer.address
           ? {
               street: customer.address.street,
@@ -130,12 +148,27 @@ export function CustomerFormPage() {
       return;
     }
 
+    // Validar email alternativo se preenchido
+    if (formData.emailAlt && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAlt)) {
+      toast.error('Email alternativo inválido');
+      return;
+    }
+
     try {
       const baseData: any = {
         name: formData.name,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
         type: formData.type,
+        rg: formData.rg || null,
+        birthDate: formData.birthDate || null,
+        gender: formData.gender || null,
+        maritalStatus: formData.maritalStatus || null,
+        profession: formData.profession || null,
+        whatsapp: formData.whatsapp || null,
+        phoneAlt: formData.phoneAlt || null,
+        emailAlt: formData.emailAlt || null,
+        notes: formData.notes || null,
         address: formData.address.street ? formData.address : null,
         allowedPaymentMethods: formData.allowedPaymentMethods,
         creditMaxDays: formData.allowedPaymentMethods.includes('CREDIT_CARD')
@@ -440,6 +473,51 @@ export function CustomerFormPage() {
               />
             </div>
 
+            {/* WhatsApp */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                WhatsApp
+              </label>
+              <input
+                type="text"
+                name="whatsapp"
+                value={formData.whatsapp}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={country === 'PY' ? '0981 123 456' : '(00) 00000-0000'}
+              />
+            </div>
+
+            {/* Telefone Alternativo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {country === 'PY' ? 'Teléfono alternativo' : 'Telefone alternativo'}
+              </label>
+              <input
+                type="text"
+                name="phoneAlt"
+                value={formData.phoneAlt}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={country === 'PY' ? '0981 123 456' : '(00) 00000-0000'}
+              />
+            </div>
+
+            {/* Email Alternativo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                E-mail alternativo
+              </label>
+              <input
+                type="email"
+                name="emailAlt"
+                value={formData.emailAlt}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="email2@exemplo.com"
+              />
+            </div>
+
             {/* Vendedor Responsavel - apenas para admin/gerente */}
             {canAssignResponsible && (
               <div className="md:col-span-2">
@@ -474,6 +552,96 @@ export function CustomerFormPage() {
                 )}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Dados pessoais complementares */}
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Dados pessoais complementares</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* RG */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                RG
+              </label>
+              <input
+                type="text"
+                name="rg"
+                value={formData.rg}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="00.000.000-0"
+              />
+            </div>
+
+            {/* Data de nascimento */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {country === 'PY' ? 'Fecha de nacimiento' : 'Data de nascimento'}
+              </label>
+              <input
+                type="date"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Gênero */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {country === 'PY' ? 'Género' : 'Gênero'}
+              </label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Selecione —</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Outro">Outro</option>
+                <option value="Não informar">Não informar</option>
+              </select>
+            </div>
+
+            {/* Estado Civil */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {country === 'PY' ? 'Estado civil' : 'Estado civil'}
+              </label>
+              <select
+                name="maritalStatus"
+                value={formData.maritalStatus}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Selecione —</option>
+                <option value="Solteiro">Solteiro</option>
+                <option value="Casado">Casado</option>
+                <option value="Divorciado">Divorciado</option>
+                <option value="Viúvo">Viúvo</option>
+                <option value="União estável">União estável</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+
+            {/* Profissão */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {country === 'PY' ? 'Profesión' : 'Profissão'}
+              </label>
+              <input
+                type="text"
+                name="profession"
+                value={formData.profession}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={country === 'PY' ? 'Ej: Comerciante' : 'Ex: Comerciante'}
+              />
+            </div>
           </div>
         </div>
 
@@ -668,6 +836,30 @@ export function CustomerFormPage() {
               />
             </div>
           )}
+        </div>
+
+        {/* Observações */}
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-4">Observações</h2>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {country === 'PY' ? 'Notas internas' : 'Notas internas'}
+            </label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, notes: e.target.value }))
+              }
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder={
+                country === 'PY'
+                  ? 'Información adicional sobre el cliente...'
+                  : 'Informações adicionais sobre o cliente...'
+              }
+            />
+          </div>
         </div>
 
         {/* Botões */}
