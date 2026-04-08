@@ -49,14 +49,14 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="lg:hidden fixed inset-0 z-50">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
           {/* Drawer */}
           <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] z-50 shadow-xl">
             <button
               onClick={() => setMobileMenuOpen(false)}
-              className="absolute top-4 right-4 z-10 p-2 text-white hover:bg-blue-700 rounded-lg"
+              className="absolute top-4 right-4 z-20 p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -68,19 +68,19 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Navigation */}
-        <nav className="bg-white border-b border-gray-200 shadow-sm z-10">
+        <nav className="bg-white border-b border-slate-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.04)] z-10">
           <div className="px-4 lg:px-6 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Hamburger Button - mobile only */}
                 <button
                   onClick={() => setMobileMenuOpen(true)}
-                  className="lg:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                  className="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   <Menu className="w-6 h-6" />
                 </button>
 
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#102246] to-[#1a3562] rounded-lg flex items-center justify-center shadow-md">
                   <span className="text-white font-bold text-lg">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </span>
