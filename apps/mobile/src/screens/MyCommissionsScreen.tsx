@@ -138,6 +138,9 @@ export default function MyCommissionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filterPreset, setFilterPreset] = useState<FilterPreset>('this_month');
   const [filtering, setFiltering] = useState(false);
+  const [valuesHidden, setValuesHidden] = useState(true); // default hidden for privacy
+
+  const maskPrice = (v: number) => valuesHidden ? 'Gs. ••••••' : formatPrice(v);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -206,13 +209,24 @@ export default function MyCommissionsScreen() {
           />
         }
       >
+        {/* TOGGLE VALUES BUTTON */}
+        <TouchableOpacity
+          onPress={() => setValuesHidden(!valuesHidden)}
+          style={styles.toggleButton}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.toggleButtonText}>
+            {valuesHidden ? '👁  Mostrar valores' : '🙈  Ocultar valores'}
+          </Text>
+        </TouchableOpacity>
+
         {/* HERO CARD */}
         <View style={styles.heroCard}>
           <View style={styles.heroAccent} />
           <View style={styles.heroContent}>
             <Text style={styles.heroIcon}>💰</Text>
             <Text style={styles.heroLabel}>Este mes</Text>
-            <Text style={styles.heroAmount}>{formatPrice(summary.currentMonth)}</Text>
+            <Text style={styles.heroAmount}>{maskPrice(summary.currentMonth)}</Text>
             <View style={styles.heroDeltaRow}>
               <Text style={[styles.heroDeltaText, { color: deltaColor }]}>
                 {deltaIsPositive ? '↑' : '↓'} {deltaSymbol}{summary.deltaPercent.toFixed(0)}%
@@ -226,12 +240,12 @@ export default function MyCommissionsScreen() {
         <View style={styles.kpiRow}>
           <View style={[styles.kpiCard, { borderTopColor: '#F59E0B' }]}>
             <Text style={styles.kpiLabel}>A receber</Text>
-            <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{formatPrice(summary.totalPending)}</Text>
+            <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{maskPrice(summary.totalPending)}</Text>
           </View>
           <View style={styles.kpiSpacer} />
           <View style={[styles.kpiCard, { borderTopColor: '#10B981' }]}>
             <Text style={styles.kpiLabel}>Ja recebido</Text>
-            <Text style={[styles.kpiValue, { color: '#10B981' }]}>{formatPrice(summary.totalSettled)}</Text>
+            <Text style={[styles.kpiValue, { color: '#10B981' }]}>{maskPrice(summary.totalSettled)}</Text>
           </View>
         </View>
 
@@ -250,7 +264,7 @@ export default function MyCommissionsScreen() {
             topCustomers.map((c) => (
               <View key={c.customerId} style={styles.customerRow}>
                 <Text style={styles.customerName} numberOfLines={1}>{c.customerName || 'Cliente'}</Text>
-                <Text style={styles.customerAmount}>{formatPrice(c.totalAmount)}</Text>
+                <Text style={styles.customerAmount}>{maskPrice(c.totalAmount)}</Text>
               </View>
             ))
           )}
@@ -289,7 +303,7 @@ export default function MyCommissionsScreen() {
             </Text>
           </View>
         ) : (
-          entries.map((entry) => <EntryCard key={entry.id} entry={entry} />)
+          entries.map((entry) => <EntryCard key={entry.id} entry={entry} valuesHidden={valuesHidden} />)
         )}
 
         <View style={styles.bottomSpacer} />
@@ -318,12 +332,14 @@ function Chip({ label, active, onPress }: ChipProps) {
 
 interface EntryCardProps {
   entry: MyCommissionEntry;
+  valuesHidden: boolean;
 }
 
-function EntryCard({ entry }: EntryCardProps) {
+function EntryCard({ entry, valuesHidden }: EntryCardProps) {
   const sourceMeta = getSourceTypeMeta(entry.sourceType);
   const statusMeta = getStatusMeta(entry.status);
   const ratePct = (entry.commissionRate * 100).toFixed(1).replace(/\.0$/, '');
+  const shownAmount = valuesHidden ? 'Gs. ••••••' : formatPrice(entry.commissionAmount);
 
   return (
     <View style={styles.entryCard}>
@@ -347,7 +363,7 @@ function EntryCard({ entry }: EntryCardProps) {
       </View>
       <View style={styles.entryFooter}>
         <Text style={[styles.entryAmount, { color: statusMeta.amountColor }]}>
-          {formatPrice(entry.commissionAmount)}
+          {shownAmount}
         </Text>
       </View>
     </View>
