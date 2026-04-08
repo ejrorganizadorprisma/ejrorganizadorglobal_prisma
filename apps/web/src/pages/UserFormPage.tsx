@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useUser, useCreateUser, useUpdateUser } from '../hooks/useUsers';
 import { UserRole } from '@ejr/shared-types';
 import { toast } from 'sonner';
-import { UserCog, Mail, Lock, Shield, Clock, ArrowLeft, Plus, Trash2, Copy, Eye, EyeOff } from 'lucide-react';
+import { UserCog, Mail, Lock, Shield, Clock, ArrowLeft, Plus, Trash2, Copy, Eye, EyeOff, User as UserIcon, MapPin, Phone, Briefcase, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 
 export function UserFormPage() {
   const navigate = useNavigate();
@@ -19,6 +19,16 @@ export function UserFormPage() {
     [dayOfWeek: number]: Array<{ start: string; end: string }>;
   };
 
+  const emptyAddress = {
+    zipCode: '',
+    street: '',
+    number: '',
+    complement: '',
+    district: '',
+    city: '',
+    state: '',
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,6 +36,24 @@ export function UserFormPage() {
     confirmPassword: '',
     role: 'SALESPERSON' as UserRole,
     isActive: true,
+    // Personal data
+    document: '',
+    birthDate: '',
+    photoUrl: '',
+    // Address
+    address: { ...emptyAddress },
+    // Contact
+    phone: '',
+    whatsapp: '',
+    emailAlt: '',
+    // Commercial data
+    commissionRate: '',
+    monthlyTarget: '',
+    region: '',
+    // Contractual data
+    hireDate: '',
+    contractType: '',
+    notes: '',
     allowedHoursEnabled: false,
     weekSchedule: {
       1: [{ start: '08:00', end: '18:00' }], // Segunda
@@ -35,6 +63,11 @@ export function UserFormPage() {
       5: [{ start: '08:00', end: '18:00' }], // Sexta
     } as WeekSchedule,
   });
+
+  // Collapsible section toggles
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contractOpen, setContractOpen] = useState(false);
 
   // Estado para controlar o menu de clonagem
   const [cloneMenuOpen, setCloneMenuOpen] = useState<number | null>(null);
@@ -88,9 +121,43 @@ export function UserFormPage() {
         confirmPassword: '',
         role: user.role,
         isActive: user.isActive,
+        document: user.document || '',
+        birthDate: user.birthDate ? String(user.birthDate).slice(0, 10) : '',
+        photoUrl: user.photoUrl || '',
+        address: user.address
+          ? {
+              zipCode: user.address.zipCode || '',
+              street: user.address.street || '',
+              number: user.address.number || '',
+              complement: user.address.complement || '',
+              district: user.address.district || '',
+              city: user.address.city || '',
+              state: user.address.state || '',
+            }
+          : { ...emptyAddress },
+        phone: user.phone || '',
+        whatsapp: user.whatsapp || '',
+        emailAlt: user.emailAlt || '',
+        commissionRate:
+          user.commissionRate !== undefined && user.commissionRate !== null
+            ? String(user.commissionRate)
+            : '',
+        monthlyTarget:
+          user.monthlyTarget !== undefined && user.monthlyTarget !== null
+            ? String(user.monthlyTarget)
+            : '',
+        region: user.region || '',
+        hireDate: user.hireDate ? String(user.hireDate).slice(0, 10) : '',
+        contractType: user.contractType || '',
+        notes: user.notes || '',
         allowedHoursEnabled: !!user.allowedHours,
         weekSchedule,
       });
+
+      // Auto-expand sections that have data
+      if (user.address) setAddressOpen(true);
+      if (user.phone || user.whatsapp || user.emailAlt) setContactOpen(true);
+      if (user.hireDate || user.contractType || user.notes) setContractOpen(true);
     }
   }, [user]);
 
@@ -126,11 +193,50 @@ export function UserFormPage() {
     }
 
     try {
+      const hasAddress = !!(
+        formData.address.street ||
+        formData.address.number ||
+        formData.address.district ||
+        formData.address.city ||
+        formData.address.state ||
+        formData.address.zipCode
+      );
+
       const payload: any = {
         name: formData.name,
         email: formData.email,
         role: formData.role,
         isActive: formData.isActive,
+        // Personal data
+        document: formData.document || null,
+        birthDate: formData.birthDate || null,
+        photoUrl: formData.photoUrl || null,
+        // Address
+        address: hasAddress
+          ? {
+              zipCode: formData.address.zipCode || undefined,
+              street: formData.address.street,
+              number: formData.address.number,
+              complement: formData.address.complement || undefined,
+              district: formData.address.district,
+              city: formData.address.city,
+              state: formData.address.state,
+            }
+          : null,
+        // Contact
+        phone: formData.phone || null,
+        whatsapp: formData.whatsapp || null,
+        emailAlt: formData.emailAlt || null,
+        // Commercial data (only relevant for SALESPERSON, but sent regardless if filled)
+        commissionRate:
+          formData.commissionRate !== '' ? Number(formData.commissionRate) : null,
+        monthlyTarget:
+          formData.monthlyTarget !== '' ? parseInt(formData.monthlyTarget, 10) : null,
+        region: formData.region || null,
+        // Contractual data
+        hireDate: formData.hireDate || null,
+        contractType: formData.contractType || null,
+        notes: formData.notes || null,
         allowedHours: formData.allowedHoursEnabled
           ? {
               weekSchedule: formData.weekSchedule,
@@ -158,13 +264,19 @@ export function UserFormPage() {
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target;
 
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
+    } else if (name.startsWith('address.')) {
+      const addressField = name.split('.')[1];
+      setFormData((prev) => ({
+        ...prev,
+        address: { ...prev.address, [addressField]: value },
+      }));
     } else {
       // Se alterou para OWNER, força isActive = true
       if (name === 'role' && value === 'OWNER') {
@@ -306,7 +418,7 @@ export function UserFormPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-6">
         <button
           onClick={() => navigate('/users')}
@@ -502,6 +614,393 @@ export function UserFormPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Dados Pessoais */}
+        <div>
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <UserIcon className="w-5 h-5" />
+            Dados Pessoais
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                CPF / CI
+              </label>
+              <input
+                type="text"
+                name="document"
+                value={formData.document}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="000.000.000-00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data de Nascimento
+              </label>
+              <input
+                type="date"
+                name="birthDate"
+                value={formData.birthDate}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                URL da Foto
+              </label>
+              <input
+                type="url"
+                name="photoUrl"
+                value={formData.photoUrl}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://exemplo.com/foto.jpg"
+              />
+              {formData.photoUrl && (
+                <div className="mt-2">
+                  <img
+                    src={formData.photoUrl}
+                    alt="Pré-visualização"
+                    className="w-20 h-20 rounded-full object-cover border border-gray-200"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                    onLoad={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'block';
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Endereço (collapsible) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setAddressOpen((v) => !v)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              Endereço
+            </h2>
+            {addressOpen ? (
+              <ChevronUp className="w-5 h-5 text-gray-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-500" />
+            )}
+          </button>
+
+          {addressOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CEP
+                </label>
+                <input
+                  type="text"
+                  name="address.zipCode"
+                  value={formData.address.zipCode}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="00000-000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Rua
+                </label>
+                <input
+                  type="text"
+                  name="address.street"
+                  value={formData.address.street}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Av. Brasil"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Número
+                </label>
+                <input
+                  type="text"
+                  name="address.number"
+                  value={formData.address.number}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="123"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Complemento
+                </label>
+                <input
+                  type="text"
+                  name="address.complement"
+                  value={formData.address.complement}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Apto 101"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bairro
+                </label>
+                <input
+                  type="text"
+                  name="address.district"
+                  value={formData.address.district}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Centro"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cidade
+                </label>
+                <input
+                  type="text"
+                  name="address.city"
+                  value={formData.address.city}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="São Paulo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Estado (UF)
+                </label>
+                <input
+                  type="text"
+                  name="address.state"
+                  value={formData.address.state}
+                  onChange={handleChange}
+                  maxLength={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+                  placeholder="SP"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Contato (collapsible) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setContactOpen((v) => !v)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Phone className="w-5 h-5" />
+              Contato
+            </h2>
+            {contactOpen ? (
+              <ChevronUp className="w-5 h-5 text-gray-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-500" />
+            )}
+          </button>
+
+          {contactOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Telefone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  WhatsApp
+                </label>
+                <input
+                  type="tel"
+                  name="whatsapp"
+                  value={formData.whatsapp}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="(11) 99999-9999"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Alternativo
+                </label>
+                <input
+                  type="email"
+                  name="emailAlt"
+                  value={formData.emailAlt}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="email.alternativo@exemplo.com"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Dados Comerciais — apenas para Vendedores */}
+        {formData.role === 'SALESPERSON' && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              Dados Comerciais
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  % de Comissão
+                </label>
+                <input
+                  type="number"
+                  name="commissionRate"
+                  value={formData.commissionRate}
+                  onChange={handleChange}
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="5.00"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Percentual de comissão sobre vendas (0 a 100).
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Meta Mensal (em Gs.)
+                </label>
+                <input
+                  type="number"
+                  name="monthlyTarget"
+                  value={formData.monthlyTarget}
+                  onChange={handleChange}
+                  min={0}
+                  step={1}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="10000000"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Valor inteiro em guaranis (sem separadores).
+                </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Região de Atuação
+                </label>
+                <input
+                  type="text"
+                  name="region"
+                  value={formData.region}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Ex.: Asunción, Central, Sul..."
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dados Contratuais (collapsible) */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setContractOpen((v) => !v)}
+            className="w-full flex items-center justify-between text-left"
+          >
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Dados Contratuais
+            </h2>
+            {contractOpen ? (
+              <ChevronUp className="w-5 h-5 text-gray-500" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-gray-500" />
+            )}
+          </button>
+
+          {contractOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Data de Admissão
+                </label>
+                <input
+                  type="date"
+                  name="hireDate"
+                  value={formData.hireDate}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Contrato
+                </label>
+                <select
+                  name="contractType"
+                  value={formData.contractType}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione...</option>
+                  <option value="CLT">CLT</option>
+                  <option value="PJ">PJ</option>
+                  <option value="AUTONOMO">Autônomo</option>
+                  <option value="ESTAGIO">Estágio</option>
+                  <option value="OUTRO">Outro</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Observações
+                </label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Anotações internas sobre o usuário..."
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Horário Permitido */}

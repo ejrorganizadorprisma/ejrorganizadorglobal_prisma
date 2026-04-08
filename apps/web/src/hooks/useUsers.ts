@@ -3,14 +3,46 @@ import { toast } from 'sonner';
 import { api } from '../lib/api';
 import type { UserRole, UpdateUserDTO, CreateUserDTO } from '@ejr/shared-types';
 
+interface UserAddress {
+  street?: string;
+  number?: string;
+  complement?: string;
+  district?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+}
+
 interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
   isActive: boolean;
+  // Personal data
+  document?: string | null;
+  birthDate?: string | null;
+  phone?: string | null;
+  whatsapp?: string | null;
+  emailAlt?: string | null;
+  address?: UserAddress | null;
+  photoUrl?: string | null;
+  // Commercial data
+  commissionRate?: number | null;
+  monthlyTarget?: number | null;
+  region?: string | null;
+  // Contractual data
+  hireDate?: string | null;
+  contractType?: string | null;
+  notes?: string | null;
   allowedHours?: {
-    timeRanges: Array<{
+    weekSchedule?: {
+      [dayOfWeek: number]: Array<{
+        start: string;
+        end: string;
+      }>;
+    };
+    timeRanges?: Array<{
       start: string;
       end: string;
     }>;
