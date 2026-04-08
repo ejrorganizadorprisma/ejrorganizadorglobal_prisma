@@ -34,61 +34,73 @@ export class CollectionsRepository {
 
   /**
    * Criar nova cobrança
+   * IMPORTANT: uses db.transaction() (pool.connect) so all statements run on the
+   * same client. db.query('BEGIN') would break on Supabase transaction-mode pgbouncer.
    */
   async create(dto: CreateCollectionDTO, sellerId: string): Promise<Collection> {
-    await db.query('BEGIN');
+    const createdId = await db.transaction(async (client) => {
+      // Generate sequential number inside the transaction using the same client
+      const year = new Date().getFullYear();
+      const prefix = `COB-${year}-`;
+      const numRes = await client.query(
+        `SELECT collection_number
+         FROM collections
+         WHERE collection_number LIKE $1
+         ORDER BY collection_number DESC
+         LIMIT 1`,
+        [`${prefix}%`]
+      );
+      let nextNumber = 1;
+      if (numRes.rows.length > 0) {
+        const lastNumber = parseInt(numRes.rows[0].collection_number.split('-')[2]);
+        nextNumber = lastNumber + 1;
+      }
+      const collectionNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
 
-    try {
-      const collectionNumber = await this.generateNumber();
-
-      const insertQuery = `
-        INSERT INTO collections (
+      const insertRes = await client.query(
+        `INSERT INTO collections (
           collection_number, sale_id, customer_id, seller_id, amount,
           payment_method, status, check_number, check_bank, check_date,
           photo_urls, notes, latitude, longitude
         ) VALUES ($1, $2, $3, $4, $5, $6, 'PENDING_APPROVAL', $7, $8, $9, $10, $11, $12, $13)
-        RETURNING *
-      `;
+        RETURNING id`,
+        [
+          collectionNumber,
+          dto.saleId,
+          dto.customerId,
+          sellerId,
+          dto.amount,
+          dto.paymentMethod,
+          dto.checkNumber || null,
+          dto.checkBank || null,
+          dto.checkDate || null,
+          dto.photoUrls && dto.photoUrls.length > 0 ? dto.photoUrls : null,
+          dto.notes || null,
+          dto.latitude || null,
+          dto.longitude || null,
+        ]
+      );
 
-      const result = await db.query(insertQuery, [
-        collectionNumber,
-        dto.saleId,
-        dto.customerId,
-        sellerId,
-        dto.amount,
-        dto.paymentMethod,
-        dto.checkNumber || null,
-        dto.checkBank || null,
-        dto.checkDate || null,
-        dto.photoUrls && dto.photoUrls.length > 0 ? dto.photoUrls : null,
-        dto.notes || null,
-        dto.latitude || null,
-        dto.longitude || null,
-      ]);
-
-      const created = result.rows[0];
+      const createdRowId = insertRes.rows[0].id as string;
 
       // Criar GPS event se lat/lng fornecidos
       if (dto.latitude && dto.longitude) {
-        await db.query(
+        await client.query(
           `INSERT INTO gps_events (user_id, event_type, event_id, latitude, longitude)
            VALUES ($1, 'COLLECTION', $2, $3, $4)`,
-          [sellerId, created.id, dto.latitude, dto.longitude]
+          [sellerId, createdRowId, dto.latitude, dto.longitude]
         );
       }
 
-      await db.query('COMMIT');
+      return createdRowId;
+    });
 
-      // Retornar a cobrança completa com joins
-      const collection = await this.findById(created.id);
-      if (!collection) {
-        throw new Error('Erro ao buscar cobrança criada');
-      }
-      return collection;
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
+    // findById runs outside the transaction — data is already committed
+    const collection = await this.findById(createdId);
+    if (!collection) {
+      throw new Error('Erro ao buscar cobrança criada');
     }
+    return collection;
   }
 
   /**
@@ -222,13 +234,14 @@ export class CollectionsRepository {
 
   /**
    * Aprovar cobrança — também cria commission entry se configurado
+   * IMPORTANT: uses db.transaction() (pool.connect) so UPDATE + INSERT share a single
+   * client/session. Previously used db.query('BEGIN') which hangs on Supabase
+   * transaction-mode pgbouncer because each pool.query() may bind a different backend.
    */
   async approve(id: string, approvedBy: string): Promise<Collection> {
-    await db.query('BEGIN');
-
-    try {
+    await db.transaction(async (client) => {
       // Atualizar status
-      await db.query(
+      await client.query(
         `UPDATE collections
          SET status = 'APPROVED', approved_by = $1, approved_at = NOW(), updated_at = NOW()
          WHERE id = $2`,
@@ -236,7 +249,7 @@ export class CollectionsRepository {
       );
 
       // Verificar se vendedor tem config de comissão sobre cobranças
-      const configResult = await db.query(
+      const configResult = await client.query(
         `SELECT scc.* FROM seller_commission_configs scc
          WHERE scc.seller_id = (SELECT seller_id FROM collections WHERE id = $1)
            AND scc.active = true`,
@@ -249,7 +262,7 @@ export class CollectionsRepository {
 
         if (rate > 0) {
           // Buscar dados da cobrança para calcular comissão
-          const collectionResult = await db.query(
+          const collectionResult = await client.query(
             'SELECT seller_id, amount FROM collections WHERE id = $1',
             [id]
           );
@@ -257,7 +270,7 @@ export class CollectionsRepository {
           if (collectionResult.rows.length > 0) {
             const collection = collectionResult.rows[0];
 
-            await db.query(
+            await client.query(
               `INSERT INTO commission_entries (seller_id, source_type, source_id, base_amount, commission_rate, commission_amount)
                VALUES ($1, 'COLLECTION', $2, $3, $4, ROUND($3 * $4 / 100))`,
               [collection.seller_id, id, collection.amount, rate]
@@ -265,18 +278,13 @@ export class CollectionsRepository {
           }
         }
       }
+    });
 
-      await db.query('COMMIT');
-
-      const updated = await this.findById(id);
-      if (!updated) {
-        throw new Error('Cobrança não encontrada após aprovação');
-      }
-      return updated;
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
+    const updated = await this.findById(id);
+    if (!updated) {
+      throw new Error('Cobrança não encontrada após aprovação');
     }
+    return updated;
   }
 
   /**
