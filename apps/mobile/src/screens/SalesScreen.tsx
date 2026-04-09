@@ -19,6 +19,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }>
 
 const PAYMENT_LABELS: Record<string, string> = {
   CASH: 'Dinheiro',
+  CREDIT: 'Credito',
   CREDIT_CARD: 'Cartao Credito',
   DEBIT_CARD: 'Cartao Debito',
   BANK_TRANSFER: 'Transferencia',

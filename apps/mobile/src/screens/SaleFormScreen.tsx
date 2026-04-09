@@ -16,6 +16,7 @@ interface Props {
 
 const PAYMENT_METHODS = [
   { value: 'CASH', label: 'Dinheiro' },
+  { value: 'CREDIT', label: 'Credito' },
   { value: 'CREDIT_CARD', label: 'Cartao de Credito' },
   { value: 'DEBIT_CARD', label: 'Cartao de Debito' },
   { value: 'BANK_TRANSFER', label: 'Transferencia Bancaria' },
