@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Modal, FlatList, StyleSheet } from 'react-native';
-import { useSales, SaleItem } from '../hooks/useSales';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { useSalesOrders, SalesOrderItem } from '../hooks/useSalesOrders';
 import { useQuotes } from '../hooks/useQuotes';
 import { Customer } from '../hooks/useCustomers';
 import { Product } from '../hooks/useProducts';
@@ -14,29 +14,15 @@ interface Props {
   route?: any;
 }
 
-const PAYMENT_METHODS = [
-  { value: 'CASH', label: 'Dinheiro' },
-  { value: 'CREDIT', label: 'Credito' },
-  { value: 'CREDIT_CARD', label: 'Cartao de Credito' },
-  { value: 'DEBIT_CARD', label: 'Cartao de Debito' },
-  { value: 'BANK_TRANSFER', label: 'Transferencia Bancaria' },
-  { value: 'PIX', label: 'PIX' },
-  { value: 'CHECK', label: 'Cheque' },
-  { value: 'PROMISSORY', label: 'Promissoria' },
-  { value: 'BOLETO', label: 'Boleto' },
-  { value: 'OTHER', label: 'Outro' },
-];
 
 export default function SaleFormScreen({ navigation, route }: Props) {
   const { fromQuoteId } = (route?.params || {}) as { fromQuoteId?: string };
-  const { createSale, convertFromQuote } = useSales();
+  const { createOrder, convertFromQuote } = useSalesOrders();
   const { getById } = useQuotes();
   const [saving, setSaving] = useState(false);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const [items, setItems] = useState<(SaleItem & { key: string })[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState('CASH');
-  const [installments, setInstallments] = useState('1');
+  const [items, setItems] = useState<(SalesOrderItem & { key: string })[]>([]);
   const [saleDate, setSaleDate] = useState(new Date().toLocaleDateString('pt-BR'));
   const [discount, setDiscount] = useState('');
   const [notes, setNotes] = useState('');
@@ -44,7 +30,6 @@ export default function SaleFormScreen({ navigation, route }: Props) {
 
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
   const [showProductPicker, setShowProductPicker] = useState(false);
-  const [showPaymentPicker, setShowPaymentPicker] = useState(false);
 
   useEffect(() => {
     if (!fromQuoteId) return;
@@ -134,40 +119,35 @@ export default function SaleFormScreen({ navigation, route }: Props) {
     try {
       if (fromQuoteId) {
         await convertFromQuote(fromQuoteId, {
-          paymentMethod,
-          saleDate: isoDate || new Date().toISOString().slice(0, 10),
-          installments: parseInt(installments, 10) || 1,
+          orderDate: isoDate || new Date().toISOString().slice(0, 10),
+          notes: notes.trim() || undefined,
         });
         Alert.alert(
           'Sucesso',
-          'Venda criada com sucesso! Orçamento marcado como convertido.',
-          [{ text: 'OK', onPress: () => navigation.navigate('Vendas') }]
+          'Pedido criado a partir do orcamento! Aguarde o faturamento pelo admin.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Pedidos') }]
         );
       } else {
         const location = await captureLocation();
-        await createSale({
+        await createOrder({
           customerId: customer.id,
           items: items.map(({ key, ...rest }) => rest),
           discount: discountValue,
-          paymentMethod,
-          installments: parseInt(installments, 10) || 1,
-          saleDate: isoDate,
+          orderDate: isoDate,
           notes: notes.trim() || undefined,
           latitude: location?.latitude,
           longitude: location?.longitude,
         });
-        Alert.alert('Sucesso', 'Venda registrada com sucesso!', [
+        Alert.alert('Sucesso', 'Pedido registrado com sucesso! Aguarde o faturamento.', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Erro', error?.message || 'Nao foi possivel salvar a venda.');
+      Alert.alert('Erro', error?.message || 'Nao foi possivel salvar o pedido.');
     } finally {
       setSaving(false);
     }
   };
-
-  const selectedPaymentLabel = PAYMENT_METHODS.find(p => p.value === paymentMethod)?.label || paymentMethod;
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -177,7 +157,7 @@ export default function SaleFormScreen({ navigation, route }: Props) {
             🔄 Convertendo orçamento {quoteNumber ? `#${quoteNumber}` : ''}
           </Text>
           <Text style={styles.conversionBannerSubtext}>
-            Itens e cliente já preenchidos. Escolha a forma de pagamento.
+            Itens e cliente ja preenchidos. Confira e registre o pedido.
           </Text>
         </View>
       )}
@@ -240,36 +220,9 @@ export default function SaleFormScreen({ navigation, route }: Props) {
           )}
         </View>
 
-        {/* Payment Method */}
+        {/* Order Date */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Forma de Pagamento *</Text>
-          <TouchableOpacity
-            style={styles.pickerButton}
-            onPress={() => setShowPaymentPicker(true)}
-          >
-            <Text style={styles.pickerValue}>{selectedPaymentLabel}</Text>
-            <Text style={styles.pickerArrow}>{'>'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Installments */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Parcelas</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="1"
-            placeholderTextColor="#9CA3AF"
-            value={installments}
-            onChangeText={setInstallments}
-            keyboardType="numeric"
-            returnKeyType="next"
-            blurOnSubmit={false}
-          />
-        </View>
-
-        {/* Sale Date */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Data da Venda</Text>
+          <Text style={styles.label}>Data do Pedido</Text>
           <TextInput
             style={styles.input}
             placeholder="DD/MM/AAAA"
@@ -329,13 +282,6 @@ export default function SaleFormScreen({ navigation, route }: Props) {
             <Text style={styles.grandTotalLabel}>Total</Text>
             <Text style={styles.grandTotalAmount}>{formatPrice(total)}</Text>
           </View>
-          {parseInt(installments, 10) > 1 && total > 0 && (
-            <View style={styles.installmentInfo}>
-              <Text style={styles.installmentText}>
-                {installments}x de {formatPrice(Math.round(total / parseInt(installments, 10)))}
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Save */}
@@ -348,7 +294,7 @@ export default function SaleFormScreen({ navigation, route }: Props) {
           {saving ? (
             <ActivityIndicator size="small" color="#FFF" />
           ) : (
-            <Text style={styles.saveButtonText}>Registrar Venda</Text>
+            <Text style={styles.saveButtonText}>Registrar Pedido</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -367,47 +313,6 @@ export default function SaleFormScreen({ navigation, route }: Props) {
         onClose={() => setShowProductPicker(false)}
       />
 
-      {/* Payment Method Picker Modal */}
-      <Modal visible={showPaymentPicker} animationType="slide" transparent onRequestClose={() => setShowPaymentPicker(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Forma de Pagamento</Text>
-              <TouchableOpacity onPress={() => setShowPaymentPicker(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={PAYMENT_METHODS}
-              keyExtractor={(item) => item.value}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.paymentOption,
-                    paymentMethod === item.value && styles.paymentOptionActive,
-                  ]}
-                  onPress={() => {
-                    setPaymentMethod(item.value);
-                    setShowPaymentPicker(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.paymentOptionText,
-                      paymentMethod === item.value && styles.paymentOptionTextActive,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                  {paymentMethod === item.value && (
-                    <Text style={styles.paymentCheck}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }

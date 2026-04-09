@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, ActivityIndicator, StyleSheet } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useSales, Sale } from '../hooks/useSales';
+import { useSalesOrders, SalesOrder } from '../hooks/useSalesOrders';
 import { formatPrice } from '../utils/formatPrice';
 import { fullSync, onSyncComplete, getSyncStatus } from '../db/sync';
 
@@ -10,25 +10,13 @@ interface Props {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  DRAFT: { label: 'Rascunho', bg: '#F3F4F6', text: '#6B7280' },
   PENDING: { label: 'Pendente', bg: '#FEF3C7', text: '#92400E' },
-  PAID: { label: 'Pago', bg: '#D1FAE5', text: '#065F46' },
-  PARTIAL: { label: 'Parcial', bg: '#EBF5FF', text: '#0B5C9A' },
-  OVERDUE: { label: 'Vencido', bg: '#FEE2E2', text: '#991B1B' },
+  APPROVED: { label: 'Aprovado', bg: '#EBF5FF', text: '#0B5C9A' },
+  CONVERTED: { label: 'Faturado', bg: '#D1FAE5', text: '#065F46' },
   CANCELLED: { label: 'Cancelado', bg: '#F3F4F6', text: '#6B7280' },
 };
 
-const PAYMENT_LABELS: Record<string, string> = {
-  CASH: 'Dinheiro',
-  CREDIT: 'Credito',
-  CREDIT_CARD: 'Cartao Credito',
-  DEBIT_CARD: 'Cartao Debito',
-  BANK_TRANSFER: 'Transferencia',
-  PIX: 'PIX',
-  CHECK: 'Cheque',
-  PROMISSORY: 'Promissoria',
-  BOLETO: 'Boleto',
-  OTHER: 'Outro',
-};
 
 function formatRelativeTime(iso: string | null): string {
   if (!iso) return '';
@@ -46,7 +34,7 @@ function formatRelativeTime(iso: string | null): string {
 
 export default function SalesScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
-  const { sales, loading, refresh } = useSales(search);
+  const { orders: sales, loading, refresh } = useSalesOrders(search);
   const [refreshing, setRefreshing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
 
@@ -87,14 +75,14 @@ export default function SalesScreen({ navigation }: Props) {
     return STATUS_CONFIG[status] || { label: status, bg: '#F3F4F6', text: '#6B7280' };
   };
 
-  const renderSale = ({ item }: { item: Sale }) => {
+  const renderSale = ({ item }: { item: SalesOrder }) => {
     const statusCfg = getStatusConfig(item.status);
     return (
       <TouchableOpacity style={styles.card} activeOpacity={0.7}>
         <View style={styles.cardHeader}>
           <View style={styles.cardHeaderLeft}>
             <Text style={styles.saleNumber}>
-              {item.saleNumber || `Venda #${item.id.slice(-6)}`}
+              {item.orderNumber || `Pedido #${item.id.slice(-6)}`}
             </Text>
             {!item.synced && (
               <View style={styles.syncBadge}>
@@ -115,22 +103,12 @@ export default function SalesScreen({ navigation }: Props) {
             <Text style={styles.metaText}>
               {item.items?.length || 0} {(item.items?.length || 0) === 1 ? 'item' : 'itens'}
             </Text>
-            <View style={styles.metaDot} />
-            <Text style={styles.metaText}>
-              {PAYMENT_LABELS[item.paymentMethod] || item.paymentMethod}
-            </Text>
-            {item.installments > 1 && (
-              <>
-                <View style={styles.metaDot} />
-                <Text style={styles.metaText}>{item.installments}x</Text>
-              </>
-            )}
           </View>
         </View>
 
         <View style={styles.cardFooter}>
           <Text style={styles.saleDate}>
-            {item.saleDate ? new Date(item.saleDate).toLocaleDateString('pt-BR') : ''}
+            {item.orderDate ? new Date(item.orderDate).toLocaleDateString('pt-BR') : ''}
           </Text>
           <Text style={styles.totalValue}>{formatPrice(item.total)}</Text>
         </View>
@@ -141,7 +119,7 @@ export default function SalesScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.titleBar}>
-        <Text style={styles.titleText}>Vendas</Text>
+        <Text style={styles.titleText}>Pedidos</Text>
         {lastSync && <Text style={styles.syncHint}>Sincronizado {formatRelativeTime(lastSync)}</Text>}
       </View>
       <View style={styles.searchContainer}>
@@ -157,7 +135,7 @@ export default function SalesScreen({ navigation }: Props) {
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#0B5C9A" />
-          <Text style={styles.loadingText}>Carregando vendas...</Text>
+          <Text style={styles.loadingText}>Carregando pedidos...</Text>
         </View>
       ) : (
         <FlatList
@@ -169,10 +147,10 @@ export default function SalesScreen({ navigation }: Props) {
           renderItem={renderSale}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>💰</Text>
-              <Text style={styles.emptyTitle}>Nenhuma venda encontrada</Text>
+              <Text style={styles.emptyIcon}>📝</Text>
+              <Text style={styles.emptyTitle}>Nenhum pedido encontrado</Text>
               <Text style={styles.emptySubtitle}>
-                {search ? 'Tente outra busca' : 'Registre sua primeira venda'}
+                {search ? 'Tente outra busca' : 'Registre seu primeiro pedido'}
               </Text>
             </View>
           }

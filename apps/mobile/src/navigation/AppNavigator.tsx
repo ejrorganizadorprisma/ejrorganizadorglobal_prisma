@@ -28,7 +28,7 @@ const TAB_ICONS: Record<string, string> = {
   'Clientes': '👥',
   'Produtos': '📦',
   'Orcamentos': '📋',
-  'Vendas': '💰',
+  'Pedidos': '📝',
   'Cobrancas': '🧾',
 };
 
@@ -120,7 +120,7 @@ function HomeTabs() {
         <Tab.Screen name="Orcamentos" component={QuotesScreen} />
       )}
       {mobilePermissions?.sales !== false && (
-        <Tab.Screen name="Vendas" component={SalesScreen} />
+        <Tab.Screen name="Pedidos" component={SalesScreen} />
       )}
       {(mobilePermissions as any)?.collections !== false && (
         <Tab.Screen name="Cobrancas" component={CollectionsScreen} />
@@ -176,7 +176,7 @@ export default function AppNavigator() {
                 headerTitle: route?.params?.quoteId ? 'Editar Orçamento' : 'Novo Orçamento',
               })}
             />
-            <Stack.Screen name="SaleForm" component={SaleFormScreen} options={{ title: 'Nova Venda', headerTitle: 'Nova Venda' }} />
+            <Stack.Screen name="SaleForm" component={SaleFormScreen} options={{ title: 'Novo Pedido', headerTitle: 'Novo Pedido' }} />
             <Stack.Screen name="CollectionForm" component={CollectionFormScreen} options={{ title: 'Nova Cobranca', headerTitle: 'Nova Cobranca' }} />
             <Stack.Screen name="Sync" component={SyncScreen} options={{ title: 'Sincronizacao', headerTitle: 'Sincronizacao' }} />
           </>

@@ -17,6 +17,7 @@ export interface SyncStatus {
   pendingCustomers: number;
   pendingQuotes: number;
   pendingSales: number;
+  pendingSalesOrders: number;
   pendingCollections: number;
   totalPending: number;
   lastSync: string | null;
@@ -44,6 +45,7 @@ export async function getSyncStatus(): Promise<SyncStatus> {
     pendingCustomers: counts['customers'] || 0,
     pendingQuotes: counts['quotes'] || 0,
     pendingSales: counts['sales'] || 0,
+    pendingSalesOrders: counts['sales_orders'] || 0,
     pendingCollections: counts['collections'] || 0,
     totalPending: Object.values(counts).reduce((a, b) => a + b, 0),
     lastSync: logResult?.created_at || null,
@@ -79,6 +81,22 @@ function sanitizePayload(entity: string, payload: any): any {
   }
 
   if (entity === 'sales') {
+    const clean = { ...payload };
+    if (Array.isArray(clean.items)) {
+      clean.items = clean.items.map((item: any) => ({
+        itemType: item.itemType,
+        productId: item.productId,
+        serviceName: item.serviceName,
+        serviceDescription: item.serviceDescription,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        discount: item.discount || 0,
+      }));
+    }
+    return clean;
+  }
+
+  if (entity === 'sales_orders') {
     const clean = { ...payload };
     if (Array.isArray(clean.items)) {
       clean.items = clean.items.map((item: any) => ({
@@ -145,6 +163,7 @@ export async function pushPendingChanges(
       customers: '/customers',
       quotes: '/quotes',
       sales: '/sales',
+      sales_orders: '/sales-orders',
       collections: '/collections',
     };
     const endpoint = entityMap[item.entity];
@@ -288,6 +307,7 @@ export async function pullServerData(): Promise<{ pulled: number }> {
   }
   if (perms.sales !== false) {
     try { pulled += await pullEntity(db, token, '/sales', 'sales', true); } catch { /* skip */ }
+    try { pulled += await pullEntity(db, token, '/sales-orders', 'sales_orders', true); } catch { /* skip */ }
   }
   if (perms.collections !== false) {
     try { pulled += await pullEntity(db, token, '/collections', 'collections', true); } catch { /* skip */ }

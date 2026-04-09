@@ -90,16 +90,16 @@ export default function QuotesScreen({ navigation }: Props) {
 
     if (canConvert && isOnline) {
       buttons.push({
-        text: '💰 Converter em Venda',
+        text: '📝 Converter em Pedido',
         onPress: () => convertToSale(quote),
       });
     } else if (canConvert && !isOnline) {
       buttons.push({
-        text: '💰 Converter (requer internet)',
+        text: '📝 Converter (requer internet)',
         onPress: () =>
           Alert.alert(
-            'Sem conexão',
-            'Para converter um orçamento em venda é necessário estar online.'
+            'Sem conexao',
+            'Para converter um orcamento em pedido e necessario estar online.'
           ),
       });
     }
