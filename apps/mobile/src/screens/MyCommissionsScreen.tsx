@@ -375,6 +375,30 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
 
+  /* TOGGLE VALUES BUTTON */
+  toggleButton: {
+    alignSelf: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 24,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  toggleButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0B5C9A',
+  },
+
   fullLoading: {
     flex: 1,
     justifyContent: 'center',
