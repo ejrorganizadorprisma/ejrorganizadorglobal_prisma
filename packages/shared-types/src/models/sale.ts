@@ -8,6 +8,7 @@ export enum SaleStatus {
 
 export enum PaymentMethod {
   CASH = 'CASH', // Dinheiro
+  CREDIT = 'CREDIT', // Crédito (crediário/fiado — pagamento a prazo)
   CREDIT_CARD = 'CREDIT_CARD', // Cartão de crédito
   DEBIT_CARD = 'DEBIT_CARD', // Cartão de débito
   BANK_TRANSFER = 'BANK_TRANSFER', // Transferência bancária

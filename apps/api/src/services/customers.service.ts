@@ -105,8 +105,13 @@ export class CustomersService {
       }
     }
 
-    // Se CREDIT_CARD não está em allowedPaymentMethods, limpar creditMaxDays
-    if (data.allowedPaymentMethods && !data.allowedPaymentMethods.includes('CREDIT_CARD')) {
+    // creditMaxDays só faz sentido se CREDIT (crediário/fiado) ou CREDIT_CARD
+    // estiver em allowedPaymentMethods. Caso contrário, limpar.
+    if (
+      data.allowedPaymentMethods &&
+      !data.allowedPaymentMethods.includes('CREDIT') &&
+      !data.allowedPaymentMethods.includes('CREDIT_CARD')
+    ) {
       data.creditMaxDays = null;
     }
 
@@ -173,8 +178,13 @@ export class CustomersService {
 
     // CI e RUC (Paraguay) - sem validação complexa, são strings simples
 
-    // Se CREDIT_CARD não está em allowedPaymentMethods, limpar creditMaxDays
-    if (data.allowedPaymentMethods && !data.allowedPaymentMethods.includes('CREDIT_CARD')) {
+    // creditMaxDays só faz sentido se CREDIT (crediário/fiado) ou CREDIT_CARD
+    // estiver em allowedPaymentMethods. Caso contrário, limpar.
+    if (
+      data.allowedPaymentMethods &&
+      !data.allowedPaymentMethods.includes('CREDIT') &&
+      !data.allowedPaymentMethods.includes('CREDIT_CARD')
+    ) {
       data.creditMaxDays = null;
     }
 
