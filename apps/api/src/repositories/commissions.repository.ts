@@ -264,19 +264,24 @@ export class CommissionsRepository {
 
   /**
    * Generate settlement number: SET-YYYY-NNNN
+   *
+   * IMPORTANT: when called from inside a `db.transaction()` callback, pass
+   * the transaction's `client` so the query runs on the same pool client.
+   * See sales.repository.ts:generateSaleNumber for the deadlock rationale.
    */
-  async generateSettlementNumber(): Promise<string> {
+  async generateSettlementNumber(client?: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `SET-${year}-`;
 
-    const result = await db.query(
-      `SELECT settlement_number
+    const sql = `SELECT settlement_number
        FROM commission_settlements
        WHERE settlement_number LIKE $1
        ORDER BY settlement_number DESC
-       LIMIT 1`,
-      [`${prefix}%`]
-    );
+       LIMIT 1`;
+
+    const result = client
+      ? await client.query(sql, [`${prefix}%`])
+      : await db.query(sql, [`${prefix}%`]);
 
     let nextNumber = 1;
     if (result.rows.length > 0) {
@@ -292,7 +297,7 @@ export class CommissionsRepository {
    */
   async createSettlement(dto: CreateSettlementDTO, createdBy: string) {
     return db.transaction(async (client) => {
-      const settlementNumber = await this.generateSettlementNumber();
+      const settlementNumber = await this.generateSettlementNumber(client);
       const id = `comset-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
       // Sum all PENDING entries for this seller in the date range

@@ -217,7 +217,7 @@ export class SalesRepository {
    */
   async create(saleData: CreateSaleDTO, userId: string, allowNegativeStock: boolean = false): Promise<Sale> {
     const createdSaleId = await db.transaction(async (client) => {
-      const saleNumber = await this.generateSaleNumber();
+      const saleNumber = await this.generateSaleNumber(client);
 
       // Calcular totais
       let subtotal = 0;
@@ -717,9 +717,16 @@ export class SalesRepository {
   }
 
   /**
-   * Gerar número da venda
+   * Gerar número da venda.
+   *
+   * IMPORTANT: when called from inside a `db.transaction()` callback, you MUST
+   * pass the transaction's `client` so the query runs on the same pool client.
+   * Otherwise the query calls `db.query` which tries to acquire a new client
+   * from the pool — in production (Supabase pgbouncer, pool max:1) the single
+   * client is already held by the transaction → pool.connect() deadlocks for
+   * 10s and throws "timeout exceeded when trying to connect".
    */
-  private async generateSaleNumber(): Promise<string> {
+  private async generateSaleNumber(client?: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `VND-${year}-`;
 
@@ -731,7 +738,9 @@ export class SalesRepository {
       LIMIT 1
     `;
 
-    const result = await db.query(query, [`${prefix}%`]);
+    const result = client
+      ? await client.query(query, [`${prefix}%`])
+      : await db.query(query, [`${prefix}%`]);
 
     let nextNumber = 1;
     if (result.rows.length > 0) {

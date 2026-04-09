@@ -1590,11 +1590,19 @@ export class ProductionBatchesRepository {
 
   async consumeStock(batchId: string, userId: string): Promise<void> {
     return await db.transaction(async (client) => {
-      // Buscar o lote e seus componentes
-      const batch = await this.findById(batchId);
-      if (!batch) {
+      // Buscar o lote usando o MESMO client da transação (evita deadlock com pool max:1)
+      const batchResult = await client.query(
+        'SELECT product_id, quantity_planned, batch_number FROM production_batches WHERE id = $1',
+        [batchId]
+      );
+      if (batchResult.rows.length === 0) {
         throw new Error('Lote não encontrado');
       }
+      const batch = {
+        productId: batchResult.rows[0].product_id,
+        quantityPlanned: Number(batchResult.rows[0].quantity_planned),
+        batchNumber: batchResult.rows[0].batch_number,
+      };
 
       // Buscar BOM do produto
       const bomQuery = 'SELECT part_id, quantity FROM product_parts WHERE product_id = $1';
@@ -1653,10 +1661,18 @@ export class ProductionBatchesRepository {
 
   async addFinishedToStock(batchId: string, quantity: number, userId: string): Promise<void> {
     return await db.transaction(async (client) => {
-      const batch = await this.findById(batchId);
-      if (!batch) {
+      // Buscar o lote usando o MESMO client da transação (evita deadlock com pool max:1)
+      const batchResult = await client.query(
+        'SELECT product_id, batch_number FROM production_batches WHERE id = $1',
+        [batchId]
+      );
+      if (batchResult.rows.length === 0) {
         throw new Error('Lote não encontrado');
       }
+      const batch = {
+        productId: batchResult.rows[0].product_id,
+        batchNumber: batchResult.rows[0].batch_number,
+      };
 
       // Buscar estoque atual do produto
       const productQuery = 'SELECT current_stock FROM products WHERE id = $1';
