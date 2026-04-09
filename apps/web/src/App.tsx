@@ -76,6 +76,10 @@ import { DigitalFabricationDetailPage } from './pages/DigitalFabricationDetailPa
 import { FabricationMachinesPage } from './pages/FabricationMachinesPage';
 import { MobileAppPage } from './pages/MobileAppPage';
 
+// Sales Orders (Pedidos de Venda)
+import { SalesOrdersPage } from './pages/SalesOrdersPage';
+import { SalesOrderConvertPage } from './pages/SalesOrderConvertPage';
+
 // Collections, Commissions
 import { CollectionsPage } from './pages/CollectionsPage';
 import { CommissionsPage } from './pages/CommissionsPage';
@@ -117,6 +121,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       { path: '/customers', page: AppPage.CUSTOMERS },
       { path: '/quotes', page: AppPage.QUOTES },
       { path: '/sales', page: AppPage.SALES },
+      { path: '/sales-orders', page: AppPage.SALES },
       { path: '/sellers', page: 'sellers' as AppPage },
       { path: '/service-orders', page: AppPage.SERVICE_ORDERS },
       { path: '/suppliers', page: AppPage.SUPPLIERS },
@@ -338,6 +343,27 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <SaleDetailPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Sales Orders (Pedidos de Venda) */}
+      <Route
+        path="/sales-orders"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SalesOrdersPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-orders/:id/convert"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SalesOrderConvertPage />
             </MainLayout>
           </ProtectedRoute>
         }

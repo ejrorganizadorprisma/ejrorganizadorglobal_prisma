@@ -106,6 +106,7 @@ function ConfigTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editSales, setEditSales] = useState(0);
   const [editCollections, setEditCollections] = useState(0);
+  const [editByProduct, setEditByProduct] = useState(false);
 
   // Merge sellers with existing configs
   const configMap = new Map<string, SellerCommissionConfig>();
@@ -119,6 +120,7 @@ function ConfigTab() {
       sellerEmail: s.email,
       commissionOnSales: existing?.commissionOnSales ?? 0,
       commissionOnCollections: existing?.commissionOnCollections ?? 0,
+      commissionByProduct: existing?.commissionByProduct ?? false,
       isActive: existing?.isActive ?? true,
       hasConfig: !!existing,
     };
@@ -128,6 +130,7 @@ function ConfigTab() {
     setEditingId(s.sellerId);
     setEditSales(s.commissionOnSales);
     setEditCollections(s.commissionOnCollections);
+    setEditByProduct(s.commissionByProduct);
   };
 
   const handleSave = async (sellerId: string) => {
@@ -136,6 +139,7 @@ function ConfigTab() {
         sellerId,
         commissionOnSales: editSales,
         commissionOnCollections: editCollections,
+        commissionByProduct: editByProduct,
       });
       toast.success('Configuracao atualizada');
       setEditingId(null);
@@ -166,6 +170,7 @@ function ConfigTab() {
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Email</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">% Vendas</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">% Cobrancas</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Por Produto</th>
               <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acoes</th>
             </tr>
@@ -205,6 +210,23 @@ function ConfigTab() {
                       />
                     ) : (
                       <span className={s.hasConfig ? 'text-gray-900' : 'text-gray-400'}>{s.commissionOnCollections}%</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {isEditing ? (
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editByProduct}
+                          onChange={(e) => setEditByProduct(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-xs text-gray-600">Sim</span>
+                      </label>
+                    ) : (
+                      <span className={`text-xs font-medium ${s.commissionByProduct ? 'text-purple-600' : 'text-gray-400'}`}>
+                        {s.commissionByProduct ? 'Sim' : 'Nao'}
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -250,7 +272,7 @@ function ConfigTab() {
             })}
             {mergedSellers.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
                   Nenhum vendedor encontrado. Cadastre vendedores com role SALESPERSON primeiro.
                 </td>
               </tr>

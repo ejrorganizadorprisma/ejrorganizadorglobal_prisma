@@ -15,6 +15,7 @@ import {
   UserCog,
   Shield,
   ClipboardEdit,
+  ClipboardList,
   Database,
   DollarSign,
   Wallet,
@@ -133,6 +134,12 @@ const menuSections: MenuSection[] = [
           { name: 'Lista de Orçamentos', path: '/quotes', icon: FileText, page: 'quotes' as AppPage },
           { name: 'Novo Orçamento', path: '/quotes/new', icon: Plus, page: 'quotes' as AppPage },
         ],
+      },
+      {
+        name: 'Pedidos de Venda',
+        path: '/sales-orders',
+        icon: ClipboardList,
+        page: 'sales' as AppPage,
       },
       {
         name: 'Vendas',

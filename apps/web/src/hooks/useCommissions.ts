@@ -8,6 +8,7 @@ export interface SellerCommissionConfig {
   sellerEmail: string;
   commissionOnSales: number;
   commissionOnCollections: number;
+  commissionByProduct: boolean;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -86,14 +87,17 @@ export function useUpdateCommissionConfig() {
       sellerId,
       commissionOnSales,
       commissionOnCollections,
+      commissionByProduct,
     }: {
       sellerId: string;
       commissionOnSales: number;
       commissionOnCollections: number;
+      commissionByProduct?: boolean;
     }) => {
       const response = await api.put(`/commissions/config/${sellerId}`, {
         commissionOnSales,
         commissionOnCollections,
+        commissionByProduct,
       });
       return response.data.data as SellerCommissionConfig;
     },
