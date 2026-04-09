@@ -271,8 +271,8 @@ export class CollectionsRepository {
             const collection = collectionResult.rows[0];
 
             await client.query(
-              `INSERT INTO commission_entries (seller_id, source_type, source_id, base_amount, commission_rate, commission_amount)
-               VALUES ($1, 'COLLECTION', $2, $3, $4, ROUND($3 * $4 / 100))`,
+              `INSERT INTO commission_entries (seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, calculation_mode, status)
+               VALUES ($1, 'COLLECTION', $2, $3, $4, ROUND($3 * $4 / 100), 'COLLECTION', 'PENDING')`,
               [collection.seller_id, id, collection.amount, rate]
             );
           }

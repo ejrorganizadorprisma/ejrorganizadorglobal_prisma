@@ -22,6 +22,9 @@ export * from './models/quote';
 // Sale
 export * from './models/sale';
 
+// Sales Order (Pedido de Venda)
+export * from './models/sales-order';
+
 // Purchase Request
 export * from './models/purchase-request';
 

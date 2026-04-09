@@ -6,12 +6,12 @@ import { db } from '../config/database';
 import {
   SaleStatus,
   CommissionSourceType,
+  CommissionCalculationMode,
   type CreateSaleDTO,
   type UpdateSaleDTO,
   type SaleFilters,
   type CreateSalePaymentDTO,
   type UpdateSalePaymentDTO,
-  type PaymentMethod,
 } from '@ejr/shared-types';
 import { CustomersRepository } from '../repositories/customers.repository';
 
@@ -40,10 +40,20 @@ export class SalesService {
   }
 
   /**
-   * Criar nova venda
+   * Criar nova venda.
+   *
+   * A partir do refactor Pedido→Venda, vendedores (SALESPERSON) NÃO criam
+   * vendas diretamente — eles criam Pedidos (POST /sales-orders). Apenas
+   * admin/faturamento pode criar venda, normalmente através de
+   * `sales-orders.service.convertToSale`.
    */
   async create(data: CreateSaleDTO, userId: string, userRole?: string) {
-    const isMobileSeller = userRole === 'SALESPERSON';
+    if (userRole === 'SALESPERSON') {
+      throw new BadRequestError(
+        'Atualize o app. Vendedores agora registram Pedidos, não vendas. ' +
+        'Atualize para a versão mais recente para continuar vendendo.'
+      );
+    }
 
     // Validações
     if (!data.customerId) {
@@ -95,17 +105,9 @@ export class SalesService {
     }
 
     // Validar método de pagamento autorizado para o cliente
-    // Vendedor mobile vende em campo — confianca no vendedor (regra apenas para web)
     const customer = await this.customersRepository.findById(data.customerId);
 
-    // Vendedor mobile só pode registrar vendas para clientes APROVADOS
-    if (isMobileSeller && customer && customer.approvalStatus !== 'APPROVED') {
-      throw new BadRequestError(
-        'Cliente não aprovado. Aguarde a aprovação do administrador antes de registrar vendas.'
-      );
-    }
-
-    if (!isMobileSeller && customer && customer.allowedPaymentMethods) {
+    if (customer && customer.allowedPaymentMethods) {
       if (!customer.allowedPaymentMethods.includes(data.paymentMethod)) {
         throw new BadRequestError(
           `Método de pagamento "${data.paymentMethod}" não autorizado para este cliente`
@@ -113,34 +115,55 @@ export class SalesService {
       }
     }
 
-    // Validar estoque antes de vender (vendedor mobile pode estourar estoque
-    // pois a venda ja aconteceu fisicamente em campo — apenas existencia do produto e checada)
+    // Validar estoque antes de vender
     for (const item of data.items) {
       if (item.itemType === 'PRODUCT' && item.productId) {
         const result = await db.query('SELECT current_stock, name FROM products WHERE id = $1', [item.productId]);
         if (result.rows.length === 0) {
           throw new BadRequestError(`Produto não encontrado: ${item.productId}`);
         }
-        if (!isMobileSeller && result.rows[0].current_stock < item.quantity) {
+        if (result.rows[0].current_stock < item.quantity) {
           throw new BadRequestError(`Estoque insuficiente para "${result.rows[0].name}": disponível ${result.rows[0].current_stock}, solicitado ${item.quantity}`);
         }
       }
     }
 
-    const sale = await this.repository.create(data, userId, isMobileSeller);
+    // ─── Validação de comissão por produto (ANTES de criar a venda) ───
+    // Se o vendedor tem commissionByProduct=true, TODOS os itens PRODUCT
+    // devem ter products.commission_rate definido. Caso contrário BLOQUEIA
+    // o faturamento para o admin definir a taxa primeiro.
+    const commissionOwnerId = data.sellerId || userId;
+    const commissionConfig = await this.commissionsRepository.getConfig(commissionOwnerId);
+    if (commissionConfig && commissionConfig.active && commissionConfig.commissionByProduct) {
+      for (const item of data.items) {
+        if (item.itemType === 'PRODUCT' && item.productId) {
+          const r = await db.query(
+            'SELECT commission_rate, name FROM products WHERE id = $1',
+            [item.productId]
+          );
+          if (!r.rows[0] || r.rows[0].commission_rate == null) {
+            const productName = r.rows[0]?.name || item.productId;
+            throw new BadRequestError(
+              `Produto "${productName}" não possui taxa de comissão definida. ` +
+              'Defina a taxa no cadastro do produto antes de faturar.'
+            );
+          }
+        }
+      }
+    }
 
-    // ─── Post-creation hooks (GPS + Commissions) ───
-    // These run after the sale is committed; failures are logged but do not rollback the sale.
+    const sale = await this.repository.create(data, userId, false);
+
+    // ─── Post-creation hooks ───
+    // commissionOwnerId e commissionConfig já calculados acima.
     try {
-      // GPS event
+      // GPS event (quando o admin fatura informando coordenadas; raro)
       if (data.latitude != null && data.longitude != null) {
-        // Store coordinates on the sale record
         await db.query(
           'UPDATE sales SET latitude = $1, longitude = $2 WHERE id = $3',
           [data.latitude, data.longitude, sale.id]
         );
 
-        // Insert gps_event
         const gpsId = `gps-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         await db.query(
           `INSERT INTO gps_events (id, user_id, event_type, event_id, latitude, longitude)
@@ -149,22 +172,89 @@ export class SalesService {
         );
       }
 
-      // Commission entry
-      const config = await this.commissionsRepository.getConfig(userId);
-      if (config && config.active && config.commissionOnSales > 0) {
-        await this.commissionsRepository.createEntry(
-          userId,
-          CommissionSourceType.SALE,
-          sale.id,
-          sale.total,
-          config.commissionOnSales
-        );
-      }
+      // ─── Commission: 3 modos ──────────────────────────────
+      // SALE_FIXED:      % fixo do vendedor sobre total da venda
+      // SALE_BY_PRODUCT: soma de (total_item × product.commission_rate / 100)
+      // COLLECTION:      gerado em collections.repository.approve(), não aqui
+      // commissionConfig já foi buscada acima (pré-validação), reutilizada aqui.
+      await this.createSaleCommission(commissionOwnerId, sale.id, data.items, sale.total, commissionConfig);
     } catch (hookError) {
       console.error('Erro nos hooks pós-criação de venda (GPS/Comissão):', hookError);
     }
 
     return sale;
+  }
+
+  /**
+   * Cria lançamento(s) de comissão sobre a venda, respeitando o modo configurado:
+   *
+   * - commissionByProduct = false → SALE_FIXED (1 entry, % fixo sobre total)
+   * - commissionByProduct = true  → SALE_BY_PRODUCT (1 entry, valor = Σ item×taxa)
+   *
+   * IMPORTANTE: quando byProduct, bloqueia se algum item PRODUCT não possuir
+   * products.commission_rate definido.
+   */
+  private async createSaleCommission(
+    sellerId: string,
+    saleId: string,
+    items: CreateSaleDTO['items'],
+    saleTotal: number,
+    config?: { active: boolean; commissionByProduct: boolean; commissionOnSales: number } | null
+  ) {
+    if (!config || !config.active) return;
+
+    if (config.commissionByProduct) {
+      // ── SALE_BY_PRODUCT ──
+      // A validação de commission_rate já ocorreu em create() antes de criar a venda.
+      // Calcular comissão item a item
+      let totalCommission = 0;
+      let weightedBase = 0;
+      for (const item of items) {
+        const itemTotal = item.quantity * item.unitPrice - (item.discount || 0);
+        if (item.itemType === 'PRODUCT' && item.productId) {
+          const r = await db.query(
+            'SELECT commission_rate FROM products WHERE id = $1',
+            [item.productId]
+          );
+          const rate = parseFloat(r.rows[0].commission_rate);
+          totalCommission += Math.round(itemTotal * rate / 100);
+          weightedBase += itemTotal;
+        } else if (item.itemType === 'SERVICE') {
+          // Serviços usam a taxa fixa do vendedor como fallback
+          if (config.commissionOnSales > 0) {
+            totalCommission += Math.round(itemTotal * config.commissionOnSales / 100);
+            weightedBase += itemTotal;
+          }
+        }
+      }
+
+      if (totalCommission > 0) {
+        // Taxa efetiva ponderada para exibição
+        const effectiveRate = weightedBase > 0
+          ? Math.round((totalCommission / weightedBase) * 10000) / 100
+          : 0;
+
+        // Inserimos manualmente pois createEntry calcula baseAmount × rate
+        const entryId = `coment-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        await db.query(
+          `INSERT INTO commission_entries
+             (id, seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, calculation_mode, status)
+           VALUES ($1, $2, 'SALE', $3, $4, $5, $6, $7, 'PENDING')`,
+          [entryId, sellerId, saleId, saleTotal, effectiveRate, totalCommission, CommissionCalculationMode.SALE_BY_PRODUCT]
+        );
+      }
+    } else if (config.commissionOnSales > 0) {
+      // ── SALE_FIXED ──
+      await this.commissionsRepository.createEntry(
+        sellerId,
+        CommissionSourceType.SALE,
+        saleId,
+        saleTotal,
+        config.commissionOnSales,
+        CommissionCalculationMode.SALE_FIXED
+      );
+    }
+    // COLLECTION mode: handled entirely in collections.repository.approve()
   }
 
   /**
@@ -225,65 +315,22 @@ export class SalesService {
   }
 
   /**
-   * Converter orçamento em venda
+   * @deprecated Orçamento agora vira Pedido, não Venda direta.
+   * Use POST /sales-orders/convert-from-quote para criar um Pedido a partir
+   * do orçamento, e em seguida POST /sales-orders/:id/convert-to-sale para
+   * efetivar a venda.
    */
   async convertFromQuote(
-    quoteId: string,
-    conversionData: {
-      paymentMethod: PaymentMethod;
-      installments?: number;
-      saleDate?: string;
-      dueDate?: string;
-      notes?: string;
-      internalNotes?: string;
-    },
-    userId: string,
-    userRole?: string
-  ) {
-    // Buscar orçamento com itens
-    const quote = await this.quotesRepository.findById(quoteId);
-    if (!quote) {
-      throw new NotFoundError('Orçamento não encontrado');
-    }
-
-    // Validar status
-    if (quote.status === 'CONVERTED') {
-      throw new BadRequestError('Este orçamento já foi convertido em venda');
-    }
-
-    if (quote.status !== 'APPROVED') {
-      throw new BadRequestError('Apenas orçamentos aprovados podem ser convertidos em venda');
-    }
-
-    // Validar que tem itens
-    if (!quote.items || quote.items.length === 0) {
-      throw new BadRequestError('Orçamento sem itens não pode ser convertido');
-    }
-
-    // Montar DTO de criação de venda a partir do orçamento
-    const saleData: CreateSaleDTO = {
-      customerId: quote.customerId,
-      quoteId: quote.id,
-      saleDate: conversionData.saleDate || new Date().toISOString().split('T')[0],
-      dueDate: conversionData.dueDate || undefined,
-      paymentMethod: conversionData.paymentMethod,
-      installments: conversionData.installments || 1,
-      discount: quote.discount || 0,
-      notes: conversionData.notes || quote.notes || undefined,
-      internalNotes: conversionData.internalNotes || undefined,
-      items: quote.items.map((item) => ({
-        itemType: item.itemType as 'PRODUCT' | 'SERVICE',
-        productId: item.productId || undefined,
-        serviceName: item.serviceName || undefined,
-        serviceDescription: item.serviceDescription || undefined,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        discount: 0,
-      })),
-    };
-
-    // Usar o fluxo normal de criação (valida estoque, cria parcelas, etc.)
-    return this.create(saleData, userId, userRole);
+    _quoteId: string,
+    _conversionData: unknown,
+    _userId: string,
+    _userRole?: string
+  ): Promise<never> {
+    throw new BadRequestError(
+      'Esta rota foi removida. Orçamentos agora são convertidos em Pedido ' +
+      '(POST /sales-orders/convert-from-quote) e, em seguida, o Pedido é ' +
+      'faturado como Venda (POST /sales-orders/:id/convert-to-sale).'
+    );
   }
 
   /**

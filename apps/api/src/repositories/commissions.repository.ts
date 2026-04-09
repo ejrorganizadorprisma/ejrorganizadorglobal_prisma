@@ -80,15 +80,16 @@ export class CommissionsRepository {
   async upsertConfig(sellerId: string, dto: UpdateCommissionConfigDTO, createdBy: string) {
     const id = `comcfg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const result = await db.query(
-      `INSERT INTO seller_commission_configs (id, seller_id, commission_on_sales, commission_on_collections, active, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO seller_commission_configs (id, seller_id, commission_on_sales, commission_on_collections, commission_by_product, active, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (seller_id) DO UPDATE SET
          commission_on_sales = EXCLUDED.commission_on_sales,
          commission_on_collections = EXCLUDED.commission_on_collections,
+         commission_by_product = COALESCE(EXCLUDED.commission_by_product, seller_commission_configs.commission_by_product),
          active = COALESCE(EXCLUDED.active, seller_commission_configs.active),
          updated_at = NOW()
        RETURNING *`,
-      [id, sellerId, dto.commissionOnSales, dto.commissionOnCollections, dto.active ?? true, createdBy]
+      [id, sellerId, dto.commissionOnSales, dto.commissionOnCollections, dto.commissionByProduct ?? false, dto.active ?? true, createdBy]
     );
     return this.mapConfig(result.rows[0]);
   }
@@ -107,24 +108,33 @@ export class CommissionsRepository {
   }
 
   /**
-   * Create a commission entry
+   * Create a commission entry.
+   *
+   * @param calculationMode — optional; registra como esta comissão foi calculada.
+   *   Quando omitido, será inferido do sourceType (SALE → SALE_FIXED, COLLECTION → COLLECTION).
+   * @param client — optional pg client for running inside a transaction.
    */
   async createEntry(
     sellerId: string,
     sourceType: CommissionSourceType,
     sourceId: string,
     baseAmount: number,
-    commissionRate: number
+    commissionRate: number,
+    calculationMode?: string,
+    client?: any
   ) {
     const id = `coment-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const commissionAmount = Math.round(baseAmount * commissionRate / 100);
+    const mode = calculationMode || (sourceType === 'COLLECTION' ? 'COLLECTION' : 'SALE_FIXED');
 
-    const result = await db.query(
-      `INSERT INTO commission_entries (id, seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING')
-       RETURNING *`,
-      [id, sellerId, sourceType, sourceId, baseAmount, commissionRate, commissionAmount]
-    );
+    const sql = `INSERT INTO commission_entries (id, seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, calculation_mode, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'PENDING')
+       RETURNING *`;
+    const params = [id, sellerId, sourceType, sourceId, baseAmount, commissionRate, commissionAmount, mode];
+
+    const result = client
+      ? await client.query(sql, params)
+      : await db.query(sql, params);
     return this.mapEntry(result.rows[0]);
   }
 
@@ -509,7 +519,7 @@ export class CommissionsRepository {
 
     // Fetch config (may not exist)
     const configResult = await db.query(
-      `SELECT commission_on_sales, commission_on_collections
+      `SELECT commission_on_sales, commission_on_collections, commission_by_product
        FROM seller_commission_configs
        WHERE seller_id = $1`,
       [sellerId]
@@ -746,6 +756,7 @@ export class CommissionsRepository {
       sellerId: row.seller_id,
       commissionOnSales: parseFloat(row.commission_on_sales),
       commissionOnCollections: parseFloat(row.commission_on_collections),
+      commissionByProduct: row.commission_by_product ?? false,
       active: row.active,
       createdBy: row.created_by,
       createdAt: row.created_at,
@@ -765,6 +776,7 @@ export class CommissionsRepository {
       baseAmount: row.base_amount,
       commissionRate: parseFloat(row.commission_rate),
       commissionAmount: row.commission_amount,
+      calculationMode: row.calculation_mode || undefined,
       status: row.status,
       settlementId: row.settlement_id || undefined,
       createdAt: row.created_at,

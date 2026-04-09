@@ -64,7 +64,9 @@ export class SalesRepository {
     }
 
     if (filters.sellerId) {
-      conditions.push(`s.created_by = $${paramIndex}`);
+      // Sales migradas pre-refactor ainda nao tem seller_id preenchido; COALESCE
+      // garante compatibilidade: filtra pelo vendedor novo OU, se null, pelo createdBy.
+      conditions.push(`COALESCE(s.seller_id, s.created_by) = $${paramIndex}`);
       queryParams.push(filters.sellerId);
       paramIndex++;
     }
@@ -92,10 +94,17 @@ export class SalesRepository {
         c.document as customer_document,
         u.id as created_by_user_id,
         u.name as created_by_user_name,
-        u.email as created_by_user_email
+        u.email as created_by_user_email,
+        sel.id as seller_user_id,
+        sel.name as seller_user_name,
+        sel.email as seller_user_email,
+        so.id as sales_order_id_ref,
+        so.order_number as sales_order_number_ref
       FROM sales s
       LEFT JOIN customers c ON s.customer_id = c.id
       LEFT JOIN users u ON s.created_by = u.id
+      LEFT JOIN users sel ON s.seller_id = sel.id
+      LEFT JOIN sales_orders so ON s.sales_order_id = so.id
       ${whereClause}
       ORDER BY s.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -151,6 +160,15 @@ export class SalesRepository {
             name: row.created_by_user_name,
             email: row.created_by_user_email,
           } : null,
+          seller_user: row.seller_user_id ? {
+            id: row.seller_user_id,
+            name: row.seller_user_name,
+            email: row.seller_user_email,
+          } : null,
+          sales_order_ref: row.sales_order_id_ref ? {
+            id: row.sales_order_id_ref,
+            order_number: row.sales_order_number_ref,
+          } : null,
         });
       })
     );
@@ -169,10 +187,17 @@ export class SalesRepository {
       SELECT
         s.*,
         row_to_json(c.*) as customer,
-        row_to_json(u.*) as created_by_user
+        row_to_json(u.*) as created_by_user,
+        row_to_json(sel.*) as seller_user,
+        CASE WHEN so.id IS NOT NULL
+             THEN json_build_object('id', so.id, 'order_number', so.order_number)
+             ELSE NULL
+        END as sales_order_ref
       FROM sales s
       LEFT JOIN customers c ON s.customer_id = c.id
       LEFT JOIN users u ON s.created_by = u.id
+      LEFT JOIN users sel ON s.seller_id = sel.id
+      LEFT JOIN sales_orders so ON s.sales_order_id = so.id
       WHERE s.id = $1
     `;
 
@@ -235,13 +260,26 @@ export class SalesRepository {
       // Gerar ID único
       const id = `sale-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-      // Inserir venda
+      // Resolver seller_id: usa o do DTO (quando convertido de pedido), senão fallback para createdBy
+      const sellerId = saleData.sellerId || userId;
+
+      // Inserir venda (inclui sales_order_id, seller_id e frete/logística)
       const insertSaleQuery = `
         INSERT INTO sales (
-          id, sale_number, customer_id, quote_id, status, sale_date, due_date,
+          id, sale_number, customer_id, quote_id, sales_order_id, seller_id,
+          status, sale_date, due_date,
           subtotal, discount, total, total_paid, total_pending, installments,
-          notes, internal_notes, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          notes, internal_notes, created_by,
+          shipping_method, shipping_cost, carrier_name, tracking_code,
+          delivery_address, delivery_status, shipping_notes
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9,
+          $10, $11, $12, $13, $14, $15,
+          $16, $17, $18,
+          $19, $20, $21, $22,
+          $23, $24, $25
+        )
         RETURNING *
       `;
 
@@ -250,6 +288,8 @@ export class SalesRepository {
         saleNumber,
         saleData.customerId,
         saleData.quoteId || null,
+        saleData.salesOrderId || null,
+        sellerId,
         'PENDING',
         saleData.saleDate,
         saleData.dueDate || null,
@@ -262,6 +302,13 @@ export class SalesRepository {
         saleData.notes || null,
         saleData.internalNotes || null,
         userId,
+        saleData.shippingMethod || null,
+        saleData.shippingCost ?? 0,
+        saleData.carrierName || null,
+        saleData.trackingCode || null,
+        saleData.deliveryAddress ? JSON.stringify(saleData.deliveryAddress) : null,
+        saleData.deliveryStatus || null,
+        saleData.shippingNotes || null,
       ]);
 
       const createdSale = saleResult.rows[0];
@@ -378,37 +425,8 @@ export class SalesRepository {
         }
       }
 
-      // Criar commission entry se vendedor tem config de comissão sobre vendas
-      // base_amount = total da venda (em centavos). commission_amount calculado em SQL.
-      // Falhas em tabelas inexistentes (42P01) são silenciosamente ignoradas para
-      // não bloquear a criação da venda quando o módulo de comissões não está provisionado.
-      try {
-        const configResult = await client.query(
-          `SELECT commission_on_sales FROM seller_commission_configs
-           WHERE seller_id = $1 AND active = true`,
-          [userId]
-        );
-
-        if (configResult.rows.length > 0) {
-          const rate = parseFloat(configResult.rows[0].commission_on_sales);
-          if (rate > 0) {
-            try {
-              await client.query(
-                `INSERT INTO commission_entries (seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, status)
-                 VALUES ($1, 'SALE', $2, $3, $4, ROUND($3 * $4 / 100), 'PENDING')`,
-                [userId, createdSale.id, total, rate]
-              );
-            } catch (insertErr: any) {
-              if (insertErr?.code !== '42P01') throw insertErr;
-              // commission_entries table missing, ignore
-            }
-          }
-        }
-      } catch (configErr: any) {
-        if (configErr?.code !== '42P01') throw configErr;
-        // seller_commission_configs table missing, ignore
-      }
-
+      // A criação de commission_entries ficou a cargo do SalesService (fase 3),
+      // onde os 3 modos (SALE_FIXED, SALE_BY_PRODUCT, COLLECTION) são resolvidos.
       return createdSale.id as string;
     });
 
@@ -447,6 +465,47 @@ export class SalesRepository {
     if (saleData.internalNotes !== undefined) {
       updates.push(`internal_notes = $${paramIndex}`);
       values.push(saleData.internalNotes);
+      paramIndex++;
+    }
+    // Frete / logistica
+    if (saleData.shippingMethod !== undefined) {
+      updates.push(`shipping_method = $${paramIndex}`);
+      values.push(saleData.shippingMethod);
+      paramIndex++;
+    }
+    if (saleData.shippingCost !== undefined) {
+      updates.push(`shipping_cost = $${paramIndex}`);
+      values.push(saleData.shippingCost);
+      paramIndex++;
+    }
+    if (saleData.carrierName !== undefined) {
+      updates.push(`carrier_name = $${paramIndex}`);
+      values.push(saleData.carrierName);
+      paramIndex++;
+    }
+    if (saleData.trackingCode !== undefined) {
+      updates.push(`tracking_code = $${paramIndex}`);
+      values.push(saleData.trackingCode);
+      paramIndex++;
+    }
+    if (saleData.deliveryAddress !== undefined) {
+      updates.push(`delivery_address = $${paramIndex}`);
+      values.push(saleData.deliveryAddress ? JSON.stringify(saleData.deliveryAddress) : null);
+      paramIndex++;
+    }
+    if (saleData.deliveryStatus !== undefined) {
+      updates.push(`delivery_status = $${paramIndex}`);
+      values.push(saleData.deliveryStatus);
+      paramIndex++;
+    }
+    if (saleData.deliveredAt !== undefined) {
+      updates.push(`delivered_at = $${paramIndex}`);
+      values.push(saleData.deliveredAt);
+      paramIndex++;
+    }
+    if (saleData.shippingNotes !== undefined) {
+      updates.push(`shipping_notes = $${paramIndex}`);
+      values.push(saleData.shippingNotes);
       paramIndex++;
     }
 
@@ -806,11 +865,22 @@ export class SalesRepository {
    * Mapear dados do banco para Sale
    */
   private mapToSale(data: any): Sale {
+    // delivery_address vem como JSONB do Postgres — pode estar parseado ou como string
+    let deliveryAddress: any = undefined;
+    if (data.delivery_address) {
+      deliveryAddress =
+        typeof data.delivery_address === 'string'
+          ? JSON.parse(data.delivery_address)
+          : data.delivery_address;
+    }
+
     return {
       id: data.id,
       saleNumber: data.sale_number,
       customerId: data.customer_id,
       quoteId: data.quote_id || undefined,
+      salesOrderId: data.sales_order_id || undefined,
+      sellerId: data.seller_id || undefined,
       status: data.status,
       saleDate: data.sale_date,
       dueDate: data.due_date || undefined,
@@ -822,6 +892,15 @@ export class SalesRepository {
       installments: data.installments,
       notes: data.notes || undefined,
       internalNotes: data.internal_notes || undefined,
+      // Frete / logistica
+      shippingMethod: data.shipping_method || undefined,
+      shippingCost: data.shipping_cost ?? undefined,
+      carrierName: data.carrier_name || undefined,
+      trackingCode: data.tracking_code || undefined,
+      deliveryAddress,
+      deliveryStatus: data.delivery_status || undefined,
+      deliveredAt: data.delivered_at || undefined,
+      shippingNotes: data.shipping_notes || undefined,
       createdBy: data.created_by || undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
@@ -845,6 +924,19 @@ export class SalesRepository {
             id: data.created_by_user.id,
             name: data.created_by_user.name,
             email: data.created_by_user.email,
+          }
+        : undefined,
+      seller: data.seller_user
+        ? {
+            id: data.seller_user.id,
+            name: data.seller_user.name,
+            email: data.seller_user.email,
+          }
+        : undefined,
+      salesOrder: data.sales_order_ref
+        ? {
+            id: data.sales_order_ref.id,
+            orderNumber: data.sales_order_ref.order_number,
           }
         : undefined,
     };

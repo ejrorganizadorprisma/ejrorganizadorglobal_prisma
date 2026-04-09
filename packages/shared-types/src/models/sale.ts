@@ -26,6 +26,31 @@ export enum PaymentStatus {
   CANCELLED = 'CANCELLED', // Cancelado
 }
 
+// Frete / logística
+export enum ShippingMethod {
+  PICKUP = 'PICKUP',     // Retirada no balcão
+  DELIVERY = 'DELIVERY', // Entrega própria
+  CARRIER = 'CARRIER',   // Transportadora
+}
+
+export enum DeliveryStatus {
+  PENDING = 'PENDING',
+  IN_TRANSIT = 'IN_TRANSIT',
+  DELIVERED = 'DELIVERED',
+  RETURNED = 'RETURNED',
+}
+
+export interface DeliveryAddress {
+  street: string;
+  number?: string;
+  complement?: string;
+  district?: string;
+  city: string;
+  state?: string;
+  zipCode?: string;
+  reference?: string;
+}
+
 export interface SaleItem {
   id: string;
   saleId: string;
@@ -64,6 +89,8 @@ export interface Sale {
   saleNumber: string; // VND-0001, VND-0002...
   customerId: string;
   quoteId?: string; // Referência ao orçamento (se foi convertido)
+  salesOrderId?: string; // Referência ao Pedido que originou esta venda
+  sellerId?: string; // Vendedor responsável (dono da comissão) — pode diferir de createdBy
   status: SaleStatus;
   saleDate: string;
   dueDate?: string;
@@ -75,6 +102,15 @@ export interface Sale {
   installments: number; // Número de parcelas
   notes?: string;
   internalNotes?: string;
+  // Frete / logística (preenchido por quem fatura)
+  shippingMethod?: ShippingMethod;
+  shippingCost?: number; // centavos
+  carrierName?: string;
+  trackingCode?: string;
+  deliveryAddress?: DeliveryAddress;
+  deliveryStatus?: DeliveryStatus;
+  deliveredAt?: string;
+  shippingNotes?: string;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -94,11 +130,22 @@ export interface Sale {
     name: string;
     email: string;
   };
+  seller?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  salesOrder?: {
+    id: string;
+    orderNumber: string;
+  };
 }
 
 export interface CreateSaleDTO {
   customerId: string;
   quoteId?: string;
+  salesOrderId?: string; // Quando a venda é criada a partir de um pedido
+  sellerId?: string;     // Vendedor que receberá comissão (se omitido, = createdBy)
   saleDate: string;
   dueDate?: string;
   items: Array<{
@@ -117,6 +164,14 @@ export interface CreateSaleDTO {
   internalNotes?: string;
   latitude?: number;
   longitude?: number;
+  // Frete / logística
+  shippingMethod?: ShippingMethod;
+  shippingCost?: number;
+  carrierName?: string;
+  trackingCode?: string;
+  deliveryAddress?: DeliveryAddress;
+  deliveryStatus?: DeliveryStatus;
+  shippingNotes?: string;
 }
 
 export interface UpdateSaleDTO {
@@ -124,6 +179,15 @@ export interface UpdateSaleDTO {
   dueDate?: string;
   notes?: string;
   internalNotes?: string;
+  // Frete / logística (atualização isolada da entrega)
+  shippingMethod?: ShippingMethod;
+  shippingCost?: number;
+  carrierName?: string;
+  trackingCode?: string;
+  deliveryAddress?: DeliveryAddress;
+  deliveryStatus?: DeliveryStatus;
+  deliveredAt?: string;
+  shippingNotes?: string;
 }
 
 export interface CreateSalePaymentDTO {

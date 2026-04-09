@@ -49,6 +49,8 @@ export interface Product {
   spaceId?: string;
   shelfId?: string;
   sectionId?: string;
+  // Comissão específica do produto (usada quando vendedor está em modo commissionByProduct)
+  commissionRate?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -82,6 +84,7 @@ export const CreateProductSchema = z.object({
   spaceId: z.string().optional(),
   shelfId: z.string().optional(),
   sectionId: z.string().optional(),
+  commissionRate: z.number().min(0).max(100).nullable().optional(),
 });
 
 export const UpdateProductSchema = z.object({
@@ -113,6 +116,7 @@ export const UpdateProductSchema = z.object({
   spaceId: z.string().optional().nullable(),
   shelfId: z.string().optional().nullable(),
   sectionId: z.string().optional().nullable(),
+  commissionRate: z.number().min(0).max(100).nullable().optional(),
 });
 
 export type CreateProductDTO = z.infer<typeof CreateProductSchema>;

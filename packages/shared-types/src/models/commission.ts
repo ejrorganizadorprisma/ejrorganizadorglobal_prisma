@@ -5,6 +5,15 @@ export enum CommissionSourceType {
   COLLECTION = 'COLLECTION',
 }
 
+// Como a comissão foi calculada neste lançamento específico.
+// Registrado para histórico — uma mudança posterior na configuração
+// do vendedor não altera lançamentos antigos.
+export enum CommissionCalculationMode {
+  SALE_FIXED = 'SALE_FIXED',           // % fixo do vendedor sobre o total da venda
+  SALE_BY_PRODUCT = 'SALE_BY_PRODUCT', // Soma de (item × % do produto)
+  COLLECTION = 'COLLECTION',           // % do vendedor sobre o valor cobrado aprovado
+}
+
 export enum CommissionEntryStatus {
   PENDING = 'PENDING',
   SETTLED = 'SETTLED',
@@ -22,6 +31,10 @@ export interface SellerCommissionConfig {
   sellerId: string;
   commissionOnSales: number; // percentage (e.g. 5.00)
   commissionOnCollections: number;
+  // Quando true, a comissão sobre venda usa products.commissionRate
+  // de cada item em vez do percentual fixo commissionOnSales.
+  // O faturamento é bloqueado se algum item for produto sem commissionRate definido.
+  commissionByProduct: boolean;
   active: boolean;
   createdBy: string;
   createdAt: string;
@@ -35,8 +48,9 @@ export interface CommissionEntry {
   sourceType: CommissionSourceType;
   sourceId: string;
   baseAmount: number; // centavos
-  commissionRate: number; // percentage
+  commissionRate: number; // percentage aplicado
   commissionAmount: number; // centavos
+  calculationMode?: CommissionCalculationMode; // modo usado no momento do lançamento
   status: CommissionEntryStatus;
   settlementId?: string;
   createdAt: string;
@@ -64,6 +78,7 @@ export interface CommissionSettlement {
 export const UpdateCommissionConfigSchema = z.object({
   commissionOnSales: z.number().min(0).max(100),
   commissionOnCollections: z.number().min(0).max(100),
+  commissionByProduct: z.boolean().optional(),
   active: z.boolean().optional(),
 });
 
@@ -77,6 +92,7 @@ export const CreateSettlementSchema = z.object({
 export interface UpdateCommissionConfigDTO {
   commissionOnSales: number;
   commissionOnCollections: number;
+  commissionByProduct?: boolean;
   active?: boolean;
 }
 
