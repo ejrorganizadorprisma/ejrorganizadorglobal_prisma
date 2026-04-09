@@ -6,6 +6,7 @@ import { SalesOrderStatus } from '@ejr/shared-types';
 import {
   ClipboardList,
   Eye,
+  Pencil,
   Trash2,
   Search,
   Clock,
@@ -19,6 +20,8 @@ import {
   FileText,
   Ban,
 } from 'lucide-react';
+import { usePagePermissions } from '../hooks/usePagePermissions';
+import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: any }> = {
@@ -50,6 +53,8 @@ export function SalesOrdersPage() {
   const cancelOrder = useCancelSalesOrder();
   const deleteOrder = useDeleteSalesOrder();
   const { formatPrice } = useFormatPrice();
+  const { hasActionPermission } = usePagePermissions();
+  const canEdit = hasActionPermission(AppPage.SALES, 'edit' as any);
 
   const handleCancel = async (id: string, number: string) => {
     const reason = window.prompt(`Motivo do cancelamento do pedido ${number}:`);
@@ -235,6 +240,15 @@ export function SalesOrdersPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
+                            <button
+                              onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
+                              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Editar pedido"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
                           {(order.status === 'PENDING' || order.status === 'APPROVED') && (
                             <button
                               onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
@@ -294,17 +308,28 @@ export function SalesOrdersPage() {
                       {new Date(order.orderDate).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="text-lg font-bold text-gray-900">{formatPrice(order.total)}</span>
-                    {(order.status === 'PENDING' || order.status === 'APPROVED') && (
-                      <button
-                        onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
-                        className="px-3 py-1.5 text-xs font-medium text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 flex items-center gap-1"
-                      >
-                        <ArrowRightCircle className="w-3.5 h-3.5" />
-                        Faturar
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
+                        <button
+                          onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
+                          className="px-3 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-50 flex items-center gap-1"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Editar
+                        </button>
+                      )}
+                      {(order.status === 'PENDING' || order.status === 'APPROVED') && (
+                        <button
+                          onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
+                          className="px-3 py-1.5 text-xs font-medium text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 flex items-center gap-1"
+                        >
+                          <ArrowRightCircle className="w-3.5 h-3.5" />
+                          Faturar
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {order.sale && (
                     <p className="text-xs text-emerald-600 mt-2">Venda: {order.sale.saleNumber}</p>

@@ -79,6 +79,7 @@ import { MobileAppPage } from './pages/MobileAppPage';
 // Sales Orders (Pedidos de Venda)
 import { SalesOrdersPage } from './pages/SalesOrdersPage';
 import { SalesOrderConvertPage } from './pages/SalesOrderConvertPage';
+import { SalesOrderEditPage } from './pages/SalesOrderEditPage';
 
 // Collections, Commissions
 import { CollectionsPage } from './pages/CollectionsPage';
@@ -354,6 +355,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <SalesOrdersPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-orders/:id/edit"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SalesOrderEditPage />
             </MainLayout>
           </ProtectedRoute>
         }

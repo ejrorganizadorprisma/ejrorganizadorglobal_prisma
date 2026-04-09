@@ -129,7 +129,7 @@ export class SalesOrdersController {
   update = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const dto: UpdateSalesOrderDTO = req.body;
-      const order = await this.service.update(req.params.id, dto);
+      const order = await this.service.update(req.params.id, dto, req.user!.id, req.user!.role);
       res.json({ success: true, data: order, message: 'Pedido atualizado' });
     } catch (error) {
       next(error);

@@ -95,9 +95,13 @@ export const CreateSalesOrderSchema = z.object({
 });
 
 export const UpdateSalesOrderSchema = z.object({
+  customerId: z.string().min(1).optional(),
+  orderDate: z.string().optional(),
+  items: z.array(SalesOrderItemInputSchema).min(1).optional(),
+  discount: z.number().int().min(0).optional(),
   status: z.nativeEnum(SalesOrderStatus).optional(),
-  notes: z.string().optional(),
-  internalNotes: z.string().optional(),
+  notes: z.string().optional().nullable(),
+  internalNotes: z.string().optional().nullable(),
 });
 
 export type CreateSalesOrderDTO = z.infer<typeof CreateSalesOrderSchema>;

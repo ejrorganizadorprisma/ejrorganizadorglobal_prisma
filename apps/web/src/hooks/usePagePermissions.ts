@@ -39,6 +39,7 @@ const routeToPageMap: Record<string, AppPage> = {
   '/permissions': 'users' as AppPage, // Permissions is part of user management
   '/settings/document-settings': 'document_settings' as AppPage,
   '/backup': 'backup' as AppPage,
+  '/sales-orders': 'sales' as AppPage,
   '/sellers': 'sellers' as AppPage,
   '/financial': 'sales' as AppPage,
   '/financial/calendar': 'sales' as AppPage,

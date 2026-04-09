@@ -296,40 +296,97 @@ export class SalesOrdersRepository {
   }
 
   /**
-   * Atualizar pedido (campos editáveis: notes, internalNotes, status)
+   * Atualizar pedido.
+   *
+   * Suporta edição completa: campos do header (cliente, data, notas, status)
+   * E substituição atômica dos itens (delete all + insert new) dentro de
+   * db.transaction() — obrigatório com pgbouncer transaction-pool.
    */
   async update(id: string, dto: UpdateSalesOrderDTO): Promise<SalesOrder> {
-    const updates: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
+    await db.transaction(async (client) => {
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
 
-    if (dto.status !== undefined) {
-      updates.push(`status = $${paramIndex++}`);
-      values.push(dto.status);
-    }
-    if (dto.notes !== undefined) {
-      updates.push(`notes = $${paramIndex++}`);
-      values.push(dto.notes);
-    }
-    if (dto.internalNotes !== undefined) {
-      updates.push(`internal_notes = $${paramIndex++}`);
-      values.push(dto.internalNotes);
-    }
+      if (dto.customerId !== undefined) {
+        updates.push(`customer_id = $${paramIndex++}`);
+        values.push(dto.customerId);
+      }
+      if (dto.orderDate !== undefined) {
+        updates.push(`order_date = $${paramIndex++}`);
+        values.push(dto.orderDate);
+      }
+      if (dto.status !== undefined) {
+        updates.push(`status = $${paramIndex++}`);
+        values.push(dto.status);
+      }
+      if (dto.notes !== undefined) {
+        updates.push(`notes = $${paramIndex++}`);
+        values.push(dto.notes);
+      }
+      if (dto.internalNotes !== undefined) {
+        updates.push(`internal_notes = $${paramIndex++}`);
+        values.push(dto.internalNotes);
+      }
 
-    if (updates.length === 0) {
-      const order = await this.findById(id);
-      if (!order) throw new Error('Pedido não encontrado');
-      return order;
-    }
+      // Se items foram enviados: delete antigos + insert novos + recalcular totais
+      if (dto.items && dto.items.length > 0) {
+        await client.query(
+          'DELETE FROM sales_order_items WHERE sales_order_id = $1',
+          [id]
+        );
 
-    updates.push(`updated_at = NOW()`);
-    values.push(id);
+        let subtotal = 0;
+        for (const item of dto.items) {
+          const itemDiscount = item.discount || 0;
+          const itemTotal = item.quantity * item.unitPrice - itemDiscount;
+          subtotal += itemTotal;
 
-    await db.query(
-      `UPDATE sales_orders SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
-      values
-    );
+          const itemId = `soitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+          await client.query(
+            `INSERT INTO sales_order_items (
+              id, sales_order_id, item_type, product_id, service_name,
+              quantity, unit_price, discount, total
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [
+              itemId, id, item.itemType,
+              item.productId || null, item.serviceName || null,
+              item.quantity, item.unitPrice, itemDiscount, itemTotal,
+            ]
+          );
+        }
 
+        updates.push(`subtotal = $${paramIndex++}`);
+        values.push(subtotal);
+
+        const discount = dto.discount !== undefined ? dto.discount : 0;
+        updates.push(`discount = $${paramIndex++}`);
+        values.push(discount);
+        updates.push(`total = $${paramIndex++}`);
+        values.push(subtotal - discount);
+      } else if (dto.discount !== undefined) {
+        // Sem novos itens mas mudou desconto: recalcular total
+        const current = await client.query(
+          'SELECT subtotal FROM sales_orders WHERE id = $1', [id]
+        );
+        const currentSubtotal = current.rows[0]?.subtotal || 0;
+        updates.push(`discount = $${paramIndex++}`);
+        values.push(dto.discount);
+        updates.push(`total = $${paramIndex++}`);
+        values.push(currentSubtotal - dto.discount);
+      }
+
+      if (updates.length > 0) {
+        updates.push(`updated_at = NOW()`);
+        values.push(id);
+        await client.query(
+          `UPDATE sales_orders SET ${updates.join(', ')} WHERE id = $${paramIndex}`,
+          values
+        );
+      }
+    });
+
+    // findById FORA da transação — dados já commitados
     const order = await this.findById(id);
     if (!order) throw new Error('Pedido não encontrado após atualização');
     return order;

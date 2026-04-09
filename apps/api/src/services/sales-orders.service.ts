@@ -109,9 +109,12 @@ export class SalesOrdersService {
   }
 
   /**
-   * Atualizar pedido
+   * Atualizar pedido.
+   *
+   * Suporta edição completa: cliente, data, items, desconto, notas.
+   * SALESPERSON não pode editar pela web. Pedidos CONVERTED/CANCELLED são imutáveis.
    */
-  async update(id: string, data: UpdateSalesOrderDTO) {
+  async update(id: string, data: UpdateSalesOrderDTO, userId?: string, userRole?: string) {
     const existing = await this.repository.findById(id);
     if (!existing) throw new NotFoundError('Pedido não encontrado');
     if (existing.status === SalesOrderStatus.CONVERTED) {
@@ -120,6 +123,41 @@ export class SalesOrdersService {
     if (existing.status === SalesOrderStatus.CANCELLED) {
       throw new BadRequestError('Pedido cancelado não pode ser editado');
     }
+    if (userRole === 'SALESPERSON') {
+      throw new BadRequestError('Vendedores não podem editar pedidos pela plataforma web');
+    }
+
+    // Validar items se foram enviados
+    if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        if (item.itemType === 'PRODUCT' && !item.productId) {
+          throw new BadRequestError('ProductId é obrigatório para items do tipo PRODUCT');
+        }
+        if (item.itemType === 'SERVICE' && !item.serviceName) {
+          throw new BadRequestError('ServiceName é obrigatório para items do tipo SERVICE');
+        }
+        if (item.quantity <= 0) {
+          throw new BadRequestError('Quantidade deve ser maior que zero');
+        }
+        if (item.unitPrice < 0) {
+          throw new BadRequestError('Preço unitário não pode ser negativo');
+        }
+      }
+    }
+
+    // Validar cliente se foi alterado
+    if (data.customerId) {
+      const customer = await this.customersRepository.findById(data.customerId);
+      if (!customer) {
+        throw new BadRequestError('Cliente não encontrado');
+      }
+    }
+
+    // Se items vieram mas discount não, manter o discount existente
+    if (data.items && data.discount === undefined) {
+      data.discount = existing.discount;
+    }
+
     return this.repository.update(id, data);
   }
 

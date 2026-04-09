@@ -49,6 +49,19 @@ export function useCancelSalesOrder() {
   });
 }
 
+export function useUpdateSalesOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await api.put(`/sales-orders/${id}`, data);
+      return response.data.data as SalesOrder;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+    },
+  });
+}
+
 export function useDeleteSalesOrder() {
   const queryClient = useQueryClient();
   return useMutation({
