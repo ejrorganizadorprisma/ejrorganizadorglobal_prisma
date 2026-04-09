@@ -25,7 +25,6 @@ const getApiUrl = () => {
 };
 
 const API_BASE_URL = getApiUrl();
-console.log('🌐 API Base URL:', API_BASE_URL);
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -50,26 +49,10 @@ api.interceptors.request.use(
   }
 );
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    console.log('🚀 Request:', config.method?.toUpperCase(), config.url, config.data);
-    return config;
-  },
-  (error) => {
-    console.error('❌ Request error:', error);
-    return Promise.reject(error);
-  }
-);
-
 // Response interceptor
 api.interceptors.response.use(
-  (response) => {
-    console.log('✅ Response:', response.status, response.data);
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error('❌ Response error:', error.response?.status, error.response?.data);
     const message = error.response?.data?.error?.message || 'Ocorreu um erro inesperado';
 
     // Erros de autenticação

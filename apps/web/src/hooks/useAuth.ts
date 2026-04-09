@@ -19,13 +19,11 @@ export const useAuth = create<AuthState>((set) => ({
 
   login: async (data: LoginDTO) => {
     try {
-      console.log('🔐 Tentando fazer login com:', data.email);
       set({ isLoading: true });
       const response = await api.post<{ success: boolean; data: AuthResponse }>(
         '/auth/login',
         data
       );
-      console.log('✅ Login bem-sucedido!', response.data);
 
       // Salvar token no localStorage para uso em rede
       if (response.data.data.token) {
@@ -39,7 +37,6 @@ export const useAuth = create<AuthState>((set) => ({
       });
       toast.success('Login realizado com sucesso!');
     } catch (error: any) {
-      console.error('❌ Erro no login:', error.response?.data || error.message);
       set({ isLoading: false });
       const message = error.response?.data?.error?.message || 'Erro ao fazer login';
       toast.error(message);
