@@ -483,9 +483,6 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             alt={docSettings?.companyName || 'EJR Organizador'}
             className="h-24 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           />
-          <h1 className="text-base font-bold text-white tracking-wide text-center leading-tight drop-shadow-md">
-            {docSettings?.companyName || 'EJR Organizador'}
-          </h1>
           <p className="text-[10px] uppercase tracking-[0.22em] text-amber-400/80 font-semibold">
             ERP de Manufatura
           </p>
