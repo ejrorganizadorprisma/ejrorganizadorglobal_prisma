@@ -540,8 +540,9 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             className="h-16 w-auto max-w-[72px] object-contain rounded-md shrink-0 opacity-95 drop-shadow-[0_3px_8px_rgba(0,0,0,0.4)]"
           />
           <div className="min-w-0 leading-snug">
-            <p className="text-xs text-slate-200 font-semibold tracking-wide">EJR Organizador</p>
-            <p className="text-[10px] text-slate-400 font-medium">v2.5.1</p>
+            <p className="text-[10px] text-slate-200 font-semibold tracking-wide whitespace-nowrap">
+              EJR Organizador <span className="text-slate-400 font-medium">v2.5.1</span>
+            </p>
             <p className="text-[10px] text-slate-500 mt-0.5">© 2026 Todos os direitos reservados</p>
           </div>
         </div>
