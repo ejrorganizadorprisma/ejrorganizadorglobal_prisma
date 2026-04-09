@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "EJR OrGlobal v1.4.2",
+    "name": "EJR OrGlobal v1.5.0",
     "slug": "ejr-vendedor",
-    "version": "1.4.2",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,7 +18,7 @@
         "backgroundColor": "#0B5C9A"
       },
       "package": "com.ejr.vendedor",
-      "versionCode": 17
+      "versionCode": 18
     },
     "plugins": [
       "expo-sqlite",
