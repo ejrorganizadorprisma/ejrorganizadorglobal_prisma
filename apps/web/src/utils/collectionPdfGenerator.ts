@@ -71,6 +71,7 @@ const STATUS_LABELS: Record<string, { label: string; color: [number, number, num
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Dinheiro',
+  CREDIT: 'Credito',
   CREDIT_CARD: 'Cartao de Credito',
   DEBIT_CARD: 'Cartao de Debito',
   BANK_TRANSFER: 'Transferencia',

@@ -66,11 +66,12 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'PIX' as PaymentMethod, label: 'PIX' },
   { value: 'CASH' as PaymentMethod, label: 'Dinheiro' },
-  { value: 'CREDIT_CARD' as PaymentMethod, label: 'Cartao de Credito' },
-  { value: 'DEBIT_CARD' as PaymentMethod, label: 'Cartao de Debito' },
-  { value: 'BANK_TRANSFER' as PaymentMethod, label: 'Transferencia' },
+  { value: 'CREDIT' as PaymentMethod, label: 'Crédito' },
+  { value: 'CREDIT_CARD' as PaymentMethod, label: 'Cartão de Crédito' },
+  { value: 'DEBIT_CARD' as PaymentMethod, label: 'Cartão de Débito' },
+  { value: 'BANK_TRANSFER' as PaymentMethod, label: 'Transferência' },
   { value: 'CHECK' as PaymentMethod, label: 'Cheque' },
-  { value: 'PROMISSORY' as PaymentMethod, label: 'Promissoria' },
+  { value: 'PROMISSORY' as PaymentMethod, label: 'Promissória' },
   { value: 'BOLETO' as PaymentMethod, label: 'Boleto' },
   { value: 'OTHER' as PaymentMethod, label: 'Outro' },
 ];

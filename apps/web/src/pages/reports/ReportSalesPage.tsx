@@ -7,6 +7,7 @@ import { DollarSign, FileDown, Calendar } from 'lucide-react';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Dinheiro',
+  CREDIT: 'Credito',
   CREDIT_CARD: 'Cartao Credito',
   DEBIT_CARD: 'Cartao Debito',
   BANK_TRANSFER: 'Transferencia',

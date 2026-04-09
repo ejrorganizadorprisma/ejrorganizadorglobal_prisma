@@ -37,12 +37,13 @@ const statusConfig: Record<SaleStatus, { label: string; bg: string; text: string
 
 const paymentMethodConfig: Record<string, { label: string; icon: any }> = {
   CASH: { label: 'Dinheiro', icon: Banknote },
-  CREDIT_CARD: { label: 'Cartao de Credito', icon: CreditCard },
-  DEBIT_CARD: { label: 'Cartao de Debito', icon: CreditCard },
-  BANK_TRANSFER: { label: 'Transferencia', icon: Building },
+  CREDIT: { label: 'Crédito', icon: Receipt },
+  CREDIT_CARD: { label: 'Cartão de Crédito', icon: CreditCard },
+  DEBIT_CARD: { label: 'Cartão de Débito', icon: CreditCard },
+  BANK_TRANSFER: { label: 'Transferência', icon: Building },
   PIX: { label: 'PIX', icon: Smartphone },
   CHECK: { label: 'Cheque', icon: Receipt },
-  PROMISSORY: { label: 'Promissoria', icon: Receipt },
+  PROMISSORY: { label: 'Promissória', icon: Receipt },
   BOLETO: { label: 'Boleto', icon: Receipt },
   OTHER: { label: 'Outro', icon: CreditCard },
 };

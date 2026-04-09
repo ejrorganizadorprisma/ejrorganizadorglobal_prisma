@@ -33,12 +33,13 @@ export function CustomerFormPage() {
   const ALL_PAYMENT_METHODS = [
     { value: 'PIX', label: 'Pix' },
     { value: 'CASH', label: 'Efectivo' },
-    { value: 'DEBIT_CARD', label: 'Tarjeta Debito' },
-    { value: 'CREDIT_CARD', label: 'Credito' },
+    { value: 'CREDIT', label: 'Crédito' },
+    { value: 'CREDIT_CARD', label: 'Cartão de Crédito' },
+    { value: 'DEBIT_CARD', label: 'Tarjeta Débito' },
     { value: 'BANK_TRANSFER', label: 'Transferencia' },
     { value: 'BOLETO', label: 'Boleto' },
     { value: 'CHECK', label: 'Cheque' },
-    { value: 'PROMISSORY', label: 'Pagare' },
+    { value: 'PROMISSORY', label: 'Pagaré' },
     { value: 'OTHER', label: 'Otro' },
   ];
 
@@ -171,9 +172,11 @@ export function CustomerFormPage() {
         notes: formData.notes || null,
         address: formData.address.street ? formData.address : null,
         allowedPaymentMethods: formData.allowedPaymentMethods,
-        creditMaxDays: formData.allowedPaymentMethods.includes('CREDIT_CARD')
-          ? formData.creditMaxDays
-          : null,
+        creditMaxDays:
+          formData.allowedPaymentMethods.includes('CREDIT') ||
+          formData.allowedPaymentMethods.includes('CREDIT_CARD')
+            ? formData.creditMaxDays
+            : null,
       };
 
       // Admin/gerente pode atribuir vendedor responsavel
@@ -258,11 +261,15 @@ export function CustomerFormPage() {
 
       if (isCurrentlySelected) {
         newMethods = prev.allowedPaymentMethods.filter((m) => m !== method);
-        if (method === 'CREDIT_CARD') {
-          newCreditMaxDays = null;
-        }
       } else {
         newMethods = [...prev.allowedPaymentMethods, method];
+      }
+
+      // creditMaxDays só faz sentido se CREDIT ou CREDIT_CARD estiver na lista
+      const hasCreditOption =
+        newMethods.includes('CREDIT') || newMethods.includes('CREDIT_CARD');
+      if (!hasCreditOption) {
+        newCreditMaxDays = null;
       }
 
       return {
@@ -779,13 +786,14 @@ export function CustomerFormPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {ALL_PAYMENT_METHODS.map((method) => {
               const isSelected = formData.allowedPaymentMethods.includes(method.value);
-              const isCreditCard = method.value === 'CREDIT_CARD';
+              // CREDIT (crediário/fiado) é destacado em amber porque habilita dias de prazo
+              const isCreditOption = method.value === 'CREDIT';
 
               return (
                 <label
                   key={method.value}
                   className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    isCreditCard
+                    isCreditOption
                       ? isSelected
                         ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300'
                         : 'bg-amber-50/50 border-amber-200 hover:border-amber-300'
@@ -799,14 +807,14 @@ export function CustomerFormPage() {
                     checked={isSelected}
                     onChange={() => handlePaymentMethodToggle(method.value)}
                     className={`h-4 w-4 rounded ${
-                      isCreditCard
+                      isCreditOption
                         ? 'text-amber-600 focus:ring-amber-500'
                         : 'text-blue-600 focus:ring-blue-500'
                     } border-gray-300`}
                   />
                   <span
                     className={`text-sm font-medium ${
-                      isCreditCard ? 'text-amber-800' : 'text-gray-700'
+                      isCreditOption ? 'text-amber-800' : 'text-gray-700'
                     }`}
                   >
                     {method.label}
@@ -816,7 +824,8 @@ export function CustomerFormPage() {
             })}
           </div>
 
-          {formData.allowedPaymentMethods.includes('CREDIT_CARD') && (
+          {(formData.allowedPaymentMethods.includes('CREDIT') ||
+            formData.allowedPaymentMethods.includes('CREDIT_CARD')) && (
             <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
               <label className="block text-sm font-medium text-amber-800 mb-2">
                 Maximo de dias de credito

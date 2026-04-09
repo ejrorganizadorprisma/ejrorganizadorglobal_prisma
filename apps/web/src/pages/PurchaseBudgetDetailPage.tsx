@@ -48,7 +48,8 @@ const PO_STATUS_COLORS: Record<string, string> = {
 
 const PAYMENT_METHODS: Record<string, string> = {
   BOLETO: 'Boleto', BANK_TRANSFER: 'Transferência', PIX: 'PIX',
-  CHECK: 'Cheque', CREDIT_CARD: 'Cartão Crédito', CASH: 'Dinheiro', OTHER: 'Outro',
+  CHECK: 'Cheque', CREDIT: 'Crédito', CREDIT_CARD: 'Cartão de Crédito',
+  CASH: 'Dinheiro', OTHER: 'Outro',
 };
 
 const INSTALLMENT_STATUS_LABELS: Record<string, string> = {

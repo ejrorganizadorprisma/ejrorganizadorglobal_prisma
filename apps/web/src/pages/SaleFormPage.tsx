@@ -51,13 +51,14 @@ type FormItem = {
 const paymentMethods: { value: PaymentMethod; label: string; icon: any; shortcut: string }[] = [
   { value: PaymentMethod.PIX, label: 'PIX', icon: Smartphone, shortcut: '1' },
   { value: PaymentMethod.CASH, label: 'Dinheiro', icon: Banknote, shortcut: '2' },
-  { value: PaymentMethod.CREDIT_CARD, label: 'Credito', icon: CreditCard, shortcut: '3' },
-  { value: PaymentMethod.DEBIT_CARD, label: 'Debito', icon: CreditCard, shortcut: '4' },
-  { value: PaymentMethod.BANK_TRANSFER, label: 'Transferencia', icon: Building, shortcut: '5' },
-  { value: PaymentMethod.BOLETO, label: 'Boleto', icon: Receipt, shortcut: '6' },
-  { value: PaymentMethod.CHECK, label: 'Cheque', icon: Receipt, shortcut: '7' },
-  { value: PaymentMethod.PROMISSORY, label: 'Promissoria', icon: Receipt, shortcut: '8' },
-  { value: PaymentMethod.OTHER, label: 'Outro', icon: CreditCard, shortcut: '9' },
+  { value: PaymentMethod.CREDIT, label: 'Crédito', icon: Receipt, shortcut: '3' },
+  { value: PaymentMethod.CREDIT_CARD, label: 'Cartão de Crédito', icon: CreditCard, shortcut: '4' },
+  { value: PaymentMethod.DEBIT_CARD, label: 'Cartão de Débito', icon: CreditCard, shortcut: '5' },
+  { value: PaymentMethod.BANK_TRANSFER, label: 'Transferência', icon: Building, shortcut: '6' },
+  { value: PaymentMethod.BOLETO, label: 'Boleto', icon: Receipt, shortcut: '7' },
+  { value: PaymentMethod.CHECK, label: 'Cheque', icon: Receipt, shortcut: '8' },
+  { value: PaymentMethod.PROMISSORY, label: 'Promissória', icon: Receipt, shortcut: '9' },
+  { value: PaymentMethod.OTHER, label: 'Outro', icon: CreditCard, shortcut: '0' },
 ];
 
 export function SaleFormPage() {
