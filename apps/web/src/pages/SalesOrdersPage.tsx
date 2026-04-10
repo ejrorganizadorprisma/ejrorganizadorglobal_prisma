@@ -7,6 +7,7 @@ import {
   ClipboardList,
   Eye,
   Pencil,
+  Plus,
   Trash2,
   Search,
   Clock,
@@ -103,6 +104,15 @@ export function SalesOrdersPage() {
             <p className="text-sm text-gray-500">Pedidos registrados por vendedores para faturamento</p>
           </div>
         </div>
+        {canEdit && (
+          <button
+            onClick={() => navigate('/sales-orders/new')}
+            className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Pedido
+          </button>
+        )}
       </div>
 
       {/* Search & Filters */}

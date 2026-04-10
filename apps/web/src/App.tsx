@@ -80,6 +80,7 @@ import { MobileAppPage } from './pages/MobileAppPage';
 import { SalesOrdersPage } from './pages/SalesOrdersPage';
 import { SalesOrderConvertPage } from './pages/SalesOrderConvertPage';
 import { SalesOrderEditPage } from './pages/SalesOrderEditPage';
+import { SalesOrderFormPage } from './pages/SalesOrderFormPage';
 
 // Collections, Commissions
 import { CollectionsPage } from './pages/CollectionsPage';
@@ -355,6 +356,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <SalesOrdersPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-orders/new"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <SalesOrderFormPage />
             </MainLayout>
           </ProtectedRoute>
         }
