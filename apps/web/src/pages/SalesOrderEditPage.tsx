@@ -92,6 +92,7 @@ export function SalesOrderEditPage() {
     page: 1,
     limit: 20,
     search: productSearch.trim() || undefined,
+    sortBy: 'name',
   });
   const products = productsData?.data || [];
 
