@@ -399,7 +399,7 @@ export function CustomerFormPage() {
             const labels: Record<string, string> = {
               APPROVED: 'Ativo',
               PENDING: 'Pendente de aprovação',
-              REJECTED: 'Inativo / Rejeitado',
+              REJECTED: 'Inativo',
             };
             const isActive = status === 'APPROVED';
             const busy = approveCustomer.isPending || rejectCustomer.isPending;
