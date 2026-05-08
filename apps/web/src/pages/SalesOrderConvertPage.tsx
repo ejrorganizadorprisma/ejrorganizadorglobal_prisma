@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSalesOrder, useConvertOrderToSale, type ConvertToSaleFromOrderDTO } from '../hooks/useSalesOrders';
 import { useFormatPrice } from '../hooks/useFormatPrice';
@@ -9,6 +9,7 @@ import {
   Wrench,
   Truck,
   Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,6 +32,16 @@ const SHIPPING_METHODS = [
   { value: 'POSTAL', label: 'Correios' },
 ];
 
+/**
+ * Estado por linha do pedido controlando se o item entra na fatura
+ * e qual quantidade será faturada (default = qty original).
+ * Indexado pelo id do item (ou pelo índice quando id ausente).
+ */
+type ItemSelectionState = {
+  selected: boolean;
+  quantity: number;
+};
+
 export function SalesOrderConvertPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -47,6 +58,20 @@ export function SalesOrderConvertPage() {
   const [shippingCost, setShippingCost] = useState(0);
   const [carrierName, setCarrierName] = useState('');
   const [shippingNotes, setShippingNotes] = useState('');
+
+  // Seleção/quantidade parcial por item — keyed por id (ou índice como fallback)
+  const [itemSelection, setItemSelection] = useState<Record<string, ItemSelectionState>>({});
+
+  // Inicializa seleção quando o pedido carrega/muda — todos marcados, qty original
+  useEffect(() => {
+    if (!order?.items) return;
+    const next: Record<string, ItemSelectionState> = {};
+    order.items.forEach((item, idx) => {
+      const key = item.id || `idx-${idx}`;
+      next[key] = { selected: true, quantity: item.quantity };
+    });
+    setItemSelection(next);
+  }, [order?.items]);
 
   if (isLoading) {
     return (
@@ -66,14 +91,69 @@ export function SalesOrderConvertPage() {
 
   const items = order.items || [];
   const orderDiscount = discount || order.discount || 0;
-  const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+
+  // Helpers para acessar/atualizar seleção
+  const getKey = (item: any, idx: number) => item.id || `idx-${idx}`;
+  const getState = (item: any, idx: number): ItemSelectionState =>
+    itemSelection[getKey(item, idx)] || { selected: true, quantity: item.quantity };
+
+  const updateSelection = (key: string, patch: Partial<ItemSelectionState>) => {
+    setItemSelection((prev) => ({
+      ...prev,
+      [key]: { ...prev[key], ...patch } as ItemSelectionState,
+    }));
+  };
+
+  // Cálculos baseados apenas nos itens marcados / com qty efetiva
+  const selectedRows = items
+    .map((item, idx) => ({ item, idx, state: getState(item, idx) }))
+    .filter((r) => r.state.selected && r.state.quantity > 0);
+
+  const subtotal = selectedRows.reduce((sum, r) => {
+    const lineTotal = r.state.quantity * r.item.unitPrice - (r.item.discount || 0);
+    return sum + Math.max(0, lineTotal);
+  }, 0);
   const finalTotal = subtotal - orderDiscount + shippingCost;
+
+  // Detecta conversão parcial (item desmarcado ou qty < original)
+  const isPartialConversion = items.some((item, idx) => {
+    const st = getState(item, idx);
+    return !st.selected || st.quantity < item.quantity;
+  });
+
+  const hasAnySelected = selectedRows.length > 0;
+
+  // Validação por item (qty>0 e <= original)
+  const invalidQty = items.some((item, idx) => {
+    const st = getState(item, idx);
+    if (!st.selected) return false;
+    return st.quantity <= 0 || st.quantity > item.quantity;
+  });
 
   const handleConvert = async () => {
     if (!paymentMethod) {
       toast.error('Selecione o metodo de pagamento');
       return;
     }
+    if (!hasAnySelected) {
+      toast.error('Selecione ao menos um item para faturar');
+      return;
+    }
+    if (invalidQty) {
+      toast.error('Quantidade inválida em algum item');
+      return;
+    }
+
+    // Monta lista de itens parciais — sempre enviamos (mesmo conversão total)
+    // para que o backend trate uniformemente. Se for total, será igual ao original.
+    const itemsPayload = selectedRows.map((r) => ({
+      itemType: r.item.itemType,
+      productId: r.item.productId,
+      serviceName: r.item.serviceName,
+      quantity: r.state.quantity,
+      unitPrice: r.item.unitPrice,
+      discount: r.item.discount || 0,
+    }));
 
     const dto: ConvertToSaleFromOrderDTO = {
       paymentMethod,
@@ -86,12 +166,18 @@ export function SalesOrderConvertPage() {
       shippingCost: shippingCost || undefined,
       carrierName: carrierName || undefined,
       shippingNotes: shippingNotes || undefined,
+      items: itemsPayload,
     };
 
     try {
       await convertMutation.mutateAsync({ orderId: order.id, data: dto });
-      toast.success('Pedido faturado com sucesso! Venda criada.');
-      navigate('/sales-orders');
+      toast.success(
+        isPartialConversion
+          ? 'Pedido faturado parcialmente! Venda criada com o subset selecionado.'
+          : 'Pedido faturado com sucesso! Venda criada.'
+      );
+      // Após conversão, redireciona para o detalhe do pedido (PARTIALLY ou CONVERTED)
+      navigate(`/sales-orders/${order.id}/edit`);
     } catch (error: any) {
       toast.error(error.response?.data?.message || error.response?.data?.error?.message || 'Erro ao faturar');
     }
@@ -120,39 +206,149 @@ export function SalesOrderConvertPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Itens do pedido */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Items */}
+          {/* Items — com seleção/qty parcial */}
           <div className="bg-white rounded-xl shadow-sm border">
-            <div className="px-6 py-4 border-b">
-              <h2 className="text-lg font-semibold text-gray-900">Itens do Pedido</h2>
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Itens do Pedido</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Marque/desmarque e ajuste a quantidade para faturar parcialmente.
+                </p>
+              </div>
+              <div className="flex gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: Record<string, ItemSelectionState> = {};
+                    items.forEach((item, idx) => {
+                      next[getKey(item, idx)] = { selected: true, quantity: item.quantity };
+                    });
+                    setItemSelection(next);
+                  }}
+                  className="px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+                >
+                  Marcar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next: Record<string, ItemSelectionState> = {};
+                    items.forEach((item, idx) => {
+                      next[getKey(item, idx)] = { selected: false, quantity: item.quantity };
+                    });
+                    setItemSelection(next);
+                  }}
+                  className="px-2 py-1 border border-gray-200 rounded text-gray-600 hover:bg-gray-50"
+                >
+                  Desmarcar todos
+                </button>
+              </div>
             </div>
             <div className="divide-y">
-              {items.map((item, idx) => (
-                <div key={item.id || idx} className="px-6 py-3 flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
-                    {item.itemType === 'PRODUCT' ? (
-                      <Package className="w-4 h-4 text-gray-600" />
-                    ) : (
-                      <Wrench className="w-4 h-4 text-gray-600" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">
-                      {item.product?.name || item.serviceName || '-'}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {item.quantity}x {formatPrice(item.unitPrice)}
-                      {item.discount > 0 && (
-                        <span className="text-red-500 ml-2">-{formatPrice(item.discount)}</span>
+              {items.map((item, idx) => {
+                const key = getKey(item, idx);
+                const state = getState(item, idx);
+                const lineTotal = state.selected
+                  ? Math.max(0, state.quantity * item.unitPrice - (item.discount || 0))
+                  : 0;
+                const balance = item.quantity - state.quantity;
+                const qtyOver = state.quantity > item.quantity;
+                const qtyZeroOrLess = state.quantity <= 0;
+                const isItemPartial = state.selected && state.quantity < item.quantity;
+
+                return (
+                  <div
+                    key={key}
+                    className={`px-6 py-3 flex items-start gap-3 ${
+                      !state.selected ? 'opacity-50' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={state.selected}
+                      onChange={(e) => updateSelection(key, { selected: e.target.checked })}
+                      className="mt-2 w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                      aria-label="Incluir item nesta venda"
+                    />
+                    <div className="p-2 bg-gray-100 rounded-lg">
+                      {item.itemType === 'PRODUCT' ? (
+                        <Package className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <Wrench className="w-4 h-4 text-gray-600" />
                       )}
-                    </p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 truncate">
+                        {item.product?.name || item.serviceName || '-'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Original: {item.quantity}x {formatPrice(item.unitPrice)}
+                        {item.discount > 0 && (
+                          <span className="text-red-500 ml-2">-{formatPrice(item.discount)}</span>
+                        )}
+                      </p>
+                      {state.selected && balance > 0 && (
+                        <p className="text-xs text-amber-700 mt-0.5">
+                          Saldo: {balance} {balance === 1 ? 'unidade ficará' : 'unidades ficarão'} pendente
+                          {balance === 1 ? '' : 's'}.
+                        </p>
+                      )}
+                      {qtyOver && (
+                        <p className="text-xs text-red-600 mt-0.5">
+                          Quantidade não pode ser maior que {item.quantity}.
+                        </p>
+                      )}
+                      {qtyZeroOrLess && state.selected && (
+                        <p className="text-xs text-red-600 mt-0.5">
+                          Quantidade deve ser maior que zero.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 min-w-[160px]">
+                      <label className="text-[10px] uppercase tracking-wide text-gray-400">
+                        Qty a faturar
+                      </label>
+                      <input
+                        type="number"
+                        min={item.itemType === 'SERVICE' ? 0 : 1}
+                        max={item.quantity}
+                        step={item.itemType === 'SERVICE' ? 'any' : 1}
+                        value={state.quantity}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          // Para serviços permitimos valores fracionários
+                          const parsed =
+                            item.itemType === 'SERVICE'
+                              ? parseFloat(raw) || 0
+                              : parseInt(raw) || 0;
+                          updateSelection(key, { quantity: parsed });
+                        }}
+                        disabled={!state.selected}
+                        className={`w-24 px-2 py-1 border rounded text-sm text-right disabled:bg-gray-100 ${
+                          qtyOver || (qtyZeroOrLess && state.selected)
+                            ? 'border-red-400 focus:ring-red-500'
+                            : 'border-gray-200 focus:ring-emerald-500'
+                        }`}
+                      />
+                      <span
+                        className={`text-sm font-semibold ${
+                          isItemPartial ? 'text-amber-700' : 'text-gray-900'
+                        }`}
+                      >
+                        {formatPrice(lineTotal)}
+                      </span>
+                      {isItemPartial && (
+                        <span className="text-[10px] text-amber-600">parcial</span>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-semibold text-gray-900">{formatPrice(item.total)}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="px-6 py-3 border-t bg-gray-50/50">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Subtotal</span>
+                <span className="text-gray-500">Subtotal (itens marcados)</span>
                 <span className="font-medium">{formatPrice(subtotal)}</span>
               </div>
               {orderDiscount > 0 && (
@@ -173,6 +369,28 @@ export function SalesOrderConvertPage() {
               </div>
             </div>
           </div>
+
+          {/* Aviso de conversão parcial */}
+          {isPartialConversion && hasAnySelected && (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-800">
+                <p className="font-semibold mb-1">Conversão parcial</p>
+                <p>
+                  Esta é uma conversão parcial. O saldo do pedido continuará disponível para
+                  faturamento posterior.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Aviso de nenhum item marcado */}
+          {!hasAnySelected && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <span>Marque ao menos um item para faturar.</span>
+            </div>
+          )}
 
           {/* Shipping */}
           <div className="bg-white rounded-xl shadow-sm border">
@@ -295,15 +513,15 @@ export function SalesOrderConvertPage() {
           {/* Convert button */}
           <button
             onClick={handleConvert}
-            disabled={convertMutation.isPending}
-            className="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 font-semibold shadow-sm disabled:opacity-50"
+            disabled={convertMutation.isPending || !hasAnySelected || invalidQty}
+            className="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {convertMutation.isPending ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <ArrowRightCircle className="w-5 h-5" />
             )}
-            Faturar Pedido
+            {isPartialConversion ? 'Faturar parcialmente' : 'Faturar Pedido'}
           </button>
 
           {order.notes && (

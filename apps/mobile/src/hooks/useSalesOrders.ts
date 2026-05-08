@@ -89,7 +89,7 @@ export function useSalesOrders(search?: string) {
     );
     const cleanItems = data.items.map(({ productName, ...item }) => item);
     await db.runAsync(
-      "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('sales_orders', 'CREATE', ?, ?)",
+      "INSERT INTO sync_queue (entity, action, entity_id, payload, updated_at) VALUES ('sales_orders', 'CREATE', ?, ?, datetime('now'))",
       [id, JSON.stringify({ ...data, items: cleanItems, discount })]
     );
     await loadFromDb();

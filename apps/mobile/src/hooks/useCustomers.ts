@@ -71,7 +71,7 @@ export function useCustomers(search?: string) {
       [id, JSON.stringify(customer)]
     );
     await db.runAsync(
-      "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('customers', 'CREATE', ?, ?)",
+      "INSERT INTO sync_queue (entity, action, entity_id, payload, updated_at) VALUES ('customers', 'CREATE', ?, ?, datetime('now'))",
       [id, JSON.stringify(data)]
     );
     await loadFromDb();

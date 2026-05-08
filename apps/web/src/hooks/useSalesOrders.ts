@@ -12,6 +12,26 @@ export function useSalesOrders(filters: SalesOrderFilters) {
   });
 }
 
+/**
+ * Conta pedidos com status PENDING para badge de notificação no menu lateral.
+ * Refetch a cada 60s para manter o badge atualizado sem onerar a API.
+ */
+export function usePendingSalesOrdersCount(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['sales-orders', 'pending-count'],
+    queryFn: async () => {
+      const { data } = await api.get('/sales-orders', {
+        params: { status: 'PENDING', page: 1, limit: 1 },
+      });
+      return (data?.pagination?.total ?? 0) as number;
+    },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    enabled: options?.enabled ?? true,
+  });
+}
+
 export function useSalesOrder(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['sales-orders', id],
@@ -121,5 +141,69 @@ export function useConvertOrderToSale() {
       queryClient.invalidateQueries({ queryKey: ['products'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
+  });
+}
+
+/**
+ * Aprova um pedido de venda PENDING → APPROVED.
+ * Permitido para roles ADMIN/OWNER/MANAGER.
+ */
+export function useApproveSalesOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, notes }: { id: string; notes?: string }) => {
+      const response = await api.post(`/sales-orders/${id}/approve`, { notes });
+      return response.data.data as SalesOrder;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', vars.id] });
+    },
+  });
+}
+
+/**
+ * Snapshot de um item efetivamente convertido — quantidade pode ser menor
+ * que o item original quando a conversão é parcial.
+ */
+export interface SalesOrderConversionItemSnapshot {
+  itemId?: string;
+  itemType: 'PRODUCT' | 'SERVICE';
+  productId?: string;
+  productName?: string;
+  serviceName?: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+  total?: number;
+}
+
+export interface SalesOrderConversion {
+  id: string;
+  saleId: string;
+  saleNumber?: string;
+  itemsSnapshot: SalesOrderConversionItemSnapshot[];
+  convertedAt: string;
+  convertedBy?: string;
+  convertedByName?: string;
+  total?: number;
+}
+
+/**
+ * Lista o histórico de conversões parciais/totais de um pedido.
+ * Usado em SalesOrderEditPage para mostrar bloco "Histórico de faturamentos".
+ */
+export function useSalesOrderConversions(id: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['sales-orders', id, 'conversions'],
+    queryFn: async () => {
+      const { data } = await api.get(`/sales-orders/${id}/conversions`);
+      // Backend retorna { data: [...] } ou { data: { conversions: [...] } } — tratamos ambos
+      const raw = data?.data ?? data;
+      if (Array.isArray(raw)) return raw as SalesOrderConversion[];
+      if (Array.isArray(raw?.conversions)) return raw.conversions as SalesOrderConversion[];
+      return [] as SalesOrderConversion[];
+    },
+    enabled: options?.enabled ?? !!id,
   });
 }

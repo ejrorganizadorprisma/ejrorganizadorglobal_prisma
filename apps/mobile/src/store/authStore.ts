@@ -3,6 +3,12 @@ import * as SecureStore from 'expo-secure-store';
 import { apiRequest, setApiKey, clearApiKeyCache, setTokenExpiredHandler } from '../api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDatabase } from '../db/migrations';
+import {
+  registerForPushNotifications,
+  unregisterPushToken,
+  getStoredPushToken,
+  clearStoredPushToken,
+} from '../lib/pushNotifications';
 
 // Check if API error indicates an expired/invalid token
 function isTokenExpiredError(message?: string): boolean {
@@ -92,6 +98,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await resetSyncQueueAttempts();
         const storedCompanyName = await AsyncStorage.getItem('@ejr_mobile_company_name');
         set({ user, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobileAccessError: null, mobilePermissions, companyName: storedCompanyName });
+        // Registra Expo Push token em background. Falhas sao silenciadas para
+        // nao quebrar o fluxo de login se o usuario negar a permissao.
+        registerForPushNotifications().catch(() => { /* ignore */ });
         return { success: true };
       }
 
@@ -108,6 +117,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    // Remove Expo Push token do backend ANTES de limpar o auth_token, ja que
+    // a chamada DELETE /push-tokens precisa do JWT para autenticar.
+    try {
+      const pushToken = await getStoredPushToken();
+      if (pushToken) {
+        await unregisterPushToken(pushToken);
+      }
+      await clearStoredPushToken();
+    } catch { /* ignore */ }
     await SecureStore.deleteItemAsync('auth_token');
     await AsyncStorage.removeItem('@ejr_mobile_permissions');
     await AsyncStorage.removeItem('@ejr_mobile_company_name');
@@ -132,6 +150,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
           const storedCompanyName = await AsyncStorage.getItem('@ejr_mobile_company_name');
           set({ user: result.data, token, isAuthenticated: true, isLoading: false, mobileAccessDenied: false, mobilePermissions, companyName: storedCompanyName });
+          // Re-registra Expo Push token em background. Backend faz upsert
+          // entao chamadas repetidas sao seguras.
+          registerForPushNotifications().catch(() => { /* ignore */ });
           return;
         }
 

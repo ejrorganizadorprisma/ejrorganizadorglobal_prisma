@@ -82,7 +82,7 @@ export function useQuotes(search?: string) {
     const cleanItems = data.items.map(({ productName, ...item }) => item);
     const cleanValidUntil = data.validUntil.includes('T') ? data.validUntil : `${data.validUntil}T23:59:59.000Z`;
     await db.runAsync(
-      "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('quotes', 'CREATE', ?, ?)",
+      "INSERT INTO sync_queue (entity, action, entity_id, payload, updated_at) VALUES ('quotes', 'CREATE', ?, ?, datetime('now'))",
       [id, JSON.stringify({ ...data, items: cleanItems, validUntil: cleanValidUntil })]
     );
     await loadFromDb();
@@ -123,7 +123,7 @@ export function useQuotes(search?: string) {
     const cleanItems = data.items.map(({ productName, ...item }: any) => item);
     const cleanValidUntil = data.validUntil.includes('T') ? data.validUntil : `${data.validUntil}T23:59:59.000Z`;
     await db.runAsync(
-      "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('quotes', 'UPDATE', ?, ?)",
+      "INSERT INTO sync_queue (entity, action, entity_id, payload, updated_at) VALUES ('quotes', 'UPDATE', ?, ?, datetime('now'))",
       [id, JSON.stringify({ ...data, items: cleanItems, validUntil: cleanValidUntil })]
     );
 
@@ -155,7 +155,7 @@ export function useQuotes(search?: string) {
     } else {
       // Synced quote — enqueue DELETE to push to server
       await db.runAsync(
-        "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('quotes', 'DELETE', ?, ?)",
+        "INSERT INTO sync_queue (entity, action, entity_id, payload, updated_at) VALUES ('quotes', 'DELETE', ?, ?, datetime('now'))",
         [id, '{}']
       );
     }

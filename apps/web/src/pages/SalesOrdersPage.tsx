@@ -20,15 +20,20 @@ import {
   ArrowRightCircle,
   FileText,
   Ban,
+  ThumbsUp,
 } from 'lucide-react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
+import { useAuth } from '../hooks/useAuth';
+import { ApproveSalesOrderModal } from '../components/ApproveSalesOrderModal';
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: any }> = {
   DRAFT: { label: 'Rascunho', bg: 'bg-gray-100', text: 'text-gray-600', icon: FileText },
   PENDING: { label: 'Pendente', bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
   APPROVED: { label: 'Aprovado', bg: 'bg-blue-50', text: 'text-blue-700', icon: CheckCircle },
+  CONVERTING: { label: 'Faturando…', bg: 'bg-indigo-50', text: 'text-indigo-700', icon: Clock },
+  PARTIALLY_CONVERTED: { label: 'Parcialmente faturado', bg: 'bg-teal-50', text: 'text-teal-700', icon: ArrowRightCircle },
   CONVERTED: { label: 'Faturado', bg: 'bg-emerald-50', text: 'text-emerald-700', icon: ArrowRightCircle },
   CANCELLED: { label: 'Cancelado', bg: 'bg-red-50', text: 'text-red-600', icon: XCircle },
 };
@@ -56,6 +61,12 @@ export function SalesOrdersPage() {
   const { formatPrice } = useFormatPrice();
   const { hasActionPermission } = usePagePermissions();
   const canEdit = hasActionPermission(AppPage.SALES, 'edit' as any);
+  const userRole = useAuth((state) => state.user?.role);
+  // ADMIN não existe no enum UserRole hoje; tratamos OWNER/DIRECTOR/MANAGER como aprovadores.
+  const canApprove = !!userRole && (['OWNER', 'ADMIN', 'DIRECTOR', 'MANAGER'] as string[]).includes(userRole);
+
+  // Modal de aprovação compartilhado entre as linhas
+  const [approveTarget, setApproveTarget] = useState<{ id: string; number: string } | null>(null);
 
   const handleCancel = async (id: string, number: string) => {
     const reason = window.prompt(`Motivo do cancelamento do pedido ${number}:`);
@@ -259,7 +270,16 @@ export function SalesOrdersPage() {
                               <Pencil className="w-4 h-4" />
                             </button>
                           )}
-                          {(order.status === 'PENDING' || order.status === 'APPROVED') && (
+                          {canApprove && order.status === 'PENDING' && (
+                            <button
+                              onClick={() => setApproveTarget({ id: order.id, number: order.orderNumber })}
+                              className="p-1.5 text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-colors border border-emerald-200"
+                              title="Aprovar pedido"
+                            >
+                              <ThumbsUp className="w-4 h-4" />
+                            </button>
+                          )}
+                          {(order.status === 'PENDING' || order.status === 'APPROVED' || order.status === 'PARTIALLY_CONVERTED') && (
                             <button
                               onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
                               className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
@@ -318,9 +338,9 @@ export function SalesOrdersPage() {
                       {new Date(order.orderDate).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-lg font-bold text-gray-900">{formatPrice(order.total)}</span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
                         <button
                           onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
@@ -330,7 +350,16 @@ export function SalesOrdersPage() {
                           Editar
                         </button>
                       )}
-                      {(order.status === 'PENDING' || order.status === 'APPROVED') && (
+                      {canApprove && order.status === 'PENDING' && (
+                        <button
+                          onClick={() => setApproveTarget({ id: order.id, number: order.orderNumber })}
+                          className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 border border-emerald-600 rounded-lg hover:bg-emerald-700 flex items-center gap-1"
+                        >
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          Aprovar
+                        </button>
+                      )}
+                      {(order.status === 'PENDING' || order.status === 'APPROVED' || order.status === 'PARTIALLY_CONVERTED') && (
                         <button
                           onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
                           className="px-3 py-1.5 text-xs font-medium text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 flex items-center gap-1"
@@ -375,6 +404,14 @@ export function SalesOrdersPage() {
           )}
         </>
       )}
+
+      {/* Modal de aprovação compartilhado entre desktop/mobile */}
+      <ApproveSalesOrderModal
+        isOpen={!!approveTarget}
+        orderId={approveTarget?.id || null}
+        orderNumber={approveTarget?.number || null}
+        onClose={() => setApproveTarget(null)}
+      />
     </div>
   );
 }

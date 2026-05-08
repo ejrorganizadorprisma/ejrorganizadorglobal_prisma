@@ -103,7 +103,7 @@ export function useCollections(search?: string) {
       longitude: data.longitude,
     };
     await db.runAsync(
-      "INSERT INTO sync_queue (entity, action, entity_id, payload) VALUES ('collections', 'CREATE', ?, ?)",
+      "INSERT INTO sync_queue (entity, action, entity_id, payload, updated_at) VALUES ('collections', 'CREATE', ?, ?, datetime('now'))",
       [id, JSON.stringify(syncPayload)]
     );
     await loadFromDb();

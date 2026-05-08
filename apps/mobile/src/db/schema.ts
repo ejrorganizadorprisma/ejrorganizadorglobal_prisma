@@ -37,7 +37,9 @@ export const CREATE_TABLES_SQL = [
     entity_id TEXT NOT NULL,
     payload TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    attempts INTEGER NOT NULL DEFAULT 0
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS collections (
     id TEXT PRIMARY KEY,

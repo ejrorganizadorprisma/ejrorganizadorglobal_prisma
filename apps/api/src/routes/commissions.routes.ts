@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { authorize } from '../middleware/authorize';
 import { CommissionsRepository } from '../repositories/commissions.repository';
+import { CommissionsService } from '../services/commissions.service';
 import {
   UpdateCommissionConfigSchema,
   CreateSettlementSchema,
@@ -9,6 +10,7 @@ import {
 
 const router = Router();
 const repo = new CommissionsRepository();
+const service = new CommissionsService();
 
 router.use(authenticate);
 
@@ -350,6 +352,48 @@ router.get(
     } catch (error: any) {
       if (error?.code === '42P01') {
         return res.json({ success: true, data: [] });
+      }
+      next(error);
+    }
+  }
+);
+
+// ─── Forecast (preview de comissão sobre pedidos) ──────────
+
+/**
+ * GET /api/v1/commissions/forecast
+ *
+ * Estima a comissão se TODOS os pedidos PENDING/APPROVED/PARTIALLY_CONVERTED
+ * do vendedor virassem vendas. Usa a mesma regra de cálculo do faturamento real
+ * (SALE_FIXED ou SALE_BY_PRODUCT).
+ *
+ * Permissões:
+ *   - SALESPERSON: força sellerId = req.user.id (ignora query)
+ *   - Outros: aceita ?sellerId=, fallback ao próprio
+ */
+router.get(
+  '/forecast',
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const sellerId = service.resolveSellerId(
+        req.user!.id,
+        req.user!.role,
+        req.query.sellerId as string | undefined
+      );
+      const data = await service.getForecast(sellerId);
+      res.json({ success: true, data });
+    } catch (error: any) {
+      // Tabelas podem não existir em ambiente novo
+      if (error?.code === '42P01') {
+        return res.json({
+          success: true,
+          data: {
+            pendingOrders: 0,
+            totalSubtotal: 0,
+            forecastedCommission: 0,
+            byOrder: [],
+          },
+        });
       }
       next(error);
     }

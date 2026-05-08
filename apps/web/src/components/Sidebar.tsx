@@ -37,6 +37,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useAuth } from '../hooks/useAuth';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { usePendingSalesOrdersCount } from '../hooks/useSalesOrders';
 import type { AppPage } from '@ejr/shared-types';
 
 interface MenuItem {
@@ -45,6 +46,8 @@ interface MenuItem {
   icon: LucideIcon;
   submenu?: MenuItem[];
   page?: AppPage;
+  /** Número de notificações pendentes a exibir como badge ao lado do item. */
+  badgeCount?: number;
 }
 
 interface MenuSection {
@@ -346,6 +349,8 @@ function SidebarItem({ item, isOpen, onToggle, onNavigate }: SidebarItemProps) {
   }
 
   const isActive = location.pathname === item.path;
+  const showBadge = typeof item.badgeCount === 'number' && item.badgeCount > 0;
+  const badgeLabel = showBadge ? (item.badgeCount! > 99 ? '99+' : String(item.badgeCount)) : '';
 
   return (
     <Link
@@ -365,7 +370,15 @@ function SidebarItem({ item, isOpen, onToggle, onNavigate }: SidebarItemProps) {
           isActive ? 'text-amber-400' : 'text-slate-400 group-hover:text-white'
         }`}
       />
-      <span className="truncate">{item.name}</span>
+      <span className="truncate flex-1">{item.name}</span>
+      {showBadge && (
+        <span
+          className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-bold leading-none rounded-full bg-red-500 text-white shadow-[0_0_6px_rgba(239,68,68,0.5)]"
+          title={`${item.badgeCount} pedido(s) pendente(s)`}
+        >
+          {badgeLabel}
+        </span>
+      )}
     </Link>
   );
 }
@@ -383,6 +396,14 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const { data: docSettings } = useDefaultDocumentSettings();
 
   const isAdmin = user?.role === 'OWNER' || user?.role === 'DIRECTOR';
+
+  // Badge de pedidos PENDING — só consulta se o usuário tem acesso à página de vendas.
+  // Para SALESPERSON, o backend já filtra automaticamente para os pedidos próprios,
+  // então o número exibido reflete apenas o que ele de fato precisa acompanhar.
+  const canSeeSalesOrders = hasPermission('sales' as AppPage);
+  const { data: pendingOrdersCount = 0 } = usePendingSalesOrdersCount({
+    enabled: canSeeSalesOrders,
+  });
 
   const toggleMenu = (menuName: string) => {
     setOpenMenus((prev) => ({
@@ -450,17 +471,26 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       return nameMatches ? item : null;
     };
 
+    // Decorador final: anexa contagem de notificações em itens específicos.
+    const applyBadges = (item: MenuItem): MenuItem => {
+      if (item.name === 'Pedidos de Venda' && pendingOrdersCount > 0) {
+        return { ...item, badgeCount: pendingOrdersCount };
+      }
+      return item;
+    };
+
     return menuSections
       .map((section) => {
         const items = section.items
           .map(applyPermission)
           .filter((i): i is MenuItem => i !== null)
           .map(applySearch)
-          .filter((i): i is MenuItem => i !== null);
+          .filter((i): i is MenuItem => i !== null)
+          .map(applyBadges);
         return { label: section.label, items };
       })
       .filter((section) => section.items.length > 0);
-  }, [hasPermission, isAdmin, searchQuery]);
+  }, [hasPermission, isAdmin, searchQuery, pendingOrdersCount]);
 
   const searchActive = searchQuery.trim().length > 0;
 

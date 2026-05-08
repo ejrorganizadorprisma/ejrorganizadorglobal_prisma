@@ -58,12 +58,16 @@ export function SalesOrderFormPage() {
   // Product search
   const [productSearch, setProductSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownOpenUpward, setDropdownOpenUpward] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [addQty, setAddQty] = useState(1);
   const [pendingProduct, setPendingProduct] = useState<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Notas recolhíveis (fechadas por padrão para não ocupar espaço)
+  const [showNotes, setShowNotes] = useState(false);
 
   // Service form
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -80,6 +84,28 @@ export function SalesOrderFormPage() {
     search: productSearch.trim() || undefined,
   });
   const products = productsData?.data || [];
+
+  // Detecta se o dropdown deve abrir para cima quando não há espaço suficiente
+  // abaixo do input (típico depois de adicionar vários produtos e a página rolar).
+  useEffect(() => {
+    if (!showDropdown) return;
+    const measure = () => {
+      const el = searchInputRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const DROPDOWN_MAX = 260; // max-h-60 (240px) + folga
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setDropdownOpenUpward(spaceBelow < DROPDOWN_MAX && spaceAbove > spaceBelow);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [showDropdown, products.length]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -380,26 +406,41 @@ export function SalesOrderFormPage() {
               </select>
             </div>
 
-            <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium mb-1">Observacoes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Notas Internas</label>
-                <textarea
-                  value={formData.internalNotes}
-                  onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2 border rounded"
-                  placeholder="Visiveis apenas para a equipe interna"
-                />
-              </div>
+            <div className="md:col-span-3">
+              <button
+                type="button"
+                onClick={() => setShowNotes((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                <span className={`transition-transform ${showNotes ? 'rotate-90' : ''}`}>▶</span>
+                Observações e notas internas
+                {(formData.notes || formData.internalNotes) && !showNotes && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">preenchido</span>
+                )}
+              </button>
+              {showNotes && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Observações</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Notas Internas</label>
+                    <textarea
+                      value={formData.internalNotes}
+                      onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}
+                      rows={2}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="Visíveis apenas para a equipe interna"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -438,7 +479,11 @@ export function SalesOrderFormPage() {
               </div>
 
               {showDropdown && !pendingProduct && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto">
+                <div
+                  className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto ${
+                    dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+                  }`}
+                >
                   {loadingProducts ? (
                     <div className="px-4 py-3 text-sm text-gray-400 flex items-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />

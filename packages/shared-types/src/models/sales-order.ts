@@ -2,11 +2,13 @@ import { z } from 'zod';
 
 // Status possíveis de um Pedido de Venda
 export enum SalesOrderStatus {
-  DRAFT = 'DRAFT',           // Rascunho (ainda não sincronizado)
-  PENDING = 'PENDING',       // Aguardando faturamento
-  APPROVED = 'APPROVED',     // Aprovado pelo admin, pronto para virar venda
-  CONVERTED = 'CONVERTED',   // Já foi transformado em venda
-  CANCELLED = 'CANCELLED',   // Cancelado
+  DRAFT = 'DRAFT',                                 // Rascunho (ainda não sincronizado)
+  PENDING = 'PENDING',                             // Aguardando faturamento
+  APPROVED = 'APPROVED',                           // Aprovado pelo admin, pronto para virar venda
+  CONVERTING = 'CONVERTING',                       // Lock otimista: faturamento em andamento (transitório)
+  PARTIALLY_CONVERTED = 'PARTIALLY_CONVERTED',     // Faturado parcialmente; saldo aguarda novo convertToSale
+  CONVERTED = 'CONVERTED',                         // Já foi transformado em venda (totalmente)
+  CANCELLED = 'CANCELLED',                         // Cancelado
 }
 
 export interface SalesOrderItem {
@@ -42,12 +44,14 @@ export interface SalesOrder {
   internalNotes?: string;
   latitude?: number;
   longitude?: number;
-  saleId?: string;        // Preenchido após conversão em venda
+  saleId?: string;        // Preenchido após PRIMEIRA conversão em venda (histórico completo em sales_order_conversions)
   convertedAt?: string;
   convertedBy?: string;
   cancelledAt?: string;
   cancelledBy?: string;
   cancelReason?: string;
+  approvedAt?: string;
+  approvedBy?: string;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -116,4 +120,58 @@ export interface SalesOrderFilters {
   search?: string;
   page?: number;
   limit?: number;
+}
+
+/**
+ * Linha do histórico de faturamentos parciais (sales_order_conversions).
+ * Cada conversão (parcial ou total) gera uma linha apontando para a Sale criada.
+ */
+export interface SalesOrderConversion {
+  id: string;
+  salesOrderId: string;
+  saleId: string;
+  itemsSnapshot: Array<{
+    itemType: 'PRODUCT' | 'SERVICE';
+    productId?: string;
+    serviceName?: string;
+    quantity: number;
+    unitPrice: number;
+    discount: number;
+  }>;
+  convertedAt: string;
+  convertedBy?: string;
+  // Populated
+  sale?: {
+    id: string;
+    saleNumber: string;
+  };
+}
+
+/**
+ * Forecast de comissão para um vendedor baseado em pedidos PENDING/APPROVED.
+ */
+export interface CommissionForecast {
+  pendingOrders: number;
+  totalSubtotal: number;          // soma dos subtotals dos pedidos
+  forecastedCommission: number;   // comissão prevista (centavos)
+  byOrder: Array<{
+    orderId: string;
+    orderNumber: string;
+    subtotal: number;
+    forecastedAmount: number;
+  }>;
+}
+
+/**
+ * Token de push para um dispositivo (Expo Push API).
+ */
+export interface DevicePushToken {
+  id: string;
+  userId: string;
+  expoToken: string;
+  platform: 'ios' | 'android' | 'web';
+  deviceName?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string;
 }

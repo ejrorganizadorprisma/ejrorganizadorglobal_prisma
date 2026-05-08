@@ -11,6 +11,8 @@ router.use(authenticate);
 router.post('/convert-from-quote', controller.convertFromQuote);
 router.post('/:id/convert-to-sale', controller.convertToSale);
 router.post('/:id/cancel', controller.cancel);
+router.post('/:id/approve', controller.approve);
+router.get('/:id/conversions', controller.conversions);
 
 router.get('/', controller.list);
 router.post('/', controller.create);

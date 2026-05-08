@@ -8,9 +8,13 @@ import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useAuth } from '../hooks/useAuth';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
+import { SalesOrderAuditBlock } from '../components/SalesOrderAuditBlock';
+import { ApproveSalesOrderModal } from '../components/ApproveSalesOrderModal';
+import { ConversionHistoryBlock } from '../components/ConversionHistoryBlock';
 import {
   Search,
   Package,
@@ -21,6 +25,7 @@ import {
   ArrowLeft,
   Save,
   ShieldOff,
+  ThumbsUp,
 } from 'lucide-react';
 
 type FormItem = {
@@ -45,6 +50,12 @@ export function SalesOrderEditPage() {
   });
   const { hasActionPermission } = usePagePermissions();
   const canEdit = hasActionPermission(AppPage.SALES, 'edit');
+  const userRole = useAuth((state) => state.user?.role);
+  // ADMIN não existe no enum UserRole hoje; tratamos OWNER/DIRECTOR/MANAGER como aprovadores.
+  const canApprove = !!userRole && (['OWNER', 'ADMIN', 'DIRECTOR', 'MANAGER'] as string[]).includes(userRole);
+
+  // Estado do modal de aprovação
+  const [showApproveModal, setShowApproveModal] = useState(false);
 
   // Dados
   const { data: order, isLoading: loadingOrder } = useSalesOrder(id || '', { enabled: !!id });
@@ -58,12 +69,16 @@ export function SalesOrderEditPage() {
   // Product search
   const [productSearch, setProductSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownOpenUpward, setDropdownOpenUpward] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [addQty, setAddQty] = useState(1);
   const [pendingProduct, setPendingProduct] = useState<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Notas recolhíveis (fechadas por padrão para não ocupar espaço)
+  const [showNotes, setShowNotes] = useState(false);
 
   // Service form
   const [showServiceForm, setShowServiceForm] = useState(false);
@@ -80,6 +95,28 @@ export function SalesOrderEditPage() {
     search: productSearch.trim() || undefined,
   });
   const products = productsData?.data || [];
+
+  // Detecta se o dropdown deve abrir para cima quando não há espaço suficiente
+  // abaixo do input (típico depois de adicionar vários produtos e a página rolar).
+  useEffect(() => {
+    if (!showDropdown) return;
+    const measure = () => {
+      const el = searchInputRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const DROPDOWN_MAX = 260;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      setDropdownOpenUpward(spaceBelow < DROPDOWN_MAX && spaceAbove > spaceBelow);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
+  }, [showDropdown, products.length]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -359,6 +396,9 @@ export function SalesOrderEditPage() {
     }
   };
 
+  const showConversionHistory =
+    order.status === 'CONVERTED' || order.status === 'PARTIALLY_CONVERTED';
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-6">
@@ -369,15 +409,44 @@ export function SalesOrderEditPage() {
           <ArrowLeft className="w-4 h-4" />
           Voltar para Pedidos
         </button>
-        <h1 className="text-2xl lg:text-3xl font-bold">
-          Editar Pedido {order.orderNumber}
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-2xl lg:text-3xl font-bold">
+            Editar Pedido {order.orderNumber}
+          </h1>
+          {canApprove && order.status === 'PENDING' && (
+            <button
+              type="button"
+              onClick={() => setShowApproveModal(true)}
+              className="self-start sm:self-auto px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+            >
+              <ThumbsUp className="w-4 h-4" />
+              Aprovar pedido
+            </button>
+          )}
+        </div>
         {isReadOnly && (
           <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
             Este pedido esta {order.status === 'CONVERTED' ? 'faturado' : 'cancelado'} e nao pode ser editado.
           </div>
         )}
+        {order.status === 'PARTIALLY_CONVERTED' && (
+          <div className="mt-2 p-3 bg-teal-50 border border-teal-200 rounded-lg text-teal-800 text-sm">
+            Este pedido foi <strong>parcialmente faturado</strong>. O saldo continua disponível para novo faturamento.
+          </div>
+        )}
       </div>
+
+      {/* Bloco de auditoria — sempre visível, separado dos campos editáveis */}
+      <div className="mb-6">
+        <SalesOrderAuditBlock order={order} />
+      </div>
+
+      {/* Histórico de faturamentos — exibido apenas se houve conversão */}
+      {showConversionHistory && id && (
+        <div className="mb-6">
+          <ConversionHistoryBlock orderId={id} />
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Header fields */}
@@ -423,28 +492,43 @@ export function SalesOrderEditPage() {
               />
             </div>
 
-            <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium mb-1">Observacoes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  rows={2}
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border rounded disabled:bg-gray-100"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Notas Internas</label>
-                <textarea
-                  value={formData.internalNotes}
-                  onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}
-                  rows={2}
-                  disabled={isReadOnly}
-                  className="w-full px-3 py-2 border rounded disabled:bg-gray-100"
-                  placeholder="Visiveis apenas para a equipe interna"
-                />
-              </div>
+            <div className="md:col-span-3">
+              <button
+                type="button"
+                onClick={() => setShowNotes((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                <span className={`transition-transform ${showNotes ? 'rotate-90' : ''}`}>▶</span>
+                Observações e notas internas
+                {(formData.notes || formData.internalNotes) && !showNotes && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">preenchido</span>
+                )}
+              </button>
+              {showNotes && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Observações</label>
+                    <textarea
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      rows={2}
+                      disabled={isReadOnly}
+                      className="w-full px-3 py-2 border rounded disabled:bg-gray-100"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Notas Internas</label>
+                    <textarea
+                      value={formData.internalNotes}
+                      onChange={(e) => setFormData({ ...formData, internalNotes: e.target.value })}
+                      rows={2}
+                      disabled={isReadOnly}
+                      className="w-full px-3 py-2 border rounded disabled:bg-gray-100"
+                      placeholder="Visíveis apenas para a equipe interna"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -484,7 +568,11 @@ export function SalesOrderEditPage() {
                 </div>
 
                 {showDropdown && !pendingProduct && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto">
+                  <div
+                    className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto ${
+                      dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+                    }`}
+                  >
                     {loadingProducts ? (
                       <div className="px-4 py-3 text-sm text-gray-400 flex items-center gap-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500" />
@@ -816,6 +904,14 @@ export function SalesOrderEditPage() {
           </div>
         )}
       </form>
+
+      {/* Modal de aprovação */}
+      <ApproveSalesOrderModal
+        isOpen={showApproveModal}
+        orderId={id || null}
+        orderNumber={order.orderNumber}
+        onClose={() => setShowApproveModal(false)}
+      />
     </div>
   );
 }

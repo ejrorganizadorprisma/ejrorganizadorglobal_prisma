@@ -11,6 +11,7 @@ export function useSync() {
     pendingCustomers: 0,
     pendingQuotes: 0,
     pendingSales: 0,
+    pendingSalesOrders: 0,
     pendingCollections: 0,
     totalPending: 0,
     lastSync: null,

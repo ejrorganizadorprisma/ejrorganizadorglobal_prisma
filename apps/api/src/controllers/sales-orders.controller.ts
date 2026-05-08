@@ -32,12 +32,17 @@ export class SalesOrdersController {
       }
 
       const result = await this.service.list(filters);
+      const limit = filters.limit ?? 20;
+      const page = filters.page ?? 1;
       res.json({
         success: true,
         data: result.data,
-        total: result.total,
-        page: filters.page,
-        limit: filters.limit,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages: limit > 0 ? Math.ceil(result.total / limit) : 0,
+        },
       });
     } catch (error) {
       next(error);
@@ -49,7 +54,11 @@ export class SalesOrdersController {
    */
   getById = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const order = await this.service.getById(req.params.id);
+      const order = await this.service.getById(
+        req.params.id,
+        req.user!.id,
+        req.user!.role
+      );
       res.json({ success: true, data: order });
     } catch (error) {
       next(error);
@@ -142,7 +151,12 @@ export class SalesOrdersController {
   cancel = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { reason } = req.body;
-      const order = await this.service.cancel(req.params.id, req.user!.id, reason);
+      const order = await this.service.cancel(
+        req.params.id,
+        req.user!.id,
+        reason,
+        req.user!.role
+      );
       res.json({ success: true, data: order, message: 'Pedido cancelado' });
     } catch (error) {
       next(error);
@@ -154,8 +168,43 @@ export class SalesOrdersController {
    */
   delete = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      await this.service.delete(req.params.id);
+      await this.service.delete(req.params.id, req.user!.id, req.user!.role);
       res.json({ success: true, message: 'Pedido deletado' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /api/v1/sales-orders/:id/approve
+   * Aprovação manual do pedido (PENDING → APPROVED).
+   * Permissões: ADMIN, OWNER, MANAGER.
+   */
+  approve = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.approve(
+        req.params.id,
+        req.user!.id,
+        req.user!.role
+      );
+      res.json({ success: true, data: order, message: 'Pedido aprovado' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /api/v1/sales-orders/:id/conversions
+   * Histórico de faturamentos (uma linha por venda gerada do pedido).
+   */
+  conversions = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.getConversions(
+        req.params.id,
+        req.user!.id,
+        req.user!.role
+      );
+      res.json({ success: true, data });
     } catch (error) {
       next(error);
     }

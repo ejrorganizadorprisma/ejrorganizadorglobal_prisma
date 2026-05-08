@@ -1,4 +1,5 @@
 import { db } from '../config/database';
+import { BadRequestError } from '../utils/errors';
 import type {
   Sale,
   SaleItem,
@@ -369,6 +370,76 @@ export class SalesRepository {
           installmentDueDate.toISOString().split('T')[0],
           'PENDING',
         ]);
+      }
+
+      // ─── Race-safe stock check: bloqueia as linhas de produtos da venda
+      // (SELECT ... FOR UPDATE) e valida disponibilidade DENTRO da transação.
+      // Antes a validação rodava em sales.service com db.query separado, o que
+      // permitia dois admins concorrentes passarem ambos no check e estourarem
+      // o estoque. Quando allowNegativeStock=true (sync mobile), pulamos a
+      // checagem mas ainda assim usamos FOR UPDATE para serializar updates.
+      const productIds = Array.from(
+        new Set(
+          items
+            .filter((it) => it.itemType === 'PRODUCT' && it.productId)
+            .map((it) => it.productId as string)
+        )
+      );
+
+      if (productIds.length > 0) {
+        const lockResult = await client.query(
+          `SELECT id, name, current_stock
+             FROM products
+            WHERE id = ANY($1::text[])
+            FOR UPDATE`,
+          [productIds]
+        );
+
+        const stockById = new Map<string, { name: string; stock: number }>();
+        for (const row of lockResult.rows) {
+          stockById.set(row.id, {
+            name: row.name,
+            stock: Number(row.current_stock ?? 0),
+          });
+        }
+
+        // Produtos que vieram no DTO e não existem
+        const missing = productIds.filter((pid) => !stockById.has(pid));
+        if (missing.length > 0) {
+          throw new BadRequestError(
+            `Produto(s) não encontrado(s): ${missing.join(', ')}`
+          );
+        }
+
+        if (!allowNegativeStock) {
+          // Soma quantidades pedidas por produto (caso o mesmo produto apareça
+          // duas vezes na lista de items)
+          const requestedById = new Map<string, number>();
+          for (const it of items) {
+            if (it.itemType === 'PRODUCT' && it.productId) {
+              requestedById.set(
+                it.productId,
+                (requestedById.get(it.productId) || 0) + it.quantity
+              );
+            }
+          }
+
+          const insufficient: string[] = [];
+          for (const [pid, requested] of requestedById.entries()) {
+            const info = stockById.get(pid)!;
+            if (info.stock < requested) {
+              insufficient.push(
+                `"${info.name}" (disponível ${info.stock}, solicitado ${requested})`
+              );
+            }
+          }
+
+          if (insufficient.length > 0) {
+            throw new BadRequestError(
+              `Estoque insuficiente para ${insufficient.length} produto(s): ${insufficient.join('; ')}`
+            );
+          }
+        }
       }
 
       // Atualizar estoque dos produtos

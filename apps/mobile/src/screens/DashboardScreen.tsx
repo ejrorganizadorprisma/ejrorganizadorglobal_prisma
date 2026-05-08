@@ -14,9 +14,49 @@ import { useSync } from '../hooks/useSync';
 import { useSales } from '../hooks/useSales';
 import { useCustomers } from '../hooks/useCustomers';
 import { useMyCommissions } from '../hooks/useMyCommissions';
+import { useCommissionForecast } from '../hooks/useCommissionForecast';
 import { formatPrice } from '../utils/formatPrice';
 import KpiCard from '../components/KpiCard';
 import SyncBadge from '../components/SyncBadge';
+import SyncFailureBanner from '../components/SyncFailureBanner';
+
+interface CommissionForecastWidgetProps {
+  onPress: () => void;
+}
+
+function CommissionForecastWidget({ onPress }: CommissionForecastWidgetProps) {
+  const { data, loading, error } = useCommissionForecast();
+
+  // Esconde o widget em caso de erro de rede ou se backend nao expoe ainda
+  if (error) return null;
+
+  return (
+    <TouchableOpacity
+      style={forecastStyles.card}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={forecastStyles.accent} />
+      <View style={forecastStyles.content}>
+        <View style={forecastStyles.titleRow}>
+          <Text style={forecastStyles.icon}>📈</Text>
+          <Text style={forecastStyles.title}>Comissao prevista</Text>
+        </View>
+        {loading ? (
+          <ActivityIndicator color="#0B5C9A" size="small" style={{ marginTop: 8, alignSelf: 'flex-start' }} />
+        ) : (
+          <>
+            <Text style={forecastStyles.amount}>{formatPrice(data.forecastedCommission)}</Text>
+            <Text style={forecastStyles.subText}>
+              {data.pendingOrders} {data.pendingOrders === 1 ? 'pedido pendente' : 'pedidos pendentes'}
+            </Text>
+          </>
+        )}
+        <Text style={forecastStyles.detailsLink}>Ver detalhes {'>'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 interface CommissionHeroCardProps {
   onPress: () => void;
@@ -167,6 +207,16 @@ export default function DashboardScreen() {
       >
         {/* Commission hero card */}
         <CommissionHeroCard onPress={() => navigation.navigate('MyCommissions')} />
+
+        {/* Commission forecast widget — pedidos PENDING/APPROVED ainda nao
+            confirmados, com estimativa de quanto vai virar comissao. */}
+        <CommissionForecastWidget onPress={() => navigation.navigate('CommissionForecast')} />
+
+        {/* Sync failure banner: itens que ja bateram o limite de tentativas
+            e estao "presos" na fila ate uma acao manual do usuario */}
+        <SyncFailureBanner
+          onTriggerSync={() => triggerSync({ resetAttempts: false })}
+        />
 
         {/* Sync warning banner */}
         {pendingCount > 0 && (
@@ -436,6 +486,60 @@ const heroStyles = StyleSheet.create({
   },
   detailsLink: {
     color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+});
+
+const forecastStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    marginBottom: 16,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    minHeight: 96,
+  },
+  accent: {
+    width: 4,
+    backgroundColor: '#10B981',
+  },
+  content: {
+    flex: 1,
+    padding: 14,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  icon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  title: {
+    color: '#374151',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  amount: {
+    color: '#10B981',
+    fontSize: 24,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  subText: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  detailsLink: {
+    color: '#0B5C9A',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 8,

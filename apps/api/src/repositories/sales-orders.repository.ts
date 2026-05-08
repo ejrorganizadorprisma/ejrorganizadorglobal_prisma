@@ -395,6 +395,10 @@ export class SalesOrdersRepository {
   /**
    * Marcar pedido como convertido em venda. Usada pelo salesOrdersService
    * logo após criar a Sale correspondente.
+   *
+   * NOTA: só popula `sale_id` na PRIMEIRA conversão (mantém compat com a UI
+   * que mostra a venda principal). Para conversões parciais subsequentes,
+   * o histórico fica em sales_order_conversions.
    */
   async markAsConverted(
     id: string,
@@ -405,7 +409,7 @@ export class SalesOrdersRepository {
     const query = `
       UPDATE sales_orders
          SET status       = 'CONVERTED',
-             sale_id      = $1,
+             sale_id      = COALESCE(sale_id, $1),
              converted_at = NOW(),
              converted_by = $2,
              updated_at   = NOW()
@@ -417,6 +421,218 @@ export class SalesOrdersRepository {
     } else {
       await db.query(query, params);
     }
+  }
+
+  /**
+   * Marca pedido como PARTIALLY_CONVERTED após faturamento parcial.
+   *
+   * - Substitui `sales_order_items` pelos `remainingItems` (saldo a faturar)
+   * - Recalcula subtotal/total
+   * - Define sale_id na PRIMEIRA conversão (ficará apontando para a primeira venda;
+   *   demais conversões só registram em sales_order_conversions)
+   *
+   * Deve ser chamada DENTRO de uma db.transaction() — recebe `client`.
+   */
+  async markAsPartiallyConverted(
+    orderId: string,
+    remainingItems: Array<{
+      itemType: 'PRODUCT' | 'SERVICE';
+      productId?: string;
+      serviceName?: string;
+      quantity: number;
+      unitPrice: number;
+      discount?: number;
+    }>,
+    saleId: string,
+    convertedBy: string,
+    client: any
+  ): Promise<void> {
+    // Pega desconto atual do header para preservar
+    const head = await client.query(
+      `SELECT discount, sale_id FROM sales_orders WHERE id = $1 FOR UPDATE`,
+      [orderId]
+    );
+    const headerDiscount = Number(head.rows[0]?.discount ?? 0);
+    const hasFirstSale = !!head.rows[0]?.sale_id;
+
+    // DELETE itens antigos
+    await client.query(
+      `DELETE FROM sales_order_items WHERE sales_order_id = $1`,
+      [orderId]
+    );
+
+    // INSERT itens remanescentes
+    let subtotal = 0;
+    for (const item of remainingItems) {
+      const itemDiscount = item.discount || 0;
+      const itemTotal = item.quantity * item.unitPrice - itemDiscount;
+      subtotal += itemTotal;
+
+      const itemId = `soitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      await client.query(
+        `INSERT INTO sales_order_items (
+            id, sales_order_id, item_type, product_id, service_name,
+            quantity, unit_price, discount, total
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          itemId,
+          orderId,
+          item.itemType,
+          item.productId || null,
+          item.serviceName || null,
+          item.quantity,
+          item.unitPrice,
+          itemDiscount,
+          itemTotal,
+        ]
+      );
+    }
+
+    // Atualizar header. Mantém discount existente; total = subtotal - discount.
+    await client.query(
+      `UPDATE sales_orders
+          SET status       = 'PARTIALLY_CONVERTED',
+              subtotal     = $1,
+              total        = $2,
+              sale_id      = COALESCE(sale_id, $3),
+              converted_at = NOW(),
+              converted_by = $4,
+              updated_at   = NOW()
+        WHERE id = $5`,
+      [subtotal, subtotal - headerDiscount, saleId, convertedBy, orderId]
+    );
+
+    // hasFirstSale serve apenas para garantir que sabemos se é a primeira conversão;
+    // no momento usamos COALESCE acima — a variável é mantida para clareza/futuro.
+    void hasFirstSale;
+  }
+
+  /**
+   * Insere uma linha em sales_order_conversions (histórico de cada faturamento).
+   * Pode rodar fora ou dentro de transação.
+   */
+  async recordConversion(
+    orderId: string,
+    saleId: string,
+    items: Array<any>,
+    userId: string,
+    client?: any
+  ): Promise<void> {
+    const id = `soconv-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const sql = `
+      INSERT INTO sales_order_conversions
+        (id, sales_order_id, sale_id, items_snapshot, converted_by)
+      VALUES ($1, $2, $3, $4::jsonb, $5)
+    `;
+    const params = [id, orderId, saleId, JSON.stringify(items), userId];
+    if (client) {
+      await client.query(sql, params);
+    } else {
+      await db.query(sql, params);
+    }
+  }
+
+  /**
+   * Lista o histórico de conversões (faturamentos) de um pedido.
+   */
+  async getConversionsByOrder(orderId: string): Promise<any[]> {
+    const result = await db.query(
+      `SELECT soc.*,
+              s.id            AS s_id,
+              s.sale_number   AS s_sale_number
+         FROM sales_order_conversions soc
+         LEFT JOIN sales s ON s.id = soc.sale_id
+        WHERE soc.sales_order_id = $1
+        ORDER BY soc.converted_at ASC`,
+      [orderId]
+    );
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      salesOrderId: row.sales_order_id,
+      saleId: row.sale_id,
+      itemsSnapshot: typeof row.items_snapshot === 'string'
+        ? JSON.parse(row.items_snapshot)
+        : row.items_snapshot,
+      convertedAt: row.converted_at,
+      convertedBy: row.converted_by || undefined,
+      sale: row.s_id ? { id: row.s_id, saleNumber: row.s_sale_number } : undefined,
+    }));
+  }
+
+  /**
+   * Aprovação manual: PENDING → APPROVED
+   * Marca approved_at / approved_by. Idempotente: só roda se status atual = PENDING.
+   */
+  async approve(id: string, userId: string): Promise<void> {
+    await db.query(
+      `UPDATE sales_orders
+          SET status      = 'APPROVED',
+              approved_at = NOW(),
+              approved_by = $1,
+              updated_at  = NOW()
+        WHERE id = $2
+          AND status = 'PENDING'`,
+      [userId, id]
+    );
+  }
+
+  /**
+   * Tenta adquirir o lock otimista de faturamento.
+   *
+   * Atomicamente:
+   *   - SELECT ... FOR UPDATE para serializar quem disputa o mesmo pedido.
+   *   - Verifica status atual; se já CONVERTED/CANCELLED/CONVERTING, retorna null.
+   *   - UPDATE para 'CONVERTING' apenas se status IN ('PENDING','APPROVED','DRAFT').
+   *
+   * Retorna o status anterior (para reverter em caso de falha posterior) ou
+   * null se o lock não foi adquirido.
+   *
+   * Roda em sua própria db.transaction (curta) para que o lock seja commitado
+   * antes da transação maior do salesService.create().
+   */
+  async tryAcquireConvertingLock(id: string): Promise<{ previousStatus: string } | null> {
+    return db.transaction(async (client) => {
+      const sel = await client.query(
+        `SELECT id, status FROM sales_orders WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (sel.rows.length === 0) {
+        return null;
+      }
+      const prev = sel.rows[0].status as string;
+      if (!['PENDING', 'APPROVED', 'DRAFT', 'PARTIALLY_CONVERTED'].includes(prev)) {
+        return null;
+      }
+      const upd = await client.query(
+        `UPDATE sales_orders
+            SET status = 'CONVERTING',
+                updated_at = NOW()
+          WHERE id = $1
+            AND status IN ('PENDING','APPROVED','DRAFT','PARTIALLY_CONVERTED')
+          RETURNING id`,
+        [id]
+      );
+      if (upd.rowCount === 0) {
+        return null;
+      }
+      return { previousStatus: prev };
+    });
+  }
+
+  /**
+   * Reverter o status para `previousStatus` quando o faturamento falhou
+   * APÓS termos pego o lock otimista (CONVERTING). Só atualiza se ainda
+   * estiver em CONVERTING — se algum outro processo já mexeu, deixa.
+   */
+  async releaseConvertingLock(id: string, previousStatus: string): Promise<void> {
+    await db.query(
+      `UPDATE sales_orders
+          SET status = $1,
+              updated_at = NOW()
+        WHERE id = $2
+          AND status = 'CONVERTING'`,
+      [previousStatus, id]
+    );
   }
 
   /**
@@ -450,31 +666,21 @@ export class SalesOrdersRepository {
   }
 
   /**
-   * Gera próximo número de pedido (PED-YYYY-NNNN).
+   * Gera próximo número de pedido (PED-YYYY-NNNN) usando a SEQUENCE
+   * `sales_orders_seq` (criada na migration 042).
+   *
+   * SEQUENCE é GLOBAL crescente (não reinicia por ano). Garante unicidade
+   * mesmo sob criação concorrente em diferentes conexões.
    *
    * IMPORTANT: quando chamado dentro de db.transaction(), passar o `client`
-   * para evitar deadlock em pgbouncer transaction-pool.
+   * para que `nextval` rode no mesmo backend e respeite o pool max:1.
    */
   private async generateOrderNumber(client?: any): Promise<string> {
     const year = new Date().getFullYear();
-    const prefix = `PED-${year}-`;
-    const query = `
-      SELECT order_number
-        FROM sales_orders
-       WHERE order_number LIKE $1
-       ORDER BY order_number DESC
-       LIMIT 1
-    `;
-    const result = client
-      ? await client.query(query, [`${prefix}%`])
-      : await db.query(query, [`${prefix}%`]);
-
-    let next = 1;
-    if (result.rows.length > 0) {
-      const last = parseInt(result.rows[0].order_number.split('-')[2]);
-      next = last + 1;
-    }
-    return `${prefix}${next.toString().padStart(4, '0')}`;
+    const sql = `SELECT nextval('sales_orders_seq') AS n`;
+    const result = client ? await client.query(sql) : await db.query(sql);
+    const n = result.rows[0].n;
+    return `PED-${year}-${String(n).padStart(4, '0')}`;
   }
 
   private mapToSalesOrder(row: any): SalesOrder {
@@ -499,6 +705,8 @@ export class SalesOrdersRepository {
       cancelledAt: row.cancelled_at || undefined,
       cancelledBy: row.cancelled_by || undefined,
       cancelReason: row.cancel_reason || undefined,
+      approvedAt: row.approved_at || undefined,
+      approvedBy: row.approved_by || undefined,
       createdBy: row.created_by || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,

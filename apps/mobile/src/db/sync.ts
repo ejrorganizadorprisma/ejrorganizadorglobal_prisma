@@ -2,6 +2,7 @@ import { getDatabase } from './migrations';
 import { apiRequest } from '../api/client';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notifyConflict, buildConflictMessage } from '../lib/conflictNotifier';
 
 // Subscribers notified whenever a fullSync finishes. Used by data screens
 // to re-read from local SQLite the moment background sync pulls new data.
@@ -194,7 +195,7 @@ export async function pushPendingChanges(
             await db.runAsync(`DELETE FROM ${item.entity} WHERE id = ?`, [item.entity_id]);
             if (item.entity === 'customers') {
               const remaining = await db.getAllAsync<{ id: number; payload: string }>(
-                "SELECT id, payload FROM sync_queue WHERE entity IN ('sales','quotes','collections')"
+                "SELECT id, payload FROM sync_queue WHERE entity IN ('sales','sales_orders','quotes','collections')"
               );
               for (const r of remaining) {
                 const p = JSON.parse(r.payload);
@@ -215,25 +216,123 @@ export async function pushPendingChanges(
         pushed++;
       } else {
         const errMsg = result?.error?.message || 'Erro desconhecido';
-        await db.runAsync("UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?", [item.id]);
-        await db.runAsync(
-          "INSERT INTO sync_log (action, status, message) VALUES (?, 'ERROR', ?)",
-          [`PUSH:${item.entity}:${item.action}`, `${item.entity}/${item.entity_id}: ${errMsg}`]
-        );
+        await recordSyncFailure(db, item, errMsg);
         errors++;
       }
     } catch (error: any) {
       const errMsg = error?.message || 'Erro de rede';
-      await db.runAsync("UPDATE sync_queue SET attempts = attempts + 1 WHERE id = ?", [item.id]);
-      await db.runAsync(
-        "INSERT INTO sync_log (action, status, message) VALUES (?, 'ERROR', ?)",
-        [`PUSH:${item.entity}:${item.action}`, `${item.entity}/${item.entity_id}: ${errMsg}`]
-      );
+      await recordSyncFailure(db, item, errMsg);
       errors++;
     }
   }
 
   return { pushed, errors };
+}
+
+// Incrementa attempts, salva last_error e gera log detalhado quando atinge
+// o limite de 5 tentativas (item fica orfao ate ser retentado manualmente).
+async function recordSyncFailure(
+  db: any,
+  item: { id: number; entity: string; action: string; entity_id: string; payload: string; attempts: number },
+  errMsg: string
+): Promise<void> {
+  const newAttempts = (item.attempts || 0) + 1;
+  await db.runAsync(
+    "UPDATE sync_queue SET attempts = ?, last_error = ? WHERE id = ?",
+    [newAttempts, errMsg, item.id]
+  );
+  await db.runAsync(
+    "INSERT INTO sync_log (action, status, message) VALUES (?, 'ERROR', ?)",
+    [`PUSH:${item.entity}:${item.action}`, `${item.entity}/${item.entity_id}: ${errMsg}`]
+  );
+  if (newAttempts >= 5) {
+    // Log estruturado para diagnostico: o item nao sera mais reprocessado
+    // automaticamente ate o usuario clicar em "Tentar novamente".
+    console.warn('[sync] item atingiu limite de tentativas', {
+      queueId: item.id,
+      entity: item.entity,
+      action: item.action,
+      entityId: item.entity_id,
+      attempts: newAttempts,
+      lastError: errMsg,
+      payload: safeParseJson(item.payload),
+    });
+  }
+}
+
+function safeParseJson(s: string): any {
+  try { return JSON.parse(s); } catch { return s; }
+}
+
+// Itens que bateram o limite de tentativas (>=5) e estao "presos" na fila
+// ate uma acao manual do usuario. Usado pelo banner de falhas.
+export interface FailedSyncItem {
+  id: number;
+  entity: string;
+  action: string;
+  entityId: string;
+  attempts: number;
+  lastError: string | null;
+  payload: any;
+  createdAt: string;
+}
+
+export async function getFailedSyncItems(db?: any): Promise<FailedSyncItem[]> {
+  const database = db || (await getDatabase());
+  const rows = (await database.getAllAsync(
+    "SELECT id, entity, action, entity_id, payload, attempts, last_error, created_at FROM sync_queue WHERE attempts >= 5 ORDER BY id ASC"
+  )) as Array<{
+    id: number;
+    entity: string;
+    action: string;
+    entity_id: string;
+    payload: string;
+    attempts: number;
+    last_error: string | null;
+    created_at: string;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    entity: r.entity,
+    action: r.action,
+    entityId: r.entity_id,
+    attempts: r.attempts,
+    lastError: r.last_error,
+    payload: safeParseJson(r.payload),
+    createdAt: r.created_at,
+  }));
+}
+
+// Reseta o contador de tentativas dos itens que ja bateram o limite,
+// permitindo que sejam reprocessados no proximo push. Diferente de
+// pushPendingChanges({resetAttempts:true}), este nao toca em itens que
+// ainda estao dentro do limite (preserva o backoff natural).
+export async function retryFailedSyncItems(db?: any): Promise<number> {
+  const database = db || (await getDatabase());
+  const result = await database.runAsync(
+    "UPDATE sync_queue SET attempts = 0 WHERE attempts >= 5"
+  );
+  return (result as any)?.changes ?? 0;
+}
+
+// Compara duas timestamps em formatos heterogeneos (ISO ou "YYYY-MM-DD HH:MM:SS"
+// vindo do datetime('now') do SQLite). Retorna number do timestamp ou 0 se falhar.
+function parseTs(value: any): number {
+  if (!value) return 0;
+  const s = String(value).trim();
+  // SQLite datetime('now') retorna 'YYYY-MM-DD HH:MM:SS' (UTC, sem T nem Z)
+  const sqliteFmt = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+  if (sqliteFmt) {
+    return Date.parse(`${sqliteFmt[1]}-${sqliteFmt[2]}-${sqliteFmt[3]}T${sqliteFmt[4]}:${sqliteFmt[5]}:${sqliteFmt[6]}Z`);
+  }
+  const parsed = Date.parse(s);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+// Extrai um updated_at do registro vindo do servidor. Aceita variantes
+// camelCase e snake_case porque diferentes endpoints serializam diferente.
+function extractServerUpdatedAt(item: any): number {
+  return parseTs(item?.updatedAt || item?.updated_at);
 }
 
 async function pullEntity(
@@ -251,8 +350,46 @@ async function pullEntity(
   // IDs retornados pelo servidor para esta entidade
   const serverIds = new Set<string>(items.map((it: any) => String(it.id)));
 
+  // Edicoes locais pendentes (com updated_at) por entity_id. Se o servidor
+  // trouxer um item com updated_at mais recente, removemos a entry e gravamos
+  // o servidor (servidor vence + toast). Se a edicao local for mais recente
+  // ou igual, preservamos o registro local.
+  const pendingRows = (await db.getAllAsync(
+    "SELECT entity_id, updated_at FROM sync_queue WHERE entity = ?",
+    [table]
+  )) as Array<{ entity_id: string; updated_at: string | null }>;
+  const pendingMap = new Map<string, { updated_at: string | null }>();
+  for (const r of pendingRows) {
+    pendingMap.set(String(r.entity_id), { updated_at: r.updated_at });
+  }
+  const pendingIds = new Set<string>(pendingRows.map((r: any) => String(r.entity_id)));
+
+  // Coleta eventos de conflito para emitir DEPOIS da transacao (evita
+  // ruido se algo falhar no meio).
+  const conflicts: Array<{ entityId: string; payload: any }> = [];
+
   await db.withTransactionAsync(async () => {
     for (const item of items) {
+      const idStr = String(item.id);
+      const pending = pendingMap.get(idStr);
+
+      if (pending) {
+        const serverTs = extractServerUpdatedAt(item);
+        const localTs = parseTs(pending.updated_at);
+
+        if (localTs > 0 && serverTs > 0 && localTs >= serverTs) {
+          // Edicao local e mais recente (ou igual): preservar local, ignorar
+          // servidor neste pull. O push vai sincronizar nossa versao depois.
+          continue;
+        }
+        // Servidor venceu: remover entry da fila, gravar servidor e marcar conflito
+        await db.runAsync(
+          "DELETE FROM sync_queue WHERE entity = ? AND entity_id = ?",
+          [table, idStr]
+        );
+        conflicts.push({ entityId: idStr, payload: item });
+      }
+
       const cols = hasSynced
         ? "(id, data, synced, updated_at)"
         : "(id, data, updated_at)";
@@ -265,11 +402,12 @@ async function pullEntity(
       );
     }
 
-    // Detectar exclusões: linhas locais sincronizadas (synced=1) que nao
-    // existem mais na resposta do servidor devem ser removidas. Linhas com
-    // synced=0 sao novas criadas offline e nao podem ser apagadas aqui.
-    // Para tabelas sem coluna synced (products), todas as linhas locais
-    // ausentes do servidor sao removidas.
+    // Detectar exclusoes: so apaga registros que (a) ja estavam sincronizados
+    // antes (synced=1) e (b) nao tem nenhuma operacao pendente na fila.
+    // Linhas com synced=0 sao criadas offline e ainda nao chegaram ao
+    // servidor — nunca podem ser apagadas aqui, mesmo que o servidor diga
+    // que nao conhece o id. Para tabelas sem coluna synced (products), so
+    // limpa registros que tambem nao estao na fila.
     const localRows = hasSynced
       ? await db.getAllAsync<{ id: string }>(
           `SELECT id FROM ${table} WHERE synced = 1`
@@ -277,11 +415,28 @@ async function pullEntity(
       : await db.getAllAsync<{ id: string }>(`SELECT id FROM ${table}`);
 
     for (const row of localRows) {
-      if (!serverIds.has(String(row.id))) {
+      const idStr = String(row.id);
+      if (!serverIds.has(idStr) && !pendingIds.has(idStr)) {
         await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, [row.id]);
       }
     }
   });
+
+  // Emitir eventos de conflito apos a transacao
+  for (const c of conflicts) {
+    try {
+      notifyConflict({
+        entity: table,
+        entityId: c.entityId,
+        action: 'SERVER_WON',
+        message: buildConflictMessage(table, c.payload),
+      });
+      console.warn('[sync] conflito resolvido (servidor venceu)', {
+        entity: table,
+        entityId: c.entityId,
+      });
+    } catch { /* ignore */ }
+  }
 
   return items.length;
 }

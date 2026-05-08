@@ -1,8 +1,9 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect, useRef } from 'react';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
 
@@ -14,6 +15,7 @@ import ProductsScreen from '../screens/ProductsScreen';
 import QuotesScreen from '../screens/QuotesScreen';
 import QuoteFormScreen from '../screens/QuoteFormScreen';
 import MyCommissionsScreen from '../screens/MyCommissionsScreen';
+import CommissionForecastScreen from '../screens/CommissionForecastScreen';
 import SalesScreen from '../screens/SalesScreen';
 import SaleFormScreen from '../screens/SaleFormScreen';
 import CollectionsScreen from '../screens/CollectionsScreen';
@@ -132,6 +134,46 @@ function HomeTabs() {
 export default function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
   const { companyName } = useAuthStore();
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+
+  // Listener para taps em push notifications. Navega para a tela apropriada
+  // baseado em data.type enviado pelo backend. Ignora silenciosamente se a
+  // tela nao existir ainda.
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      try {
+        const data = response.notification.request.content.data || {};
+        const type = String((data as any).type || '').toUpperCase();
+        const orderId = (data as any).orderId || (data as any).salesOrderId;
+        const navRef = navigationRef.current as any;
+        if (!navRef || !navRef.isReady()) return;
+
+        switch (type) {
+          case 'NEW_ORDER':
+            // Vendedor admin recebe push de novo pedido — abre lista de pedidos
+            navRef.navigate('Main', { screen: 'Pedidos' });
+            break;
+          case 'ORDER_APPROVED':
+          case 'ORDER_CONVERTED':
+          case 'ORDER_CANCELLED':
+            // Para o vendedor, o detalhe nao tem rota dedicada ainda; abre lista
+            if (orderId) {
+              navRef.navigate('Main', { screen: 'Pedidos', params: { focusOrderId: orderId } });
+            } else {
+              navRef.navigate('Main', { screen: 'Pedidos' });
+            }
+            break;
+          case 'COMMISSION_FORECAST':
+            navRef.navigate('CommissionForecast');
+            break;
+          default:
+            // Tipo desconhecido: nao faz nada
+            break;
+        }
+      } catch { /* ignore */ }
+    });
+    return () => { sub.remove(); };
+  }, []);
 
   if (isLoading) {
     return (
@@ -149,7 +191,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{
         headerStyle: { backgroundColor: '#0B5C9A' },
         headerTintColor: '#FFF',
@@ -167,6 +209,11 @@ export default function AppNavigator() {
               name="MyCommissions"
               component={MyCommissionsScreen}
               options={{ title: 'Minhas Comissões', headerTitle: 'Minhas Comissões' }}
+            />
+            <Stack.Screen
+              name="CommissionForecast"
+              component={CommissionForecastScreen}
+              options={{ title: 'Comissão Prevista', headerTitle: 'Comissão Prevista' }}
             />
             <Stack.Screen
               name="QuoteForm"

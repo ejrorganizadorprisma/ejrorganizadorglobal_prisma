@@ -115,18 +115,10 @@ export class SalesService {
       }
     }
 
-    // Validar estoque antes de vender
-    for (const item of data.items) {
-      if (item.itemType === 'PRODUCT' && item.productId) {
-        const result = await db.query('SELECT current_stock, name FROM products WHERE id = $1', [item.productId]);
-        if (result.rows.length === 0) {
-          throw new BadRequestError(`Produto não encontrado: ${item.productId}`);
-        }
-        if (result.rows[0].current_stock < item.quantity) {
-          throw new BadRequestError(`Estoque insuficiente para "${result.rows[0].name}": disponível ${result.rows[0].current_stock}, solicitado ${item.quantity}`);
-        }
-      }
-    }
+    // OBS: Validação de estoque foi movida para DENTRO da transação
+    // (sales.repository.ts:create) com SELECT FOR UPDATE — assim corridas
+    // entre dois admins faturando ao mesmo tempo não estouram o estoque.
+    // O erro continua sendo BadRequestError, com a lista de produtos em falta.
 
     // ─── Validação de comissão por produto (ANTES de criar a venda) ───
     // Se o vendedor tem commissionByProduct=true, TODOS os itens PRODUCT

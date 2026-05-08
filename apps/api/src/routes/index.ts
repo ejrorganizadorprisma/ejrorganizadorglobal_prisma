@@ -39,6 +39,7 @@ import mobileAppRoutes from './mobile-app.routes';
 import collectionsRoutes from './collections.routes';
 import commissionsRoutes from './commissions.routes';
 import gpsRoutes from './gps.routes';
+import pushTokensRoutes from './push-tokens.routes';
 
 const router = Router();
 
@@ -92,5 +93,6 @@ router.use('/mobile-app', mobileAppRoutes);
 router.use('/collections', collectionsRoutes);
 router.use('/commissions', commissionsRoutes);
 router.use('/gps', gpsRoutes);
+router.use('/push-tokens', pushTokensRoutes);
 
 export default router;
