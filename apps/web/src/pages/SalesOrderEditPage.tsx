@@ -9,6 +9,8 @@ import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useAuth } from '../hooks/useAuth';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { generateSalesOrderPDF } from '../utils/salesOrderPdfGenerator';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
@@ -27,6 +29,8 @@ import {
   ShieldOff,
   ThumbsUp,
   ArrowRightCircle,
+  FileDown,
+  Printer,
 } from 'lucide-react';
 
 type FormItem = {
@@ -67,6 +71,25 @@ export function SalesOrderEditPage() {
   const { data: systemSettings } = useSystemSettings();
   const defaultCurrency = systemSettings?.defaultCurrency || 'BRL';
   const { formatPrice } = useFormatPrice();
+  const { data: documentSettings } = useDefaultDocumentSettings();
+
+  const handleGeneratePDF = (mode: 'elegant' | 'print') => {
+    if (!order) return;
+    if (!order.customer) {
+      toast.error('Dados do cliente nao disponiveis');
+      return;
+    }
+    if (!order.items || order.items.length === 0) {
+      toast.error('Pedido sem itens para gerar PDF');
+      return;
+    }
+    try {
+      generateSalesOrderPDF(order as any, order.customer as any, documentSettings, defaultCurrency, mode);
+      toast.success(mode === 'print' ? 'PDF para impressao gerado' : 'PDF elegante gerado');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.message || 'desconhecido'));
+    }
+  };
 
   // Product search
   const [productSearch, setProductSearch] = useState('');
@@ -393,16 +416,36 @@ export function SalesOrderEditPage() {
           <h1 className="text-2xl lg:text-3xl font-bold">
             Editar Pedido {order.orderNumber}
           </h1>
-          {canApprove && order.status === 'PENDING' && (
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <button
               type="button"
-              onClick={() => setShowApproveModal(true)}
-              className="self-start sm:self-auto px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+              onClick={() => handleGeneratePDF('elegant')}
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-200 transition-colors"
+              title="Versao colorida com logo e cores da empresa"
             >
-              <ThumbsUp className="w-4 h-4" />
-              Aprovar pedido
+              <FileDown className="w-4 h-4" />
+              PDF Elegante
             </button>
-          )}
+            <button
+              type="button"
+              onClick={() => handleGeneratePDF('print')}
+              className="text-gray-700 hover:text-gray-900 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-gray-300 transition-colors"
+              title="Versao em escala de cinza, otimizada para economia de tinta"
+            >
+              <Printer className="w-4 h-4" />
+              PDF Impressao
+            </button>
+            {canApprove && order.status === 'PENDING' && (
+              <button
+                type="button"
+                onClick={() => setShowApproveModal(true)}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+              >
+                <ThumbsUp className="w-4 h-4" />
+                Aprovar pedido
+              </button>
+            )}
+          </div>
         </div>
         {isReadOnly && (
           <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">

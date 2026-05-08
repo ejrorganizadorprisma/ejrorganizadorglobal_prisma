@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder } from '../hooks/useSalesOrders';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useSystemSettings } from '../hooks/useSystemSettings';
+import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
+import { generateSalesOrderPDF } from '../utils/salesOrderPdfGenerator';
+import { api } from '../lib/api';
 import { SalesOrderStatus } from '@ejr/shared-types';
 import {
   ClipboardList,
@@ -19,6 +23,7 @@ import {
   XCircle,
   ArrowRightCircle,
   FileText,
+  FileDown,
   Ban,
   ThumbsUp,
 } from 'lucide-react';
@@ -59,6 +64,9 @@ export function SalesOrdersPage() {
   const cancelOrder = useCancelSalesOrder();
   const deleteOrder = useDeleteSalesOrder();
   const { formatPrice } = useFormatPrice();
+  const { data: systemSettings } = useSystemSettings();
+  const defaultCurrency = systemSettings?.defaultCurrency || 'BRL';
+  const { data: documentSettings } = useDefaultDocumentSettings();
   const { hasActionPermission } = usePagePermissions();
   const canEdit = hasActionPermission(AppPage.SALES, 'edit' as any);
   const userRole = useAuth((state) => state.user?.role);
@@ -76,6 +84,29 @@ export function SalesOrdersPage() {
       toast.success('Pedido cancelado');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Erro ao cancelar');
+    }
+  };
+
+  const handleGeneratePDF = async (order: any) => {
+    try {
+      let target = order;
+      // Se vier sem itens (defesa contra alteracao futura no backend), busca o pedido completo
+      if (!target.items || target.items.length === 0) {
+        const { data } = await api.get(`/sales-orders/${order.id}`);
+        target = data?.data || target;
+      }
+      if (!target.customer) {
+        toast.error('Dados do cliente nao disponiveis');
+        return;
+      }
+      if (!target.items || target.items.length === 0) {
+        toast.error('Pedido sem itens para gerar PDF');
+        return;
+      }
+      generateSalesOrderPDF(target as any, target.customer as any, documentSettings, defaultCurrency, 'elegant');
+      toast.success('PDF gerado');
+    } catch (err: any) {
+      toast.error('Erro ao gerar PDF: ' + (err?.message || 'desconhecido'));
     }
   };
 
@@ -261,6 +292,13 @@ export function SalesOrdersPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleGeneratePDF(order)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Gerar PDF"
+                          >
+                            <FileDown className="w-4 h-4" />
+                          </button>
                           {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
                             <button
                               onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
@@ -341,6 +379,13 @@ export function SalesOrdersPage() {
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="text-lg font-bold text-gray-900">{formatPrice(order.total)}</span>
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => handleGeneratePDF(order)}
+                        className="px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center gap-1"
+                      >
+                        <FileDown className="w-3.5 h-3.5" />
+                        PDF
+                      </button>
                       {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
                         <button
                           onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
