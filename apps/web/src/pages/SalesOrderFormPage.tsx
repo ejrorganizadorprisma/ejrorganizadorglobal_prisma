@@ -87,12 +87,6 @@ export function SalesOrderFormPage() {
   });
   const products = productsData?.data || [];
 
-  const selectedCustomer = customersData?.data.find(
-    (x: any) => x.id === formData.customerId
-  ) as any;
-  const isCustomerInactive =
-    !!selectedCustomer && selectedCustomer.approvalStatus === 'REJECTED';
-
   // Form state
   const [formData, setFormData] = useState({
     customerId: '',
@@ -103,6 +97,12 @@ export function SalesOrderFormPage() {
     internalNotes: '',
     items: [] as FormItem[],
   });
+
+  const selectedCustomer = customersData?.data.find(
+    (x: any) => x.id === formData.customerId
+  ) as any;
+  const isCustomerInactive =
+    !!selectedCustomer && selectedCustomer.approvalStatus === 'REJECTED';
 
   // Click outside dropdown
   useEffect(() => {
