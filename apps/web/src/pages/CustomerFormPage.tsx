@@ -342,9 +342,34 @@ export function CustomerFormPage() {
         >
           ← Voltar para Clientes
         </button>
-        <h1 className="text-2xl lg:text-3xl font-bold">
-          {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl lg:text-3xl font-bold">
+            {isEditing ? 'Editar Cliente' : 'Novo Cliente'}
+          </h1>
+          {isEditing && customer && (() => {
+            const status = (customer as any).approvalStatus || 'APPROVED';
+            const styles: Record<string, string> = {
+              APPROVED: 'bg-green-100 text-green-700 border-green-200',
+              PENDING: 'bg-amber-100 text-amber-700 border-amber-200',
+              REJECTED: 'bg-red-100 text-red-700 border-red-200',
+            };
+            const labels: Record<string, string> = {
+              APPROVED: 'Ativo',
+              PENDING: 'Pendente de aprovação',
+              REJECTED: 'Inativo / Rejeitado',
+            };
+            return (
+              <span
+                className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${
+                  styles[status] || styles.APPROVED
+                }`}
+                title="Status do cadastro do cliente"
+              >
+                {labels[status] || status}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 lg:p-6">

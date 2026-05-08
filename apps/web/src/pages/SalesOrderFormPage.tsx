@@ -10,6 +10,7 @@ import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { convertPrice, getOtherCurrencies } from '../lib/currency';
+import { paymentMethodLabel } from '../lib/payment-methods';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
@@ -352,6 +353,49 @@ export function SalesOrderFormPage() {
                   </option>
                 ))}
               </select>
+              {(() => {
+                const c = customersData?.data.find((x: any) => x.id === formData.customerId);
+                if (!c) return null;
+                const status = c.approvalStatus || 'APPROVED';
+                const statusStyles: Record<string, string> = {
+                  APPROVED: 'text-green-700',
+                  PENDING: 'text-amber-700',
+                  REJECTED: 'text-red-700',
+                };
+                const statusLabel: Record<string, string> = {
+                  APPROVED: 'Ativo',
+                  PENDING: 'Pendente',
+                  REJECTED: 'Inativo',
+                };
+                const methods: string[] = c.allowedPaymentMethods || [];
+                const hasCredit = methods.includes('CREDIT') || methods.includes('CREDIT_CARD');
+                return (
+                  <div className="mt-1.5 text-xs space-y-0.5">
+                    <div>
+                      <span className="text-gray-500">Status: </span>
+                      <span className={`font-semibold ${statusStyles[status] || 'text-gray-600'}`}>
+                        {statusLabel[status] || status}
+                      </span>
+                    </div>
+                    {methods.length > 0 && (
+                      <div className="text-gray-500">
+                        <span>Pagamentos: </span>
+                        <span className="text-gray-700">
+                          {methods.map(paymentMethodLabel).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    {hasCredit && c.creditMaxDays != null && c.creditMaxDays > 0 && (
+                      <div className="text-gray-500">
+                        <span>Crédito: </span>
+                        <span className="text-gray-700 font-semibold">
+                          {c.creditMaxDays} {c.creditMaxDays === 1 ? 'dia' : 'dias'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div>
