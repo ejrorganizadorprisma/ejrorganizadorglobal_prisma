@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useCustomer, useCreateCustomer, useUpdateCustomer } from '../hooks/useCustomers';
+import {
+  useCustomer,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useApproveCustomer,
+  useRejectCustomer,
+} from '../hooks/useCustomers';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
@@ -21,6 +27,43 @@ export function CustomerFormPage() {
   const { data: customer, isLoading: loadingCustomer } = useCustomer(isEditing ? id : undefined);
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
+  const approveCustomer = useApproveCustomer();
+  const rejectCustomer = useRejectCustomer();
+
+  const canChangeStatus =
+    !!user && ['OWNER', 'DIRECTOR', 'ADMIN', 'MANAGER'].includes(user.role);
+
+  const handleToggleStatus = async () => {
+    if (!customer || !id) return;
+    const currentStatus = (customer as any).approvalStatus || 'APPROVED';
+    if (currentStatus === 'APPROVED') {
+      const reason = window.prompt(
+        'Motivo da inativação (opcional):',
+        'Inativado pelo administrador'
+      );
+      if (reason === null) return;
+      try {
+        await rejectCustomer.mutateAsync({
+          id,
+          reason: reason.trim() || 'Inativado pelo administrador',
+        });
+        toast.success('Cliente inativado');
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || 'Erro ao inativar cliente');
+      }
+    } else {
+      if (!window.confirm('Ativar este cliente?')) return;
+      try {
+        await approveCustomer.mutateAsync({
+          id,
+          responsibleUserId: (customer as any).responsibleUserId ?? null,
+        });
+        toast.success('Cliente ativado');
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || 'Erro ao ativar cliente');
+      }
+    }
+  };
 
   // Carregar vendedores (SALESPERSON) apenas se o usuario atual pode atribuir
   const { data: sellersData } = useUsers(
@@ -358,15 +401,34 @@ export function CustomerFormPage() {
               PENDING: 'Pendente de aprovação',
               REJECTED: 'Inativo / Rejeitado',
             };
+            const isActive = status === 'APPROVED';
+            const busy = approveCustomer.isPending || rejectCustomer.isPending;
             return (
-              <span
-                className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${
-                  styles[status] || styles.APPROVED
-                }`}
-                title="Status do cadastro do cliente"
-              >
-                {labels[status] || status}
-              </span>
+              <>
+                <span
+                  className={`px-2.5 py-1 rounded-full border text-xs font-semibold ${
+                    styles[status] || styles.APPROVED
+                  }`}
+                  title="Status do cadastro do cliente"
+                >
+                  {labels[status] || status}
+                </span>
+                {canChangeStatus && (
+                  <button
+                    type="button"
+                    onClick={handleToggleStatus}
+                    disabled={busy}
+                    className={`px-3 py-1 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 ${
+                      isActive
+                        ? 'bg-white text-red-700 border-red-300 hover:bg-red-50'
+                        : 'bg-white text-green-700 border-green-300 hover:bg-green-50'
+                    }`}
+                    title={isActive ? 'Inativar cliente' : 'Ativar cliente'}
+                  >
+                    {busy ? '...' : isActive ? 'Inativar' : 'Ativar'}
+                  </button>
+                )}
+              </>
             );
           })()}
         </div>
