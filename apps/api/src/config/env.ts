@@ -15,9 +15,11 @@ export const env = {
     : ['http://localhost:5173'],
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
   LOG_DIR: process.env.LOG_DIR || './logs',
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
-  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY,
+  // Trim defensivo — env vars do Vercel podem vir com \n acidental no copy-paste,
+  // o que quebra URLs montadas e tokens.
+  SUPABASE_URL: process.env.SUPABASE_URL?.trim().replace(/\/+$/, ''),
+  SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY?.trim(),
+  SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY?.trim(),
 };
 
 // Validação de variáveis obrigatórias
