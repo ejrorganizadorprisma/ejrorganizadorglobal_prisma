@@ -26,6 +26,7 @@ import {
   Save,
   ShieldOff,
   ThumbsUp,
+  ArrowRightCircle,
 } from 'lucide-react';
 
 type FormItem = {
@@ -56,6 +57,7 @@ export function SalesOrderEditPage() {
 
   // Estado do modal de aprovação
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   // Dados
   const { data: order, isLoading: loadingOrder } = useSalesOrder(id || '', { enabled: !!id });
@@ -368,7 +370,7 @@ export function SalesOrderEditPage() {
 
       await updateOrder.mutateAsync({ id: id!, data: payload });
       toast.success('Pedido atualizado com sucesso!');
-      navigate('/sales-orders');
+      setJustSaved(true);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || error.response?.data?.message || 'Erro ao salvar');
     }
@@ -879,6 +881,20 @@ export function SalesOrderEditPage() {
             >
               Cancelar
             </button>
+            {justSaved &&
+              (order.status === 'PENDING' ||
+                order.status === 'APPROVED' ||
+                order.status === 'PARTIALLY_CONVERTED') && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/sales-orders/${id}/convert`)}
+                  className="w-full sm:w-auto bg-emerald-600 text-white px-6 py-2 min-h-[44px] rounded-lg hover:bg-emerald-700 font-medium flex items-center justify-center gap-2"
+                  title="Faturar (converter em venda)"
+                >
+                  <ArrowRightCircle className="w-4 h-4" />
+                  Faturar
+                </button>
+              )}
           </div>
         )}
       </form>
