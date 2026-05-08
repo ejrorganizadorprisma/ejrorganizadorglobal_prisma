@@ -413,6 +413,14 @@ export function CustomerFormPage() {
                 >
                   {labels[status] || status}
                 </span>
+                {status === 'REJECTED' && (customer as any).rejectionReason && (
+                  <span
+                    className="text-xs text-red-700 italic max-w-md truncate"
+                    title={(customer as any).rejectionReason}
+                  >
+                    Motivo: {(customer as any).rejectionReason}
+                  </span>
+                )}
                 {canChangeStatus && (
                   <button
                     type="button"

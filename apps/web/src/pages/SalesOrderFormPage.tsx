@@ -388,9 +388,16 @@ export function SalesOrderFormPage() {
                       </span>
                     </div>
                     {isCustomerInactive && (
-                      <div className="mt-1 px-2 py-1.5 rounded border border-red-200 bg-red-50 text-red-700 font-semibold flex items-center gap-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Cliente inativo — não é possível criar pedido. Ative o cadastro primeiro.
+                      <div className="mt-1 px-2 py-1.5 rounded border border-red-200 bg-red-50 text-red-700 font-semibold flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <div>Cliente inativo — não é possível criar pedido. Ative o cadastro primeiro.</div>
+                          {c.rejectionReason && (
+                            <div className="mt-0.5 font-normal text-red-600">
+                              <span className="font-semibold">Motivo:</span> {c.rejectionReason}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                     {methods.length > 0 && (
