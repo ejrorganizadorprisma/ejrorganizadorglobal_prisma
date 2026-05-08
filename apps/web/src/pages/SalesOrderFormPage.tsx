@@ -8,7 +8,8 @@ import { useUsers } from '../hooks/useUsers';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useSystemSettings } from '../hooks/useSystemSettings';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
+import { convertPrice, getOtherCurrencies } from '../lib/currency';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
@@ -717,11 +718,22 @@ export function SalesOrderFormPage() {
           {formData.items.length > 0 && (
             <div className="border-t px-4 lg:px-6 py-4">
               <div className="flex justify-end">
-                <div className="w-72 space-y-2">
+                <div className="w-72 space-y-1">
                   <div className="flex justify-between pt-2 text-lg font-bold">
                     <span>Total:</span>
                     <span className="text-green-600">{formatPrice(calculateSubtotal())}</span>
                   </div>
+                  {systemSettings && getOtherCurrencies(defaultCurrency).map((c) => (
+                    <div key={c} className="flex justify-between text-xs text-gray-500">
+                      <span>≈</span>
+                      <span>
+                        {formatPriceValue(
+                          convertPrice(calculateSubtotal(), defaultCurrency, c, systemSettings),
+                          c
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
