@@ -289,7 +289,7 @@ function SidebarItem({ item, isOpen, onToggle, onNavigate }: SidebarItemProps) {
       <div>
         <button
           onClick={onToggle}
-          className={`relative group w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+          className={`relative group w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-[13px] font-normal transition-all duration-200 ${
             hasActiveChild
               ? 'text-amber-400 bg-gradient-to-r from-amber-400/[0.12] to-transparent'
               : 'text-slate-300 hover:text-white hover:bg-white/[0.04]'
@@ -327,7 +327,7 @@ function SidebarItem({ item, isOpen, onToggle, onNavigate }: SidebarItemProps) {
                     key={sub.path}
                     to={sub.path!}
                     onClick={onNavigate}
-                    className={`relative flex items-center gap-2.5 px-3 py-2 my-0.5 rounded-md text-[13px] transition-all duration-200 ${
+                    className={`relative flex items-center gap-2.5 px-3 py-1.5 my-0.5 rounded-md text-[12px] font-light transition-all duration-200 ${
                       isSubActive
                         ? 'text-amber-400 bg-amber-400/[0.08] font-medium'
                         : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
@@ -356,7 +356,7 @@ function SidebarItem({ item, isOpen, onToggle, onNavigate }: SidebarItemProps) {
     <Link
       to={item.path!}
       onClick={onNavigate}
-      className={`relative group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+      className={`relative group flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-normal transition-all duration-200 ${
         isActive
           ? 'text-amber-400 bg-gradient-to-r from-amber-400/[0.12] to-transparent'
           : 'text-slate-300 hover:text-white hover:bg-white/[0.04]'
@@ -513,14 +513,14 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   return (
     <aside className="w-64 h-screen sticky top-0 flex flex-col bg-[#102246] border-r border-white/[0.06]">
       {/* Header */}
-      <div className="shrink-0 px-4 py-5 border-b border-white/[0.06]">
-        <div className="flex flex-col items-center space-y-2">
+      <div className="shrink-0 px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex flex-col items-center space-y-1">
           <img
             src={docSettings?.companyLogo || '/logo.jpeg'}
             alt={docSettings?.companyName || 'EJR Organizador'}
-            className="h-14 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+            className="h-12 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           />
-          <p className="text-[10px] uppercase tracking-[0.22em] text-amber-400/80 font-semibold">
+          <p className="text-[9px] uppercase tracking-[0.22em] text-amber-400/80 font-medium">
             ERP de Manufatura
           </p>
         </div>
@@ -569,18 +569,18 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       </nav>
 
       {/* Footer */}
-      <div className="shrink-0 px-4 py-3 border-t border-white/[0.06]">
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 px-4 py-2 border-t border-white/[0.06]">
+        <div className="flex items-center gap-2">
           <img
             src="/logo.jpeg"
             alt="EJR Organizador"
-            className="h-10 w-auto max-w-[48px] object-contain rounded-md shrink-0 opacity-95 drop-shadow-[0_3px_8px_rgba(0,0,0,0.4)]"
+            className="h-7 w-auto max-w-[32px] object-contain rounded shrink-0 opacity-95 drop-shadow-[0_3px_8px_rgba(0,0,0,0.4)]"
           />
           <div className="min-w-0 leading-snug">
-            <p className="text-[10px] text-slate-200 font-semibold tracking-wide whitespace-nowrap">
-              EJR Organizador <span className="text-slate-400 font-medium">v2.5.1</span>
+            <p className="text-[10px] text-slate-200 font-medium tracking-wide whitespace-nowrap">
+              EJR Organizador <span className="text-slate-400 font-normal">v2.5.1</span>
             </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">© 2026 Todos os direitos reservados</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">© 2026 Todos os direitos reservados</p>
           </div>
         </div>
       </div>
