@@ -518,7 +518,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
           <img
             src={docSettings?.companyLogo || '/logo.jpeg'}
             alt={docSettings?.companyName || 'EJR Organizador'}
-            className="h-24 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+            className="h-14 w-auto object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           />
           <p className="text-[10px] uppercase tracking-[0.22em] text-amber-400/80 font-semibold">
             ERP de Manufatura
@@ -574,7 +574,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
           <img
             src="/logo.jpeg"
             alt="EJR Organizador"
-            className="h-16 w-auto max-w-[72px] object-contain rounded-md shrink-0 opacity-95 drop-shadow-[0_3px_8px_rgba(0,0,0,0.4)]"
+            className="h-10 w-auto max-w-[48px] object-contain rounded-md shrink-0 opacity-95 drop-shadow-[0_3px_8px_rgba(0,0,0,0.4)]"
           />
           <div className="min-w-0 leading-snug">
             <p className="text-[10px] text-slate-200 font-semibold tracking-wide whitespace-nowrap">
