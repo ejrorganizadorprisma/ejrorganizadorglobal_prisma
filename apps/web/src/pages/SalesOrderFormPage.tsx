@@ -58,7 +58,6 @@ export function SalesOrderFormPage() {
   // Product search
   const [productSearch, setProductSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownOpenUpward, setDropdownOpenUpward] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [addQty, setAddQty] = useState(1);
   const [pendingProduct, setPendingProduct] = useState<any>(null);
@@ -84,28 +83,6 @@ export function SalesOrderFormPage() {
     search: productSearch.trim() || undefined,
   });
   const products = productsData?.data || [];
-
-  // Detecta se o dropdown deve abrir para cima quando não há espaço suficiente
-  // abaixo do input (típico depois de adicionar vários produtos e a página rolar).
-  useEffect(() => {
-    if (!showDropdown) return;
-    const measure = () => {
-      const el = searchInputRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const DROPDOWN_MAX = 260; // max-h-60 (240px) + folga
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setDropdownOpenUpward(spaceBelow < DROPDOWN_MAX && spaceAbove > spaceBelow);
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure, true);
-    };
-  }, [showDropdown, products.length]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -279,12 +256,8 @@ export function SalesOrderFormPage() {
 
   const calculateSubtotal = () => {
     return formData.items.reduce((sum, item) => {
-      return sum + item.quantity * item.unitPrice - (item.discount || 0);
+      return sum + item.quantity * item.unitPrice;
     }, 0);
-  };
-
-  const calculateTotal = () => {
-    return calculateSubtotal() - formData.discount;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -481,7 +454,7 @@ export function SalesOrderFormPage() {
               {showDropdown && !pendingProduct && (
                 <div
                   className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto ${
-                    dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+                    formData.items.length >= 1 ? 'bottom-full mb-1' : 'top-full mt-1'
                   }`}
                 >
                   {loadingProducts ? (
@@ -673,14 +646,13 @@ export function SalesOrderFormPage() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Item</th>
                     <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase w-20">Qtd</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-36">Preco Unit.</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">Desc. Item</th>
                     <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-36">Total</th>
                     <th className="px-4 py-2 w-12"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {formData.items.map((item, index) => {
-                    const itemTotal = item.quantity * item.unitPrice - (item.discount || 0);
+                    const itemTotal = item.quantity * item.unitPrice;
                     return (
                       <tr key={index} className="hover:bg-gray-50 group">
                         <td className="px-4 py-2 text-sm text-gray-400">{index + 1}</td>
@@ -719,14 +691,6 @@ export function SalesOrderFormPage() {
                             className="text-right text-sm"
                           />
                         </td>
-                        <td className="px-4 py-2">
-                          <CurrencyInput
-                            value={item.discount}
-                            currency={defaultCurrency}
-                            onChange={(cents) => updateItem(index, 'discount', cents)}
-                            className="text-right text-sm"
-                          />
-                        </td>
                         <td className="px-4 py-2 text-right text-sm font-semibold text-gray-700">
                           {formatPrice(itemTotal)}
                         </td>
@@ -753,24 +717,9 @@ export function SalesOrderFormPage() {
             <div className="border-t px-4 lg:px-6 py-4">
               <div className="flex justify-end">
                 <div className="w-72 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-medium">{formatPrice(calculateSubtotal())}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-600">Desconto:</span>
-                    <div className="w-40">
-                      <CurrencyInput
-                        value={formData.discount}
-                        currency={defaultCurrency}
-                        onChange={(cents) => setFormData({ ...formData, discount: cents })}
-                        className="text-right text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t text-lg font-bold">
+                  <div className="flex justify-between pt-2 text-lg font-bold">
                     <span>Total:</span>
-                    <span className="text-green-600">{formatPrice(calculateTotal())}</span>
+                    <span className="text-green-600">{formatPrice(calculateSubtotal())}</span>
                   </div>
                 </div>
               </div>

@@ -69,7 +69,6 @@ export function SalesOrderEditPage() {
   // Product search
   const [productSearch, setProductSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownOpenUpward, setDropdownOpenUpward] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [addQty, setAddQty] = useState(1);
   const [pendingProduct, setPendingProduct] = useState<any>(null);
@@ -95,28 +94,6 @@ export function SalesOrderEditPage() {
     search: productSearch.trim() || undefined,
   });
   const products = productsData?.data || [];
-
-  // Detecta se o dropdown deve abrir para cima quando não há espaço suficiente
-  // abaixo do input (típico depois de adicionar vários produtos e a página rolar).
-  useEffect(() => {
-    if (!showDropdown) return;
-    const measure = () => {
-      const el = searchInputRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const DROPDOWN_MAX = 260;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      const spaceAbove = rect.top;
-      setDropdownOpenUpward(spaceBelow < DROPDOWN_MAX && spaceAbove > spaceBelow);
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.removeEventListener('scroll', measure, true);
-    };
-  }, [showDropdown, products.length]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -570,7 +547,7 @@ export function SalesOrderEditPage() {
                 {showDropdown && !pendingProduct && (
                   <div
                     className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto ${
-                      dropdownOpenUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+                      formData.items.length >= 1 ? 'bottom-full mb-1' : 'top-full mt-1'
                     }`}
                   >
                     {loadingProducts ? (
