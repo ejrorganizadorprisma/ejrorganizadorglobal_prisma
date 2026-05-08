@@ -109,14 +109,12 @@ export function useSales(search?: string) {
     quoteId: string,
     extra: { paymentMethod: string; saleDate: string; installments: number }
   ) => {
-    const token = useAuthStore.getState().token;
-    if (!token) {
+    if (!useAuthStore.getState().isAuthenticated) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }
 
     const result = await apiRequest<any>('/sales/convert-from-quote', {
       method: 'POST',
-      token,
       body: {
         quoteId,
         paymentMethod: extra.paymentMethod,

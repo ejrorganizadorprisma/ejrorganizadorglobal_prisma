@@ -16,7 +16,24 @@ export const app = express();
 app.set('trust proxy', 1);
 
 // Security middleware
-app.use(helmet());
+// CSP/HSTS customizados — a API não serve SPA (apenas JSON em / e arquivos
+// estáticos em /uploads), então podemos manter CSP estrita.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'", 'https:', 'wss:'],
+        frameAncestors: ["'none'"],
+      },
+    },
+    hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
 
 // Configure CORS to accept multiple origins
 const allowedOrigins = env.FRONTEND_URL;

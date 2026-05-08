@@ -1,6 +1,7 @@
 import { db } from '../config/database';
 import { AppError } from '../utils/errors';
 import { hashPassword } from '../utils/password';
+import { logger } from '../config/logger';
 import type { UpdateUserDTO, UserRole } from '@ejr/shared-types';
 
 interface FindManyParams {
@@ -181,10 +182,7 @@ export class UsersService {
 
     // Se uma senha foi fornecida, fazer o hash antes de salvar
     if (data.password && data.password.trim() !== '') {
-      console.log('🔐 Nova senha fornecida, gerando hash...');
       const passwordHash = await hashPassword(data.password);
-      console.log('✅ Hash de senha gerado com sucesso');
-
       pushField('password_hash', passwordHash);
 
       // Buscar password_version atual
@@ -194,12 +192,16 @@ export class UsersService {
       // Incrementar password_version para invalidar tokens antigos
       const currentVersion = versionResult.rows[0]?.password_version || 1;
       pushField('password_version', currentVersion + 1);
-      console.log(`🔄 Incrementando password_version de ${currentVersion} para ${currentVersion + 1}`);
+      logger.debug('Atualização de senha solicitada', {
+        userId: id,
+        oldVersion: currentVersion,
+        newVersion: currentVersion + 1,
+      });
     }
 
     pushField('updated_at', new Date().toISOString());
 
-    console.log('📝 Atualizando usuário:', { id, updateFields });
+    logger.debug('Atualizando usuário', { userId: id, fieldsCount: updateFields.length });
 
     const query = `
       UPDATE users
@@ -212,11 +214,11 @@ export class UsersService {
     const result = await db.query(query, updateValues);
 
     if (result.rows.length === 0) {
-      console.error('❌ Nenhum usuário retornado após update');
+      logger.error('Nenhum usuário retornado após update', { userId: id });
       throw new AppError('Erro ao atualizar usuário: nenhum registro retornado', 500, 'UPDATE_ERROR');
     }
 
-    console.log('✅ Usuário atualizado com sucesso:', result.rows[0].id);
+    logger.debug('Usuário atualizado com sucesso', { userId: result.rows[0].id });
     return mapUserRow(result.rows[0]);
   }
 

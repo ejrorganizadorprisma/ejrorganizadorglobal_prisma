@@ -1,5 +1,5 @@
 import { getDatabase } from './migrations';
-import { apiRequest } from '../api/client';
+import { apiRequest, getRefreshToken } from '../api/client';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifyConflict, buildConflictMessage } from '../lib/conflictNotifier';
@@ -24,8 +24,15 @@ export interface SyncStatus {
   lastSync: string | null;
 }
 
+/**
+ * Indica se ha sessao ativa. O access token vive em memoria (apiRequest);
+ * usamos o refresh token (SecureStore) como prova de "logado".
+ * Retornamos uma string truthy ('ok') para preservar a semantica antiga
+ * de `if (!token) return ...` em quem chama.
+ */
 async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync('auth_token');
+  const refresh = await getRefreshToken();
+  return refresh ? 'ok' : null;
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {
@@ -176,11 +183,11 @@ export async function pushPendingChanges(
 
     try {
       if (item.action === 'CREATE') {
-        result = await apiRequest(endpoint, { method: 'POST', body: payload, token });
+        result = await apiRequest(endpoint, { method: 'POST', body: payload });
       } else if (item.action === 'UPDATE') {
-        result = await apiRequest(`${endpoint}/${item.entity_id}`, { method: 'PATCH', body: payload, token });
+        result = await apiRequest(`${endpoint}/${item.entity_id}`, { method: 'PATCH', body: payload });
       } else if (item.action === 'DELETE') {
-        result = await apiRequest(`${endpoint}/${item.entity_id}`, { method: 'DELETE', token });
+        result = await apiRequest(`${endpoint}/${item.entity_id}`, { method: 'DELETE' });
       }
 
       if (result?.success) {
@@ -337,12 +344,11 @@ function extractServerUpdatedAt(item: any): number {
 
 async function pullEntity(
   db: any,
-  token: string,
   endpoint: string,
   table: string,
   hasSynced: boolean
 ): Promise<number> {
-  const result = await apiRequest<any[]>(`${endpoint}?limit=1000`, { token, timeoutMs: 30000 });
+  const result = await apiRequest<any[]>(`${endpoint}?limit=1000`, { timeoutMs: 30000 });
   if (!result.success || !result.data) return 0;
 
   const items = Array.isArray(result.data) ? result.data : [];
@@ -452,25 +458,25 @@ export async function pullServerData(): Promise<{ pulled: number }> {
   let pulled = 0;
 
   if (perms.products !== false) {
-    try { pulled += await pullEntity(db, token, '/products', 'products', false); } catch { /* skip */ }
+    try { pulled += await pullEntity(db,'/products', 'products', false); } catch { /* skip */ }
   }
   if (perms.customers !== false) {
-    try { pulled += await pullEntity(db, token, '/customers', 'customers', true); } catch { /* skip */ }
+    try { pulled += await pullEntity(db,'/customers', 'customers', true); } catch { /* skip */ }
   }
   if (perms.quotes !== false) {
-    try { pulled += await pullEntity(db, token, '/quotes', 'quotes', true); } catch { /* skip */ }
+    try { pulled += await pullEntity(db,'/quotes', 'quotes', true); } catch { /* skip */ }
   }
   if (perms.sales !== false) {
-    try { pulled += await pullEntity(db, token, '/sales', 'sales', true); } catch { /* skip */ }
-    try { pulled += await pullEntity(db, token, '/sales-orders', 'sales_orders', true); } catch { /* skip */ }
+    try { pulled += await pullEntity(db,'/sales', 'sales', true); } catch { /* skip */ }
+    try { pulled += await pullEntity(db,'/sales-orders', 'sales_orders', true); } catch { /* skip */ }
   }
   if (perms.collections !== false) {
-    try { pulled += await pullEntity(db, token, '/collections', 'collections', true); } catch { /* skip */ }
+    try { pulled += await pullEntity(db,'/collections', 'collections', true); } catch { /* skip */ }
   }
 
   // Fetch company name from document settings
   try {
-    const settingsResult = await apiRequest<any>('/document-settings/default', { token, timeoutMs: 10000 });
+    const settingsResult = await apiRequest<any>('/document-settings/default', { timeoutMs: 10000 });
     if (settingsResult.success && settingsResult.data?.companyName) {
       await AsyncStorage.setItem('@ejr_mobile_company_name', settingsResult.data.companyName);
     }
@@ -508,7 +514,7 @@ export async function fullSync(
       try {
         const token = await getToken();
         if (token) {
-          await apiRequest('/mobile-app/sync-done', { method: 'POST', token });
+          await apiRequest('/mobile-app/sync-done', { method: 'POST' });
         }
       } catch { /* ignore */ }
 

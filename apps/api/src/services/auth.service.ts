@@ -1,15 +1,78 @@
 import { randomUUID } from 'crypto';
+import type { Request } from 'express';
 import { db } from '../config/database';
 import { hashPassword, comparePassword } from '../utils/password';
-import { generateToken } from '../utils/jwt';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  generateToken,
+  hashRefreshToken,
+  REFRESH_TOKEN_TTL_MS,
+} from '../utils/jwt';
 import { UnauthorizedError, ConflictError } from '../utils/errors';
 import type { LoginDTO, CreateUserDTO, AuthResponse } from '@ejr/shared-types';
 
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  refreshExpiresAt: Date;
+}
+
+export interface LoginResult extends AuthResponse {
+  user: AuthResponse['user'];
+  token: string; // alias of accessToken (back-compat)
+  accessToken: string;
+  refreshToken: string;
+  refreshExpiresAt: Date;
+}
+
+function clientMeta(req?: Request) {
+  return {
+    userAgent: (req?.headers['user-agent'] as string) || null,
+    ip: (req?.ip as string) || (req?.socket?.remoteAddress as string) || null,
+  };
+}
+
+async function persistRefreshToken(
+  userId: string,
+  rawRefresh: string,
+  hash: string,
+  req: Request | undefined,
+  rotatedFromId?: string | null
+): Promise<{ id: string; expiresAt: Date }> {
+  const id = randomUUID();
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  const { userAgent, ip } = clientMeta(req);
+
+  await db.query(
+    `INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, user_agent, ip_address)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [id, userId, hash, expiresAt, userAgent, ip]
+  );
+
+  if (rotatedFromId) {
+    await db.query(
+      `UPDATE refresh_tokens SET rotated_to = $1 WHERE id = $2`,
+      [id, rotatedFromId]
+    );
+  }
+
+  return { id, expiresAt };
+}
+
 export class AuthService {
-  async login(data: LoginDTO, isMobile: boolean = false): Promise<AuthResponse> {
+  /**
+   * Autentica usuario e gera par access+refresh.
+   * O refresh e salvado HASHED no banco (SHA-256). Retornamos a string raw
+   * para o controller decidir como entregar (cookie web vs body mobile).
+   */
+  async login(
+    data: LoginDTO,
+    isMobile: boolean = false,
+    req?: Request
+  ): Promise<LoginResult> {
     const { email, password } = data;
 
-    // Busca usuário (incluindo password_version para validação de sessão)
     const result = await db.query(
       'SELECT * FROM users WHERE email = $1 LIMIT 1',
       [email]
@@ -21,28 +84,30 @@ export class AuthService {
 
     const user = result.rows[0];
 
-    // Verifica senha usando bcrypt
     const isPasswordValid = await comparePassword(password, user.password_hash);
     if (!isPasswordValid) {
       throw new UnauthorizedError('Email ou senha inválidos');
     }
 
-    // Verifica se está ativo
     if (!user.is_active) {
       throw new UnauthorizedError('Usuário inativo');
     }
 
-    // Gera token (mobile recebe token de 30 dias para suportar uso offline)
-    const token = generateToken(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      isMobile ? '30d' : '24h'
+    // Gera par access (15m) + refresh (7d) — TTL e o mesmo para web e mobile.
+    const accessToken = generateAccessToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+    const { raw: refreshToken, hash: refreshHash } = generateRefreshToken();
+    const { expiresAt: refreshExpiresAt } = await persistRefreshToken(
+      user.id,
+      refreshToken,
+      refreshHash,
+      req,
+      null
     );
 
-    // Remove password_hash da resposta e converte snake_case para camelCase
     const { password_hash, is_active, allowed_hours, created_at, updated_at, ...userData } = user;
     const userWithoutPassword = {
       ...userData,
@@ -54,8 +119,107 @@ export class AuthService {
 
     return {
       user: userWithoutPassword,
-      token,
+      token: accessToken,
+      accessToken,
+      refreshToken,
+      refreshExpiresAt,
     };
+  }
+
+  /**
+   * Rotaciona refresh token. Valida o hash, revoga o token atual,
+   * gera novo par access+refresh apontando rotated_to.
+   * Lanca UnauthorizedError se token nao existir, expirou ou ja foi revogado.
+   * Em caso de tentativa de reuso (token revogado), revogamos toda a cadeia
+   * do usuario (defense-in-depth contra refresh token theft).
+   */
+  async refresh(
+    rawRefresh: string | undefined | null,
+    req?: Request
+  ): Promise<{ accessToken: string; refreshToken: string; refreshExpiresAt: Date; user: { id: string; email: string; role: string } }> {
+    if (!rawRefresh || typeof rawRefresh !== 'string') {
+      throw new UnauthorizedError('Refresh token ausente');
+    }
+
+    const hash = hashRefreshToken(rawRefresh);
+    const result = await db.query(
+      `SELECT rt.id, rt.user_id, rt.expires_at, rt.revoked_at, rt.rotated_to,
+              u.email, u.role, u.is_active
+         FROM refresh_tokens rt
+         JOIN users u ON u.id = rt.user_id
+        WHERE rt.token_hash = $1
+        LIMIT 1`,
+      [hash]
+    );
+
+    if (result.rowCount === 0) {
+      throw new UnauthorizedError('Refresh token inválido');
+    }
+
+    const row = result.rows[0];
+
+    // Reuse detection: token ja revogado/rotacionado => provavelmente vazou.
+    // Revoga toda a familia desse usuario para forcar re-login em todos clients.
+    if (row.revoked_at || row.rotated_to) {
+      await db.query(
+        `UPDATE refresh_tokens SET revoked_at = NOW()
+          WHERE user_id = $1 AND revoked_at IS NULL`,
+        [row.user_id]
+      );
+      throw new UnauthorizedError('Refresh token reutilizado — sessoes revogadas');
+    }
+
+    if (new Date(row.expires_at).getTime() < Date.now()) {
+      throw new UnauthorizedError('Refresh token expirado');
+    }
+
+    if (!row.is_active) {
+      throw new UnauthorizedError('Usuário inativo');
+    }
+
+    // Revoga o atual e gera novo par.
+    await db.query(
+      `UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1`,
+      [row.id]
+    );
+
+    const accessToken = generateAccessToken({
+      userId: row.user_id,
+      email: row.email,
+      role: row.role,
+    });
+    const { raw: newRefresh, hash: newHash } = generateRefreshToken();
+    const { expiresAt } = await persistRefreshToken(
+      row.user_id,
+      newRefresh,
+      newHash,
+      req,
+      row.id
+    );
+
+    return {
+      accessToken,
+      refreshToken: newRefresh,
+      refreshExpiresAt: expiresAt,
+      user: {
+        id: row.user_id,
+        email: row.email,
+        role: row.role,
+      },
+    };
+  }
+
+  /**
+   * Revoga refresh token (logout). Idempotente: se nao achar, retorna sem erro.
+   */
+  async logout(rawRefresh?: string | null): Promise<void> {
+    if (!rawRefresh) return;
+    const hash = hashRefreshToken(rawRefresh);
+    await db.query(
+      `UPDATE refresh_tokens SET revoked_at = NOW()
+        WHERE token_hash = $1 AND revoked_at IS NULL`,
+      [hash]
+    );
   }
 
   async register(data: CreateUserDTO): Promise<AuthResponse> {
@@ -65,7 +229,6 @@ export class AuthService {
       name,
       role,
       allowedHours,
-      // Extended personal data
       document,
       birthDate,
       phone,
@@ -73,17 +236,14 @@ export class AuthService {
       emailAlt,
       address,
       photoUrl,
-      // Commercial data
       commissionRate,
       monthlyTarget,
       region,
-      // Contractual data
       hireDate,
       contractType,
       notes,
     } = data;
 
-    // Verifica se email já existe
     const existingResult = await db.query(
       'SELECT id FROM users WHERE email = $1 LIMIT 1',
       [email]
@@ -93,13 +253,9 @@ export class AuthService {
       throw new ConflictError('Email já cadastrado');
     }
 
-    // Cria o hash da senha usando bcrypt
     const passwordHash = await hashPassword(password);
-
-    // Gera um UUID para o novo usuário
     const userId = randomUUID();
 
-    // Cria usuário
     const result = await db.query(
       `INSERT INTO users (
         id, email, password_hash, name, role, allowed_hours, is_active,
@@ -144,14 +300,12 @@ export class AuthService {
 
     const user = result.rows[0];
 
-    // Gera token
     const token = generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
     });
 
-    // Remove password_hash da resposta e converte snake_case para camelCase
     const {
       password_hash,
       is_active,
@@ -208,7 +362,6 @@ export class AuthService {
 
     const user = result.rows[0];
 
-    // Converte snake_case para camelCase
     return {
       id: user.id,
       email: user.email,
@@ -216,7 +369,6 @@ export class AuthService {
       role: user.role,
       isActive: user.is_active,
       allowedHours: user.allowed_hours,
-      // Personal data
       document: user.document ?? null,
       birthDate: user.birth_date ?? null,
       phone: user.phone ?? null,
@@ -224,14 +376,12 @@ export class AuthService {
       emailAlt: user.email_alt ?? null,
       address: user.address ?? null,
       photoUrl: user.photo_url ?? null,
-      // Commercial data
       commissionRate:
         user.commission_rate !== null && user.commission_rate !== undefined
           ? Number(user.commission_rate)
           : null,
       monthlyTarget: user.monthly_target ?? null,
       region: user.region ?? null,
-      // Contractual data
       hireDate: user.hire_date ?? null,
       contractType: user.contract_type ?? null,
       notes: user.notes ?? null,

@@ -1,8 +1,22 @@
 import { QuotesRepository } from '../repositories/quotes.repository';
 import { CustomersRepository } from '../repositories/customers.repository';
-import { NotFoundError, BadRequestError } from '../utils/errors';
+import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors';
 import { db } from '../config/database';
 import type { CreateQuoteDTO, UpdateQuoteDTO, QuoteStatus } from '@ejr/shared-types';
+
+/**
+ * Garante que SALESPERSON só acesse orçamentos de sua autoria.
+ * Outros papéis (OWNER, DIRECTOR, ADMIN, MANAGER, FINANCE, etc.) têm acesso amplo.
+ */
+function assertOwnershipForSalesperson(
+  quote: { responsibleUserId?: string | null },
+  userId?: string,
+  userRole?: string
+) {
+  if (userRole === 'SALESPERSON' && userId && quote.responsibleUserId !== userId) {
+    throw new ForbiddenError('Você não tem permissão para acessar este orçamento');
+  }
+}
 
 export class QuotesService {
   private repository = new QuotesRepository();
@@ -19,11 +33,12 @@ export class QuotesService {
     return this.repository.findMany(params);
   }
 
-  async getById(id: string) {
+  async getById(id: string, userId?: string, userRole?: string) {
     const quote = await this.repository.findById(id);
     if (!quote) {
       throw new NotFoundError('Orçamento não encontrado');
     }
+    assertOwnershipForSalesperson(quote, userId, userRole);
     return quote;
   }
 
@@ -84,11 +99,12 @@ export class QuotesService {
     return quote;
   }
 
-  async update(id: string, data: UpdateQuoteDTO) {
+  async update(id: string, data: UpdateQuoteDTO, userId?: string, userRole?: string) {
     const existing = await this.repository.findById(id);
     if (!existing) {
       throw new NotFoundError('Orçamento não encontrado');
     }
+    assertOwnershipForSalesperson(existing, userId, userRole);
 
     // Não permite editar se já foi convertido
     if (existing.status === 'CONVERTED') {
@@ -98,11 +114,12 @@ export class QuotesService {
     return this.repository.update(id, data);
   }
 
-  async delete(id: string) {
+  async delete(id: string, userId?: string, userRole?: string) {
     const existing = await this.repository.findById(id);
     if (!existing) {
       throw new NotFoundError('Orçamento não encontrado');
     }
+    assertOwnershipForSalesperson(existing, userId, userRole);
 
     // Não permite deletar se já foi convertido
     if (existing.status === 'CONVERTED') {
@@ -112,7 +129,12 @@ export class QuotesService {
     return this.repository.delete(id);
   }
 
-  async updateStatus(id: string, status: QuoteStatus) {
+  async updateStatus(id: string, status: QuoteStatus, userId?: string, userRole?: string) {
+    const existing = await this.repository.findById(id);
+    if (!existing) {
+      throw new NotFoundError('Orçamento não encontrado');
+    }
+    assertOwnershipForSalesperson(existing, userId, userRole);
     return this.repository.update(id, { status });
   }
 }

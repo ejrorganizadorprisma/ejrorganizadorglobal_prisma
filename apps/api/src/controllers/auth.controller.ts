@@ -1,15 +1,66 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, CookieOptions } from 'express';
 import { AuthService } from '../services/auth.service';
 import { AuthRequest } from '../middleware/auth';
 import { db } from '../config/database';
 import { UnauthorizedError } from '../utils/errors';
+import {
+  ACCESS_TOKEN_TTL_MS,
+  REFRESH_TOKEN_TTL_MS,
+  generateCsrfToken,
+} from '../utils/jwt';
 import type { LoginDTO, CreateUserDTO } from '@ejr/shared-types';
 
 const authService = new AuthService();
 
+/**
+ * Detecta cliente mobile a partir dos headers.
+ * Aceita os dois headers (X-Client e X-Client-Type) por compatibilidade
+ * com binarios mobile ja em campo.
+ */
+export function isMobileClient(req: Request): boolean {
+  const xClient = (req.headers['x-client'] as string)?.toLowerCase();
+  const xClientType = (req.headers['x-client-type'] as string)?.toLowerCase();
+  return xClient === 'mobile' || xClientType === 'mobile';
+}
+
+function cookieOptions(maxAgeMs: number, httpOnly = true): CookieOptions {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly,
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+    maxAge: maxAgeMs,
+    path: '/',
+  };
+}
+
+function setAuthCookies(
+  res: Response,
+  accessToken: string,
+  refreshToken: string
+): string {
+  // Access token (HttpOnly, 15min)
+  res.cookie('accessToken', accessToken, cookieOptions(ACCESS_TOKEN_TTL_MS, true));
+  // Refresh token (HttpOnly, 7 dias)
+  res.cookie('refreshToken', refreshToken, cookieOptions(REFRESH_TOKEN_TTL_MS, true));
+  // CSRF token (NAO-HttpOnly: cliente JS precisa ler para mandar no header)
+  const csrf = generateCsrfToken();
+  res.cookie('csrfToken', csrf, cookieOptions(REFRESH_TOKEN_TTL_MS, false));
+  // Cookie legado: limpamos para nao confundir middleware antigo.
+  res.clearCookie('token', { path: '/' });
+  return csrf;
+}
+
+function clearAuthCookies(res: Response) {
+  const opts: CookieOptions = { path: '/' };
+  res.clearCookie('accessToken', opts);
+  res.clearCookie('refreshToken', opts);
+  res.clearCookie('csrfToken', opts);
+  res.clearCookie('token', opts); // legacy
+}
+
 async function validateMobileAccess(req: Request): Promise<void> {
-  const clientType = req.headers['x-client-type'];
-  if (clientType !== 'mobile') return;
+  if (!isMobileClient(req)) return;
 
   // Check global toggle
   const settingsResult = await db.query('SELECT mobile_app_enabled FROM system_settings LIMIT 1');
@@ -40,36 +91,80 @@ async function validateMobileAccess(req: Request): Promise<void> {
 export class AuthController {
   async login(req: Request, res: Response, next: NextFunction) {
     try {
-      // Validate mobile access if request comes from mobile app
       await validateMobileAccess(req);
 
       const data: LoginDTO = req.body;
-      const isMobile = req.headers['x-client-type'] === 'mobile';
-      const result = await authService.login(data, isMobile);
+      const isMobile = isMobileClient(req);
+      const result = await authService.login(data, isMobile, req);
 
-      // If mobile login, update last_login and include permissions
-      if (req.headers['x-client-type'] === 'mobile') {
+      // Mobile bookkeeping (last_login + permissions)
+      let mobilePermissions: any = undefined;
+      if (isMobile) {
         const apiKey = req.headers['x-mobile-api-key'] as string;
         if (apiKey) {
           await db.query('UPDATE users SET mobile_app_last_login = NOW() WHERE mobile_app_token = $1', [apiKey]);
           const permResult = await db.query('SELECT mobile_app_permissions FROM users WHERE mobile_app_token = $1', [apiKey]);
-          (result as any).mobilePermissions = permResult.rows[0]?.mobile_app_permissions || { customers: true, quotes: true, sales: true, products: true };
+          mobilePermissions = permResult.rows[0]?.mobile_app_permissions || { customers: true, quotes: true, sales: true, products: true };
         }
       }
 
-      // Set HTTP-only cookie
-      res.cookie('token', result.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 horas
-      });
+      if (isMobile) {
+        // Mobile: tokens no body. Sem cookies.
+        res.json({
+          success: true,
+          data: {
+            user: result.user,
+            token: result.accessToken, // back-compat
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            refreshExpiresAt: result.refreshExpiresAt,
+            ...(mobilePermissions ? { mobilePermissions } : {}),
+          },
+          message: 'Login realizado com sucesso',
+        });
+      } else {
+        // Web: cookies HttpOnly. Body NAO contem tokens.
+        const csrf = setAuthCookies(res, result.accessToken, result.refreshToken);
+        res.json({
+          success: true,
+          data: {
+            user: result.user,
+            csrfToken: csrf, // tambem retornamos no body para conveniencia
+          },
+          message: 'Login realizado com sucesso',
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  }
 
-      res.json({
-        success: true,
-        data: result,
-        message: 'Login realizado com sucesso',
-      });
+  async refresh(req: Request, res: Response, next: NextFunction) {
+    try {
+      const isMobile = isMobileClient(req);
+      const refreshTokenRaw: string | undefined = isMobile
+        ? req.body?.refreshToken
+        : req.cookies?.refreshToken;
+
+      const result = await authService.refresh(refreshTokenRaw, req);
+
+      if (isMobile) {
+        res.json({
+          success: true,
+          data: {
+            accessToken: result.accessToken,
+            refreshToken: result.refreshToken,
+            refreshExpiresAt: result.refreshExpiresAt,
+            token: result.accessToken, // back-compat
+          },
+        });
+      } else {
+        const csrf = setAuthCookies(res, result.accessToken, result.refreshToken);
+        res.json({
+          success: true,
+          data: { csrfToken: csrf },
+        });
+      }
     } catch (error) {
       next(error);
     }
@@ -80,19 +175,24 @@ export class AuthController {
       const data: CreateUserDTO = req.body;
       const result = await authService.register(data);
 
-      // Set HTTP-only cookie
-      res.cookie('token', result.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000,
-      });
-
-      res.status(201).json({
-        success: true,
-        data: result,
-        message: 'Usuário criado com sucesso',
-      });
+      // Register so far ainda usa fluxo antigo (1 token). Para o web tambem
+      // setamos cookies novos. Se algum dia precisar refresh aqui, basta
+      // migrar para auth.service.login depois do create.
+      if (isMobileClient(req)) {
+        res.status(201).json({
+          success: true,
+          data: result,
+          message: 'Usuário criado com sucesso',
+        });
+      } else {
+        // Set legacy + new cookies for backwards compatibility on register.
+        res.cookie('accessToken', result.token, cookieOptions(ACCESS_TOKEN_TTL_MS, true));
+        res.status(201).json({
+          success: true,
+          data: result,
+          message: 'Usuário criado com sucesso',
+        });
+      }
     } catch (error) {
       next(error);
     }
@@ -100,7 +200,17 @@ export class AuthController {
 
   async logout(req: Request, res: Response, next: NextFunction) {
     try {
-      res.clearCookie('token');
+      const isMobile = isMobileClient(req);
+      const refreshTokenRaw: string | undefined = isMobile
+        ? req.body?.refreshToken
+        : req.cookies?.refreshToken;
+
+      await authService.logout(refreshTokenRaw);
+
+      if (!isMobile) {
+        clearAuthCookies(res);
+      }
+
       res.json({
         success: true,
         message: 'Logout realizado com sucesso',
@@ -112,12 +222,11 @@ export class AuthController {
 
   async me(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      // Validate mobile access on session check (cuts existing sessions when admin disables)
       await validateMobileAccess(req);
 
       const user = await authService.getCurrentUser(req.user!.id);
 
-      if (req.headers['x-client-type'] === 'mobile') {
+      if (isMobileClient(req)) {
         const apiKey = req.headers['x-mobile-api-key'] as string;
         if (apiKey) {
           const permResult = await db.query('SELECT mobile_app_permissions FROM users WHERE mobile_app_token = $1', [apiKey]);

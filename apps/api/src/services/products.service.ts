@@ -1,5 +1,6 @@
 import { ProductsRepository } from '../repositories/products.repository';
 import { AppError } from '../utils/errors';
+import { validateAndRenameImage, UnsupportedFileTypeError } from '../utils/uploadSecurity';
 import type { CreateProductDTO, UpdateProductDTO, ProductStatus } from '@ejr/shared-types';
 import { db } from '../config/database';
 import { supabase } from '../config/supabase';
@@ -230,18 +231,26 @@ export class ProductsService {
   }
 
   async uploadImage(file: Express.Multer.File): Promise<string> {
-    // Gerar nome único para o arquivo
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(7);
-    const extension = path.extname(file.originalname);
-    const filename = `product-${timestamp}-${randomString}${extension}`;
+    // Validação real: lê magic bytes do buffer e gera nome seguro (UUID + ext).
+    // Não confia em mimetype/originalname enviados pelo cliente.
+    let safe;
+    try {
+      safe = await validateAndRenameImage(file, 'product');
+    } catch (e) {
+      if (e instanceof UnsupportedFileTypeError) {
+        throw new AppError(e.message, 400, 'INVALID_FILE_TYPE');
+      }
+      throw e;
+    }
+
+    const { filename, mimeType, buffer } = safe;
 
     // Upload para Supabase Storage se configurado
     if (supabase && env.SUPABASE_URL) {
       const { error } = await supabase.storage
         .from('product-images')
-        .upload(filename, file.buffer, {
-          contentType: file.mimetype,
+        .upload(filename, buffer, {
+          contentType: mimeType,
           upsert: false,
         });
 
@@ -259,7 +268,7 @@ export class ProductsService {
     }
 
     const filePath = path.join(uploadsDir, filename);
-    fs.writeFileSync(filePath, file.buffer);
+    fs.writeFileSync(filePath, buffer);
 
     return `/uploads/products/${filename}`;
   }

@@ -166,8 +166,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
             Você não tem permissão para acessar nenhuma página do sistema. Entre em contato com o administrador.
           </p>
           <button
-            onClick={() => {
-              localStorage.removeItem('token');
+            onClick={async () => {
+              try {
+                // Limpa cookies HttpOnly via servidor
+                const { api } = await import('./lib/api');
+                await api.post('/auth/logout');
+              } catch {
+                /* ignore */
+              }
+              try { localStorage.removeItem('token'); } catch { /* ignore */ }
               window.location.href = '/login';
             }}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

@@ -5,6 +5,7 @@ import { CollectionsRepository } from '../repositories/collections.repository';
 import { CreateCollectionSchema } from '@ejr/shared-types';
 import type { CollectionFilters } from '@ejr/shared-types';
 import { ValidationError, NotFoundError } from '../utils/errors';
+import { imageFileFilter, validateAndRenameImage, UnsupportedFileTypeError } from '../utils/uploadSecurity';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -12,19 +13,15 @@ import path from 'path';
 const router = Router();
 const repo = new CollectionsRepository();
 
-// Multer config para upload de fotos
+// Multer config para upload de fotos.
+// fileFilter faz validação preliminar; conteúdo real é validado em saveFiles.
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
+    files: 5,
   },
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Apenas imagens são permitidas'));
-    }
-  },
+  fileFilter: imageFileFilter,
 });
 
 // Diretório para salvar fotos
@@ -34,13 +31,23 @@ function ensureUploadDir() {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-function saveFiles(files: Express.Multer.File[]): string[] {
+async function saveFiles(files: Express.Multer.File[]): Promise<string[]> {
   ensureUploadDir();
-  return files.map((file) => {
-    const filename = Date.now() + '-' + file.originalname;
-    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
-    return '/uploads/collections/' + filename;
-  });
+  const urls: string[] = [];
+  for (const file of files) {
+    let safe;
+    try {
+      safe = await validateAndRenameImage(file, 'collection');
+    } catch (e) {
+      if (e instanceof UnsupportedFileTypeError) {
+        throw new ValidationError(e.message);
+      }
+      throw e;
+    }
+    fs.writeFileSync(path.join(uploadDir, safe.filename), safe.buffer);
+    urls.push('/uploads/collections/' + safe.filename);
+  }
+  return urls;
 }
 
 // Todas as rotas requerem autenticação
@@ -68,7 +75,7 @@ router.post('/', upload.array('photos', 5), async (req: AuthRequest, res: Respon
     // Salvar fotos se enviadas
     const files = req.files as Express.Multer.File[] | undefined;
     if (files && files.length > 0) {
-      photoUrls = saveFiles(files);
+      photoUrls = await saveFiles(files);
     }
 
     const collection = await repo.create(
@@ -237,7 +244,7 @@ router.post('/upload-photo', upload.array('photos', 5), async (req: AuthRequest,
       throw new ValidationError('Nenhuma foto enviada');
     }
 
-    const urls = saveFiles(files);
+    const urls = await saveFiles(files);
     res.json({ data: urls });
   } catch (error) {
     if (error instanceof ValidationError) {

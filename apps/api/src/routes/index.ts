@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { csrfProtection } from '../middleware/csrf';
 import authRoutes from './auth.routes';
 import usersRoutes from './users.routes';
 import permissionsRoutes from './permissions.routes';
@@ -53,7 +54,14 @@ router.get('/health', (req, res) => {
 });
 
 // Routes
+// /auth e montado ANTES do CSRF middleware: login/refresh/logout SETAM o
+// cookie csrfToken e portanto nao podem exigir o token de antemao.
 router.use('/auth', authRoutes);
+
+// CSRF double-submit cookie protection — aplicado a TODAS as rotas
+// (mutations apenas; GET/HEAD/OPTIONS e mobile sao skip).
+router.use(csrfProtection);
+
 router.use('/users', usersRoutes);
 router.use('/permissions', permissionsRoutes);
 router.use('/products', productsRoutes);

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { PurchaseRequestsService } from '../services/purchase-requests.service';
+import { logger } from '../config/logger';
 
 export class PurchaseRequestsController {
   private service: PurchaseRequestsService;
@@ -51,7 +52,7 @@ export class PurchaseRequestsController {
         data: request,
       });
     } catch (error: any) {
-      console.error('Erro ao buscar requisição:', error);
+      logger.error('Erro ao buscar requisição', { error: error?.message, statusCode: error?.statusCode });
       const status = error.statusCode || 500;
       res.status(status).json({
         success: false,
@@ -173,17 +174,16 @@ export class PurchaseRequestsController {
         });
       }
 
-      console.log('Convertendo requisição', id, 'para ordem de compra...');
+      logger.debug('Convertendo requisição em ordem de compra', { requestId: id, userId });
       const purchaseOrder = await this.service.convertToPurchaseOrder(id, userId);
-      console.log('Ordem de compra criada:', purchaseOrder.id);
-      console.log('Retornando resposta:', JSON.stringify({ success: true, data: purchaseOrder }, null, 2));
+      logger.debug('Ordem de compra criada', { purchaseOrderId: purchaseOrder.id });
 
       res.json({
         success: true,
         data: purchaseOrder,
       });
     } catch (error: any) {
-      console.error('Erro ao converter requisição:', error);
+      logger.error('Erro ao converter requisição', { error: error?.message, statusCode: error?.statusCode });
       const status = error.statusCode || 500;
       res.status(status).json({
         success: false,

@@ -1,7 +1,13 @@
-import { create} from 'zustand';
+import { create } from 'zustand';
 import { api } from '../lib/api';
-import type { User, LoginDTO, AuthResponse } from '@ejr/shared-types';
+import type { User, LoginDTO } from '@ejr/shared-types';
 import { toast } from 'sonner';
+
+interface LoginResponseData {
+  user: Omit<User, 'passwordHash'>;
+  // csrfToken vem no body por conveniencia (tambem esta no cookie nao-HttpOnly).
+  csrfToken?: string;
+}
 
 interface AuthState {
   user: Omit<User, 'passwordHash'> | null;
@@ -20,16 +26,14 @@ export const useAuth = create<AuthState>((set) => ({
   login: async (data: LoginDTO) => {
     try {
       set({ isLoading: true });
-      const response = await api.post<{ success: boolean; data: AuthResponse }>(
+      const response = await api.post<{ success: boolean; data: LoginResponseData }>(
         '/auth/login',
         data
       );
 
-      // Salvar token no localStorage para uso em rede
-      if (response.data.data.token) {
-        localStorage.setItem('token', response.data.data.token);
-      }
-
+      // Tokens viajam em cookies HttpOnly — nao tocamos localStorage.
+      // O cookie csrfToken (nao-HttpOnly) e setado pelo servidor;
+      // o interceptor le ele em mutations subsequentes.
       set({
         user: response.data.data.user,
         isAuthenticated: true,
@@ -47,15 +51,12 @@ export const useAuth = create<AuthState>((set) => ({
   logout: async () => {
     try {
       await api.post('/auth/logout');
-      localStorage.removeItem('token'); // Remove token do localStorage
-      set({ user: null, isAuthenticated: false });
-      toast.success('Logout realizado com sucesso!');
-      // Redireciona para a página de login
-      window.location.href = '/login';
-    } catch (error) {
-      toast.error('Erro ao fazer logout');
-      // Mesmo com erro, limpa o estado e redireciona
-      localStorage.removeItem('token'); // Remove token do localStorage
+    } catch {
+      // ignora — vamos limpar o estado local mesmo se a chamada falhar.
+    } finally {
+      // Higiene: limpa qualquer "token" antigo deixado no localStorage por
+      // versoes anteriores da app.
+      try { localStorage.removeItem('token'); } catch { /* ignore */ }
       set({ user: null, isAuthenticated: false });
       window.location.href = '/login';
     }
@@ -73,9 +74,9 @@ export const useAuth = create<AuthState>((set) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      // Silencia erro 401 (não autenticado) - esperado quando não há token
+      // Silencia erro 401 (esperado quando nao ha sessao)
       if (error.response?.status !== 401) {
-        console.error('Erro ao buscar usuário:', error);
+        console.error('Erro ao buscar usuario:', error);
       }
       set({
         user: null,

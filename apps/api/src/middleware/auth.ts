@@ -1,7 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import { verifyToken } from '../utils/jwt';
 import { UnauthorizedError } from '../utils/errors';
 import { db } from '../config/database';
+import { isMobileClient } from '../controllers/auth.controller';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -17,23 +19,43 @@ export async function authenticate(
   next: NextFunction
 ) {
   try {
-    // Tenta obter o token do cookie ou do header Authorization
-    let token = req.cookies?.token;
+    const mobile = isMobileClient(req);
 
-    // Se não tiver no cookie, tenta pegar do header Authorization
-    if (!token) {
+    // Mobile: SEMPRE Authorization header. Web: SEMPRE cookie.
+    // Bloqueamos Authorization para o web — token em localStorage e a vulnerabilidade
+    // que estamos justamente tentando eliminar nessa refatoracao.
+    let token: string | undefined;
+    if (mobile) {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.substring(7);
       }
+    } else {
+      // Cookie novo (accessToken). Mantemos fallback para "token" (cookie legado)
+      // por uma janela curta de transicao — pode ser removido apos o deploy.
+      token = req.cookies?.accessToken || req.cookies?.token;
     }
 
     if (!token) {
       throw new UnauthorizedError('Token não fornecido');
     }
 
-    // Verifica e decodifica o token
-    const decoded = verifyToken(token);
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch (err: any) {
+      // Diferencia "expirou" vs "invalido" para o cliente decidir refresh.
+      if (err instanceof jwt.TokenExpiredError) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'TOKEN_EXPIRED', message: 'Token expirado' },
+        });
+      }
+      return res.status(401).json({
+        success: false,
+        error: { code: 'TOKEN_INVALID', message: 'Token invalido' },
+      });
+    }
 
     // Busca o usuário no banco para garantir que ainda existe e está ativo
     const result = await db.query(
@@ -51,7 +73,6 @@ export async function authenticate(
       throw new UnauthorizedError('Usuário inativo');
     }
 
-    // Adiciona os dados do usuário na requisição
     req.user = {
       id: user.id,
       email: user.email,

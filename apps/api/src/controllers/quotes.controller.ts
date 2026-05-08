@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { QuotesService } from '../services/quotes.service';
 import { CreateQuoteSchema, UpdateQuoteSchema } from '@ejr/shared-types';
+import { logger } from '../config/logger';
 import type { AuthRequest } from '../middleware/auth';
 
 export class QuotesController {
@@ -41,10 +42,10 @@ export class QuotesController {
     }
   };
 
-  getById = async (req: Request, res: Response, next: NextFunction) => {
+  getById = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const quote = await this.service.getById(id);
+      const quote = await this.service.getById(id, req.user?.id, req.user?.role);
 
       res.json({
         success: true,
@@ -57,7 +58,11 @@ export class QuotesController {
 
   create = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      console.log('Recebendo dados do orçamento:', JSON.stringify(req.body, null, 2));
+      logger.debug('Criação de orçamento recebida', {
+        userId: req.user?.id,
+        customerId: req.body?.customerId,
+        itemsCount: Array.isArray(req.body?.items) ? req.body.items.length : 0,
+      });
       const data = CreateQuoteSchema.parse(req.body);
       const userId = req.user!.id;
       const userRole = req.user!.role;
@@ -85,12 +90,12 @@ export class QuotesController {
     }
   };
 
-  update = async (req: Request, res: Response, next: NextFunction) => {
+  update = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
       const data = UpdateQuoteSchema.parse(req.body);
 
-      const quote = await this.service.update(id, data);
+      const quote = await this.service.update(id, data, req.user?.id, req.user?.role);
 
       res.json({
         success: true,
@@ -113,10 +118,10 @@ export class QuotesController {
     }
   };
 
-  delete = async (req: Request, res: Response, next: NextFunction) => {
+  delete = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      await this.service.delete(id);
+      await this.service.delete(id, req.user?.id, req.user?.role);
 
       res.json({
         success: true,
@@ -127,12 +132,12 @@ export class QuotesController {
     }
   };
 
-  updateStatus = async (req: Request, res: Response, next: NextFunction) => {
+  updateStatus = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
       const { status } = req.body;
 
-      const quote = await this.service.updateStatus(id, status);
+      const quote = await this.service.updateStatus(id, status, req.user?.id, req.user?.role);
 
       res.json({
         success: true,

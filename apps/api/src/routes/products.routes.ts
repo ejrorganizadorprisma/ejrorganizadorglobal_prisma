@@ -2,25 +2,22 @@ import { Router } from 'express';
 import { ProductsController } from '../controllers/products.controller';
 import { authenticate } from '../middleware/auth';
 import { asyncHandler } from '../utils/asyncHandler';
+import { imageFileFilter } from '../utils/uploadSecurity';
 import multer from 'multer';
 
 const router = Router();
 const controller = new ProductsController();
 
-// Configure multer para armazenar em memória
+// Configure multer para armazenar em memória.
+// fileFilter faz validação preliminar (extensão + mime declarado).
+// A validação real (magic bytes) acontece no service via `validateAndRenameImage`.
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB
+    files: 1,
   },
-  fileFilter: (req, file, cb) => {
-    // Aceitar apenas imagens
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Apenas imagens são permitidas'));
-    }
-  },
+  fileFilter: imageFileFilter,
 });
 
 // Todas as rotas requerem autenticação

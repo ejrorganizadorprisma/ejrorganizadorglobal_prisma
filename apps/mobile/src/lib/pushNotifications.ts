@@ -2,14 +2,17 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { apiRequest } from '../api/client';
-import * as SecureStore from 'expo-secure-store';
+import { apiRequest, getRefreshToken } from '../api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY_TOKEN = '@ejr_expo_push_token';
 
-async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync('auth_token');
+/**
+ * Indica se ha sessao ativa. O access token vive em memoria; o refresh token
+ * e suficiente para confirmar autenticacao (apiRequest cuida de gerar access).
+ */
+async function hasActiveSession(): Promise<boolean> {
+  return Boolean(await getRefreshToken());
 }
 
 function getProjectId(): string | undefined {
@@ -68,8 +71,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const token = tokenResult.data;
     if (!token) return null;
 
-    const authToken = await getToken();
-    if (!authToken) {
+    if (!(await hasActiveSession())) {
       // Sem sessao ainda; salvamos para registrar depois.
       await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token);
       return token;
@@ -77,7 +79,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
     const result = await apiRequest('/push-tokens', {
       method: 'POST',
-      token: authToken,
       body: {
         token,
         platform: Platform.OS === 'ios' ? 'ios' : 'android',
@@ -104,11 +105,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
 export async function unregisterPushToken(token: string | null): Promise<void> {
   if (!token) return;
   try {
-    const authToken = await getToken();
-    if (!authToken) return;
+    if (!(await hasActiveSession())) return;
     await apiRequest('/push-tokens', {
       method: 'DELETE',
-      token: authToken,
       body: { token },
     });
   } catch {

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 
 // Detecta automaticamente o endpoint da API
@@ -32,52 +32,112 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Importante para cookies HTTP-only
+  // Necessario: cookies HttpOnly de auth + cookie csrfToken viajam aqui.
+  withCredentials: true,
 });
 
-// Add token to requests from localStorage
+/**
+ * Le um cookie pelo nome (cookies nao-HttpOnly como csrfToken).
+ */
+function readCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.$?*|{}()[\]\\/+^]/g, '\\$&') + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+const SAFE_METHODS = new Set(['get', 'head', 'options']);
+
+// Request interceptor — anexa CSRF token em mutations.
+// REMOVIDO: leitura/escrita de localStorage do JWT. Web usa cookies HttpOnly.
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  (config: InternalAxiosRequestConfig) => {
+    const method = (config.method || 'get').toLowerCase();
+    if (!SAFE_METHODS.has(method)) {
+      const csrf = readCookie('csrfToken');
+      if (csrf) {
+        config.headers = config.headers || {};
+        (config.headers as any)['X-CSRF-Token'] = csrf;
+      }
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor
+// --- Refresh logic com fila de espera --------------------------------------
+let isRefreshing = false;
+let refreshWaiters: Array<(ok: boolean) => void> = [];
+
+async function attemptRefresh(): Promise<boolean> {
+  if (isRefreshing) {
+    return new Promise<boolean>((resolve) => refreshWaiters.push(resolve));
+  }
+  isRefreshing = true;
+  try {
+    // Endpoint NAO carrega CSRF (esta antes do middleware), mas precisa
+    // do cookie refreshToken (HttpOnly) para validar.
+    await axios.post(
+      `${API_BASE_URL}/auth/refresh`,
+      {},
+      { withCredentials: true }
+    );
+    refreshWaiters.forEach((cb) => cb(true));
+    refreshWaiters = [];
+    return true;
+  } catch {
+    refreshWaiters.forEach((cb) => cb(false));
+    refreshWaiters = [];
+    return false;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+// Response interceptor — trata 401 com refresh + retry, e mensagens de erro.
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const message = error.response?.data?.error?.message || 'Ocorreu um erro inesperado';
+  async (error: AxiosError<any>) => {
+    const status = error.response?.status;
+    const errorCode = error.response?.data?.error?.code;
+    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    // Erros de autenticação
-    if (error.response?.status === 401) {
-      // Só mostra mensagem e redireciona se:
-      // 1. Não estiver na página de login
-      // 2. Havia um token (ou seja, sessão expirou de verdade)
-      const hadToken = localStorage.getItem('token');
-      if (window.location.pathname !== '/login' && hadToken) {
-        toast.error('Sessão expirada. Faça login novamente.');
-        localStorage.removeItem('token');
+    // 401 com TOKEN_EXPIRED: tentamos refresh + retry da request original.
+    if (
+      status === 401 &&
+      errorCode === 'TOKEN_EXPIRED' &&
+      original &&
+      !original._retry &&
+      !original.url?.includes('/auth/refresh') &&
+      !original.url?.includes('/auth/login')
+    ) {
+      original._retry = true;
+      const ok = await attemptRefresh();
+      if (ok) {
+        return api.request(original);
+      }
+      // Refresh falhou — redireciona para login.
+      if (window.location.pathname !== '/login') {
+        toast.error('Sessao expirada. Faca login novamente.');
         window.location.href = '/login';
-      } else if (window.location.pathname !== '/login' && !hadToken) {
-        // Sem token e não está no login - redireciona silenciosamente
-        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
+
+    if (status === 401) {
+      if (window.location.pathname !== '/login') {
+        // 401 sem TOKEN_EXPIRED: token invalido / sem token / mobile bloqueado.
+        // Nao deslogamos automatico aqui (poderia ser uma rota especifica).
       }
     }
 
-    // Erros de permissão
-    if (error.response?.status === 403) {
-      toast.error('Você não tem permissão para realizar esta ação.');
+    // Erros de permissao
+    if (status === 403 && errorCode !== 'CSRF_INVALID') {
+      toast.error('Voce nao tem permissao para realizar esta acao.');
+    }
+    if (status === 403 && errorCode === 'CSRF_INVALID') {
+      toast.error('Sessao invalida. Recarregue a pagina e tente novamente.');
     }
 
-    // Outros erros
-    if (error.response?.status >= 500) {
+    if ((status ?? 0) >= 500) {
       toast.error('Erro no servidor. Tente novamente mais tarde.');
     }
 

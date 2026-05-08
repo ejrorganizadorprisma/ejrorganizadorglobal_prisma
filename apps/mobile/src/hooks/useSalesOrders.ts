@@ -100,14 +100,12 @@ export function useSalesOrders(search?: string) {
     quoteId: string,
     extra: { orderDate: string; notes?: string }
   ) => {
-    const token = useAuthStore.getState().token;
-    if (!token) {
+    if (!useAuthStore.getState().isAuthenticated) {
       throw new Error('Sessao expirada. Faca login novamente.');
     }
 
     const result = await apiRequest<any>('/sales-orders/convert-from-quote', {
       method: 'POST',
-      token,
       body: {
         quoteId,
         orderDate: extra.orderDate,
