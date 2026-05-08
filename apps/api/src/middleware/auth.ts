@@ -4,6 +4,7 @@ import { verifyToken } from '../utils/jwt';
 import { UnauthorizedError } from '../utils/errors';
 import { db } from '../config/database';
 import { isMobileClient } from '../controllers/auth.controller';
+import { generateCsrfToken } from '../utils/jwt';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -78,6 +79,19 @@ export async function authenticate(
       email: user.email,
       role: user.role,
     };
+
+    // Garante que o cookie csrfToken existe para sessões web autenticadas
+    // (cobre usuários logados via cookie legado 'token' antes do refactor de auth).
+    if (!mobile && !req.cookies?.csrfToken) {
+      const isProd = process.env.NODE_ENV === 'production';
+      res.cookie('csrfToken', generateCsrfToken(), {
+        httpOnly: false,
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/',
+      });
+    }
 
     next();
   } catch (error) {
