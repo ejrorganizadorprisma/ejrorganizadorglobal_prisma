@@ -67,7 +67,7 @@ export function SaleFormPage() {
   const { formatPrice, defaultCurrency } = useFormatPrice();
 
   const { data: customersData } = useCustomers({ page: 1, limit: 500 });
-  const { data: productsData } = useProducts({ page: 1, limit: 500 });
+  const { data: productsData } = useProducts({ page: 1, limit: 500, sortBy: 'name' });
   const { data: servicesData } = useServices({ page: 1, limit: 500, isActive: true });
 
   // Form state
