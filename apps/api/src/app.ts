@@ -32,6 +32,10 @@ app.use(
     },
     hsts: { maxAge: 63072000, includeSubDomains: true, preload: true },
     referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    // Permite servir imagens em /uploads/* para o frontend (origem diferente).
+    // Default 'same-origin' bloqueia <img src="api.../uploads/x.png" /> no SPA.
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: false,
   })
 );
 
