@@ -79,7 +79,7 @@ export function SalesOrderFormPage() {
 
   const { data: productsData, isLoading: loadingProducts } = useProducts({
     page: 1,
-    limit: 20,
+    limit: 500,
     search: productSearch.trim() || undefined,
     sortBy: 'name',
   });
