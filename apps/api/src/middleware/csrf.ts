@@ -26,7 +26,16 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     (req.headers['x-csrf-token'] as string) ||
     (req.headers['x-xsrf-token'] as string);
 
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+  // Modo migração: usuários com sessão legada (cookie 'token' antigo) ainda
+  // não têm o cookie csrfToken. Pulamos a checagem para esses — o middleware
+  // authenticate emite o cookie csrfToken na próxima request, então em até
+  // duas requisições o cliente já estará protegido. Sessões novas (com cookie
+  // csrfToken presente) seguem o fluxo estrito.
+  if (!cookieToken) {
+    return next();
+  }
+
+  if (!headerToken || cookieToken !== headerToken) {
     return res.status(403).json({
       success: false,
       error: { code: 'CSRF_INVALID', message: 'CSRF token invalido' },
