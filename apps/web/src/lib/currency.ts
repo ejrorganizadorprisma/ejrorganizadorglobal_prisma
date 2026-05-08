@@ -41,8 +41,16 @@ export function convertPrice(
 /**
  * Retorna as outras moedas disponíveis (que não são a default), na ordem
  * preferida para exibição como equivalentes.
+ *
+ * Ordem: USD primeiro (referência internacional), depois BRL, depois PYG.
  */
-export function getOtherCurrencies(defaultCurrency: Currency): Currency[] {
-  const all: Currency[] = ['BRL', 'USD', 'PYG'];
-  return all.filter((c) => c !== defaultCurrency);
+export function getOtherCurrencies(
+  defaultCurrency: Currency,
+  enabledCurrencies?: Currency[]
+): Currency[] {
+  const preferred: Currency[] = ['USD', 'BRL', 'PYG'];
+  const allowed = enabledCurrencies && enabledCurrencies.length > 0
+    ? enabledCurrencies
+    : preferred;
+  return preferred.filter((c) => c !== defaultCurrency && allowed.includes(c));
 }

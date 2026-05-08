@@ -693,8 +693,20 @@ export function SalesOrderFormPage() {
                             className="text-right text-sm"
                           />
                         </td>
-                        <td className="px-4 py-2 text-right text-sm font-semibold text-gray-700">
-                          {formatPrice(itemTotal)}
+                        <td className="px-4 py-2 text-right">
+                          <div className="text-sm font-semibold text-gray-700">{formatPrice(itemTotal)}</div>
+                          {systemSettings && itemTotal > 0 && (
+                            <div className="mt-0.5 flex gap-2 justify-end text-xs text-gray-400">
+                              {getOtherCurrencies(defaultCurrency, systemSettings.enabledCurrencies).map((c) => (
+                                <span key={c}>
+                                  {formatPriceValue(
+                                    convertPrice(itemTotal, defaultCurrency, c, systemSettings),
+                                    c
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-center">
                           <button
@@ -723,17 +735,18 @@ export function SalesOrderFormPage() {
                     <span>Total:</span>
                     <span className="text-green-600">{formatPrice(calculateSubtotal())}</span>
                   </div>
-                  {systemSettings && getOtherCurrencies(defaultCurrency).map((c) => (
-                    <div key={c} className="flex justify-between text-xs text-gray-500">
-                      <span>≈</span>
-                      <span>
-                        {formatPriceValue(
-                          convertPrice(calculateSubtotal(), defaultCurrency, c, systemSettings),
-                          c
-                        )}
-                      </span>
+                  {systemSettings && calculateSubtotal() > 0 && (
+                    <div className="flex gap-3 justify-end text-xs text-gray-500">
+                      {getOtherCurrencies(defaultCurrency, systemSettings.enabledCurrencies).map((c) => (
+                        <span key={c}>
+                          {formatPriceValue(
+                            convertPrice(calculateSubtotal(), defaultCurrency, c, systemSettings),
+                            c
+                          )}
+                        </span>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
