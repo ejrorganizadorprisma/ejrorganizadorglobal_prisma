@@ -87,6 +87,12 @@ export function SalesOrderFormPage() {
   });
   const products = productsData?.data || [];
 
+  const selectedCustomer = customersData?.data.find(
+    (x: any) => x.id === formData.customerId
+  ) as any;
+  const isCustomerInactive =
+    !!selectedCustomer && selectedCustomer.approvalStatus === 'REJECTED';
+
   // Form state
   const [formData, setFormData] = useState({
     customerId: '',
@@ -270,6 +276,10 @@ export function SalesOrderFormPage() {
       toast.error('Selecione um cliente');
       return;
     }
+    if (isCustomerInactive) {
+      toast.error('Cliente inativo. Ative o cadastro antes de criar um pedido.');
+      return;
+    }
     if (formData.items.length === 0) {
       toast.error('Adicione pelo menos um item');
       return;
@@ -354,7 +364,7 @@ export function SalesOrderFormPage() {
                 ))}
               </select>
               {(() => {
-                const c = customersData?.data.find((x: any) => x.id === formData.customerId);
+                const c = selectedCustomer;
                 if (!c) return null;
                 const status = c.approvalStatus || 'APPROVED';
                 const statusStyles: Record<string, string> = {
@@ -377,6 +387,12 @@ export function SalesOrderFormPage() {
                         {statusLabel[status] || status}
                       </span>
                     </div>
+                    {isCustomerInactive && (
+                      <div className="mt-1 px-2 py-1.5 rounded border border-red-200 bg-red-50 text-red-700 font-semibold flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Cliente inativo — não é possível criar pedido. Ative o cadastro primeiro.
+                      </div>
+                    )}
                     {methods.length > 0 && (
                       <div className="text-gray-500">
                         <span>Pagamentos: </span>
@@ -486,8 +502,13 @@ export function SalesOrderFormPage() {
                     if (!pendingProduct) setShowDropdown(true);
                   }}
                   onKeyDown={handleSearchKeyDown}
-                  placeholder="Buscar produto por nome ou codigo..."
-                  className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 ${
+                  disabled={isCustomerInactive}
+                  placeholder={
+                    isCustomerInactive
+                      ? 'Cliente inativo — busca bloqueada'
+                      : 'Buscar produto por nome ou codigo...'
+                  }
+                  className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
                     pendingProduct ? 'border-green-400 bg-green-50' : ''
                   }`}
                   autoComplete="off"
@@ -590,7 +611,7 @@ export function SalesOrderFormPage() {
             <button
               type="button"
               onClick={handleAddProduct}
-              disabled={!pendingProduct}
+              disabled={!pendingProduct || isCustomerInactive}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 text-sm font-medium min-h-[38px] whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
@@ -600,7 +621,8 @@ export function SalesOrderFormPage() {
             <button
               type="button"
               onClick={() => setShowServiceForm(!showServiceForm)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium min-h-[38px] whitespace-nowrap ${
+              disabled={isCustomerInactive}
+              className={`px-4 py-2 rounded-lg flex items-center gap-1.5 text-sm font-medium min-h-[38px] whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
                 showServiceForm
                   ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -801,7 +823,7 @@ export function SalesOrderFormPage() {
         <div className="flex flex-col-reverse sm:flex-row gap-3">
           <button
             type="submit"
-            disabled={createOrder.isPending}
+            disabled={createOrder.isPending || isCustomerInactive}
             className="w-full sm:w-auto bg-blue-600 text-white px-6 py-2 min-h-[44px] rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
           >
             {createOrder.isPending ? (
