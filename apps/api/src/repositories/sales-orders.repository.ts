@@ -206,7 +206,8 @@ export class SalesOrdersRepository {
   async create(
     dto: CreateSalesOrderDTO,
     createdBy: string,
-    sellerIdOverride?: string
+    sellerIdOverride?: string,
+    options?: { initialStatus?: SalesOrderStatus; approvedBy?: string | null }
   ): Promise<SalesOrder> {
     const createdId = await db.transaction(async (client) => {
       const orderNumber = await this.generateOrderNumber(client);
@@ -228,19 +229,27 @@ export class SalesOrdersRepository {
 
       const id = `sorder-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+      const initialStatus = options?.initialStatus || ('PENDING' as SalesOrderStatus);
+      const approvedBy =
+        initialStatus === ('APPROVED' as SalesOrderStatus)
+          ? options?.approvedBy ?? createdBy
+          : null;
+      const approvedAtSql =
+        initialStatus === ('APPROVED' as SalesOrderStatus) ? 'NOW()' : 'NULL';
+
       await client.query(
         `INSERT INTO sales_orders (
           id, order_number, customer_id, quote_id, seller_id, status,
           order_date, subtotal, discount, total, notes, internal_notes,
-          latitude, longitude, created_by
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          latitude, longitude, created_by, approved_at, approved_by
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,${approvedAtSql},$16)`,
         [
           id,
           orderNumber,
           dto.customerId,
           dto.quoteId || null,
           sellerId,
-          'PENDING',
+          initialStatus,
           dto.orderDate,
           subtotal,
           discount,
@@ -250,6 +259,7 @@ export class SalesOrdersRepository {
           dto.latitude ?? null,
           dto.longitude ?? null,
           createdBy,
+          approvedBy,
         ]
       );
 
