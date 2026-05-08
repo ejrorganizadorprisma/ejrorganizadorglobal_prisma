@@ -1,4 +1,3 @@
-import { Expo, ExpoPushMessage, ExpoPushTicket, ExpoPushReceipt } from 'expo-server-sdk';
 import { db } from '../config/database';
 
 interface PushPayload {
@@ -12,25 +11,35 @@ interface TokenRow {
   expo_token: string;
 }
 
+// Lazy reference para o módulo expo-server-sdk. Carregado dinamicamente na
+// primeira chamada de push para evitar que `createRequire` (usado pela lib)
+// rode no boot do bundle CJS do Vercel — onde import.meta.url fica undefined
+// e quebra o servidor inteiro com ERR_INVALID_ARG_VALUE.
+let expoModulePromise: Promise<any> | null = null;
+async function loadExpo(): Promise<any> {
+  if (!expoModulePromise) {
+    expoModulePromise = import('expo-server-sdk').catch((err) => {
+      console.error('[push] expo-server-sdk indisponível:', err);
+      expoModulePromise = null;
+      throw err;
+    });
+  }
+  return expoModulePromise;
+}
+
 /**
  * Serviço de push notifications usando Expo Push API.
  *
- * Singleton: uma instância de Expo (que faz fetch no servidor da Expo) por processo.
- * Tokens inválidos (DeviceNotRegistered) são removidos automaticamente do banco.
+ * Singleton. Tokens inválidos (DeviceNotRegistered) são removidos do banco.
  *
  * Todos os disparos são "fire-and-forget" — chame com .catch(err => console.error(...))
  * para não bloquear o fluxo principal se o push falhar (rede / SDK / DB).
  */
 export class PushNotificationsService {
-  private expo: Expo;
+  private expo: any | null = null;
   private static _instance: PushNotificationsService | null = null;
 
-  private constructor() {
-    // accessToken é opcional (público). Pode-se passar process.env.EXPO_ACCESS_TOKEN se houver.
-    this.expo = new Expo({
-      accessToken: process.env.EXPO_ACCESS_TOKEN || undefined,
-    });
-  }
+  private constructor() {}
 
   static instance(): PushNotificationsService {
     if (!this._instance) {
@@ -39,10 +48,17 @@ export class PushNotificationsService {
     return this._instance;
   }
 
-  /**
-   * Disparar push para todos os dispositivos de um usuário.
-   * Idempotente em caso de erro: loga e continua.
-   */
+  private async getExpo(): Promise<any> {
+    if (!this.expo) {
+      const mod = await loadExpo();
+      const ExpoCtor = mod.Expo || mod.default?.Expo || mod.default;
+      this.expo = new ExpoCtor({
+        accessToken: process.env.EXPO_ACCESS_TOKEN || undefined,
+      });
+    }
+    return this.expo;
+  }
+
   async sendToUser(userId: string, payload: PushPayload): Promise<void> {
     try {
       const result = await db.query<TokenRow>(
@@ -56,9 +72,6 @@ export class PushNotificationsService {
     }
   }
 
-  /**
-   * Disparar push para todos os usuários ativos com um dos roles informados.
-   */
   async sendToRoles(roles: string[], payload: PushPayload): Promise<void> {
     if (!roles || roles.length === 0) return;
     try {
@@ -77,17 +90,22 @@ export class PushNotificationsService {
     }
   }
 
-  /**
-   * Núcleo do envio: filtra tokens válidos, monta mensagens, envia em chunks
-   * e remove tokens inválidos do banco com base nos tickets retornados.
-   */
   private async dispatch(rows: TokenRow[], payload: PushPayload): Promise<void> {
-    const messages: ExpoPushMessage[] = [];
+    let mod: any;
+    let expo: any;
+    try {
+      mod = await loadExpo();
+      expo = await this.getExpo();
+    } catch {
+      return;
+    }
+    const ExpoCtor = mod.Expo || mod.default?.Expo || mod.default;
+
+    const messages: any[] = [];
     const messageToTokenRow: TokenRow[] = [];
 
     for (const row of rows) {
-      if (!Expo.isExpoPushToken(row.expo_token)) {
-        // Token mal formado — remove
+      if (!ExpoCtor.isExpoPushToken(row.expo_token)) {
         await this.deleteTokenById(row.id).catch(() => undefined);
         continue;
       }
@@ -103,16 +121,12 @@ export class PushNotificationsService {
 
     if (messages.length === 0) return;
 
-    const chunks = this.expo.chunkPushNotifications(messages);
-    const tickets: ExpoPushTicket[] = [];
+    const chunks = expo.chunkPushNotifications(messages);
 
     let chunkOffset = 0;
     for (const chunk of chunks) {
       try {
-        const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
-        tickets.push(...ticketChunk);
-
-        // Remove tokens cuja ticket veio com error (DeviceNotRegistered etc)
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
         for (let i = 0; i < ticketChunk.length; i++) {
           const ticket = ticketChunk[i];
           const associatedRow = messageToTokenRow[chunkOffset + i];
