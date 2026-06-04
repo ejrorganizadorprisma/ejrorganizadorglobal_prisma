@@ -64,14 +64,20 @@ api.interceptors.request.use(
 );
 
 // --- Refresh logic com fila de espera --------------------------------------
-let isRefreshing = false;
-let refreshWaiters: Array<(ok: boolean) => void> = [];
+// 'ok'        → refresh deu certo (ou outra aba ja rotacionou) — re-tente a request.
+// 'denied'    → refresh recusado definitivamente (401/403) — sessao acabou.
+// 'transient' → erro temporario (rede, 429, 5xx) — NAO desloga, apenas falha a request.
+type RefreshOutcome = 'ok' | 'denied' | 'transient';
 
-async function attemptRefresh(): Promise<boolean> {
+let isRefreshing = false;
+let refreshWaiters: Array<(outcome: RefreshOutcome) => void> = [];
+
+async function attemptRefresh(): Promise<RefreshOutcome> {
   if (isRefreshing) {
-    return new Promise<boolean>((resolve) => refreshWaiters.push(resolve));
+    return new Promise<RefreshOutcome>((resolve) => refreshWaiters.push(resolve));
   }
   isRefreshing = true;
+  let outcome: RefreshOutcome;
   try {
     // Endpoint NAO carrega CSRF (esta antes do middleware), mas precisa
     // do cookie refreshToken (HttpOnly) para validar.
@@ -80,17 +86,29 @@ async function attemptRefresh(): Promise<boolean> {
       {},
       { withCredentials: true }
     );
-    refreshWaiters.forEach((cb) => cb(true));
-    refreshWaiters = [];
-    return true;
-  } catch {
-    refreshWaiters.forEach((cb) => cb(false));
-    refreshWaiters = [];
-    return false;
+    outcome = 'ok';
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const code = err?.response?.data?.error?.code;
+    if (code === 'REFRESH_RACE') {
+      // Outra aba rotacionou o token ha instantes — os cookies novos ja estao
+      // no browser. Tratamos como sucesso e re-tentamos a request original.
+      outcome = 'ok';
+    } else if (status === 401 || status === 403) {
+      outcome = 'denied';
+    } else {
+      // Rede instavel, rate-limit (429), erro de servidor: NAO e fim de sessao.
+      outcome = 'transient';
+    }
   } finally {
     isRefreshing = false;
   }
+  refreshWaiters.forEach((cb) => cb(outcome));
+  refreshWaiters = [];
+  return outcome;
 }
+
+const AUTH_URLS = ['/auth/refresh', '/auth/login', '/auth/logout'];
 
 // Response interceptor — trata 401 com refresh + retry, e mensagens de erro.
 api.interceptors.response.use(
@@ -100,33 +118,33 @@ api.interceptors.response.use(
     const errorCode = error.response?.data?.error?.code;
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
-    // 401 com TOKEN_EXPIRED: tentamos refresh + retry da request original.
+    // Qualquer 401 (TOKEN_EXPIRED, token ausente, invalido): tentamos
+    // refresh + retry da request original. O caso "cookie sumiu" tambem
+    // se resolve com refresh — o refreshToken (7d) ainda esta no browser.
     if (
       status === 401 &&
-      errorCode === 'TOKEN_EXPIRED' &&
       original &&
       !original._retry &&
-      !original.url?.includes('/auth/refresh') &&
-      !original.url?.includes('/auth/login')
+      !AUTH_URLS.some((u) => original.url?.includes(u))
     ) {
       original._retry = true;
-      const ok = await attemptRefresh();
-      if (ok) {
+      const outcome = await attemptRefresh();
+      if (outcome === 'ok') {
         return api.request(original);
       }
-      // Refresh falhou — redireciona para login.
-      if (window.location.pathname !== '/login') {
-        toast.error('Sessao expirada. Faca login novamente.');
-        window.location.href = '/login';
+      if (outcome === 'denied') {
+        // Sessao realmente acabou. Para /auth/me deixamos o guard de rotas
+        // cuidar do redirect (evita toast no primeiro acesso sem sessao).
+        if (
+          window.location.pathname !== '/login' &&
+          !original.url?.includes('/auth/me')
+        ) {
+          toast.error('Sessao expirada. Faca login novamente.');
+          window.location.href = '/login';
+        }
       }
+      // 'transient': falha a request sem deslogar — o usuario pode re-tentar.
       return Promise.reject(error);
-    }
-
-    if (status === 401) {
-      if (window.location.pathname !== '/login') {
-        // 401 sem TOKEN_EXPIRED: token invalido / sem token / mobile bloqueado.
-        // Nao deslogamos automatico aqui (poderia ser uma rota especifica).
-      }
     }
 
     // Erros de permissao

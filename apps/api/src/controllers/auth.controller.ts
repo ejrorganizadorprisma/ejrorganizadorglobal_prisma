@@ -4,7 +4,6 @@ import { AuthRequest } from '../middleware/auth';
 import { db } from '../config/database';
 import { UnauthorizedError } from '../utils/errors';
 import {
-  ACCESS_TOKEN_TTL_MS,
   REFRESH_TOKEN_TTL_MS,
   generateCsrfToken,
 } from '../utils/jwt';
@@ -39,8 +38,12 @@ function setAuthCookies(
   accessToken: string,
   refreshToken: string
 ): string {
-  // Access token (HttpOnly, 15min)
-  res.cookie('accessToken', accessToken, cookieOptions(ACCESS_TOKEN_TTL_MS, true));
+  // Access token (HttpOnly). IMPORTANTE: o maxAge do COOKIE e longo (7d) de
+  // proposito — o JWT dentro dele expira sozinho em 15min. Se o cookie tivesse
+  // maxAge=15min, o browser o apagaria junto com a expiracao do JWT e a request
+  // chegaria SEM token (401 UNAUTHORIZED em vez de 401 TOKEN_EXPIRED), o que
+  // impede o front de disparar o refresh → usuario deslogado "do nada".
+  res.cookie('accessToken', accessToken, cookieOptions(REFRESH_TOKEN_TTL_MS, true));
   // Refresh token (HttpOnly, 7 dias)
   res.cookie('refreshToken', refreshToken, cookieOptions(REFRESH_TOKEN_TTL_MS, true));
   // CSRF token (NAO-HttpOnly: cliente JS precisa ler para mandar no header)
@@ -52,11 +55,18 @@ function setAuthCookies(
 }
 
 function clearAuthCookies(res: Response) {
-  const opts: CookieOptions = { path: '/' };
-  res.clearCookie('accessToken', opts);
-  res.clearCookie('refreshToken', opts);
-  res.clearCookie('csrfToken', opts);
-  res.clearCookie('token', opts); // legacy
+  // clearCookie precisa das MESMAS options usadas na criacao (exceto maxAge)
+  // para o browser aceitar a remocao em todos os contextos.
+  const isProd = process.env.NODE_ENV === 'production';
+  const opts: CookieOptions = {
+    path: '/',
+    secure: isProd,
+    sameSite: isProd ? 'none' : 'lax',
+  };
+  res.clearCookie('accessToken', { ...opts, httpOnly: true });
+  res.clearCookie('refreshToken', { ...opts, httpOnly: true });
+  res.clearCookie('csrfToken', { ...opts, httpOnly: false });
+  res.clearCookie('token', { path: '/' }); // legacy
 }
 
 async function validateMobileAccess(req: Request): Promise<void> {
@@ -186,7 +196,8 @@ export class AuthController {
         });
       } else {
         // Set legacy + new cookies for backwards compatibility on register.
-        res.cookie('accessToken', result.token, cookieOptions(ACCESS_TOKEN_TTL_MS, true));
+        // Mesmo racional do setAuthCookies: cookie longo, JWT expira sozinho.
+        res.cookie('accessToken', result.token, cookieOptions(REFRESH_TOKEN_TTL_MS, true));
         res.status(201).json({
           success: true,
           data: result,

@@ -9,7 +9,7 @@ import {
   hashRefreshToken,
   REFRESH_TOKEN_TTL_MS,
 } from '../utils/jwt';
-import { UnauthorizedError, ConflictError } from '../utils/errors';
+import { AppError, UnauthorizedError, ConflictError } from '../utils/errors';
 import type { LoginDTO, CreateUserDTO, AuthResponse } from '@ejr/shared-types';
 
 export interface AuthTokens {
@@ -159,8 +159,27 @@ export class AuthService {
     const row = result.rows[0];
 
     // Reuse detection: token ja revogado/rotacionado => provavelmente vazou.
-    // Revoga toda a familia desse usuario para forcar re-login em todos clients.
+    // EXCECAO (janela de graca): duas abas do mesmo browser podem disparar
+    // refresh simultaneo com o mesmo cookie — a primeira rotaciona, a segunda
+    // chega aqui com o token recem-rotacionado. Isso NAO e roubo de token.
+    // Se a rotacao aconteceu ha menos de 60s, respondemos 401 REFRESH_RACE
+    // sem revogar nada: o cookie novo (setado pela aba vencedora) ja esta no
+    // browser e o front apenas re-tenta a request original.
     if (row.revoked_at || row.rotated_to) {
+      const revokedAgoMs = row.revoked_at
+        ? Date.now() - new Date(row.revoked_at).getTime()
+        : Number.POSITIVE_INFINITY;
+
+      if (row.rotated_to && revokedAgoMs < 60_000) {
+        throw new AppError(
+          'Refresh concorrente — use o token mais novo',
+          401,
+          'REFRESH_RACE'
+        );
+      }
+
+      // Reuso fora da janela de graca: revoga toda a familia desse usuario
+      // para forcar re-login em todos clients (defense-in-depth).
       await db.query(
         `UPDATE refresh_tokens SET revoked_at = NOW()
           WHERE user_id = $1 AND revoked_at IS NULL`,
