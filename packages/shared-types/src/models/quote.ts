@@ -35,6 +35,19 @@ export interface Quote {
   id: string;
   quoteNumber: string; // QOT-2025-0001
   customerId: string;
+  /** Cliente embutido (retornado por GET /quotes/:id) — usado p/ gerar PDF no front */
+  customer?: {
+    id: string;
+    name: string;
+    type?: string;
+    document?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    whatsapp?: string | null;
+    address?: string | null;
+    ci?: string | null;
+    ruc?: string | null;
+  } | null;
   items: QuoteItem[];
   subtotal: number; // centavos
   discount: number; // centavos

@@ -356,6 +356,22 @@ export class QuotesRepository {
       id: data.id,
       quoteNumber: data.quote_number,
       customerId: data.customer_id,
+      // Cliente completo vindo do row_to_json(c.*) no findById.
+      // O front usa esses dados para gerar o PDF do orcamento.
+      customer: data.customer
+        ? {
+            id: data.customer.id,
+            name: data.customer.name,
+            type: data.customer.type,
+            document: data.customer.document ?? null,
+            email: data.customer.email ?? null,
+            phone: data.customer.phone ?? null,
+            whatsapp: data.customer.whatsapp ?? null,
+            address: data.customer.address ?? null,
+            ci: data.customer.ci ?? null,
+            ruc: data.customer.ruc ?? null,
+          }
+        : null,
       items: (data.items || []).map((item: any) => ({
         id: item.id,
         quoteId: item.quote_id,
