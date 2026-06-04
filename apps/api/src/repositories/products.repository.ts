@@ -22,7 +22,7 @@ export class ProductsRepository {
 
     // Filtro de busca
     if (search) {
-      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex})`);
+      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex})`);
       values.push(`%${search}%`);
       paramIndex++;
     }
@@ -152,7 +152,7 @@ export class ProductsRepository {
 
     // Filtro de busca
     if (search) {
-      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex})`);
+      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex})`);
       values.push(`%${search}%`);
       paramIndex++;
     }

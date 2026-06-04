@@ -63,6 +63,8 @@ export function SalesOrderFormPage() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [addQty, setAddQty] = useState(1);
   const [pendingProduct, setPendingProduct] = useState<any>(null);
+  // Produto com foto em preview (hover/clique na miniatura ou navegacao por setas)
+  const [photoPreview, setPhotoPreview] = useState<any>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const qtyInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -139,6 +141,7 @@ export function SalesOrderFormPage() {
     setProductSearch(product.name);
     setShowDropdown(false);
     setSelectedIndex(-1);
+    setPhotoPreview(null);
     setAddQty(1);
     setTimeout(() => qtyInputRef.current?.focus(), 50);
   };
@@ -183,11 +186,20 @@ export function SalesOrderFormPage() {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex((prev) => (prev < products.length - 1 ? prev + 1 : prev));
+        setSelectedIndex((prev) => {
+          const next = prev < products.length - 1 ? prev + 1 : prev;
+          // Preview da foto acompanha a navegacao por setas
+          setPhotoPreview(products[next] ?? null);
+          return next;
+        });
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1));
+        setSelectedIndex((prev) => {
+          const next = prev > 0 ? prev - 1 : -1;
+          setPhotoPreview(next >= 0 ? products[next] ?? null : null);
+          return next;
+        });
         break;
       case 'Enter':
         e.preventDefault();
@@ -198,6 +210,7 @@ export function SalesOrderFormPage() {
       case 'Escape':
         setShowDropdown(false);
         setSelectedIndex(-1);
+        setPhotoPreview(null);
         break;
     }
   };
@@ -524,6 +537,7 @@ export function SalesOrderFormPage() {
                     setShowDropdown(true);
                     setSelectedIndex(-1);
                     setPendingProduct(null);
+                    setPhotoPreview(null);
                   }}
                   onFocus={() => {
                     if (!pendingProduct) setShowDropdown(true);
@@ -533,7 +547,7 @@ export function SalesOrderFormPage() {
                   placeholder={
                     isCustomerInactive
                       ? 'Cliente inativo — busca bloqueada'
-                      : 'Buscar produto por nome ou codigo...'
+                      : 'Buscar por nome, código, marca ou cód. fornecedor...'
                   }
                   className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
                     pendingProduct ? 'border-green-400 bg-green-50' : ''
@@ -546,8 +560,9 @@ export function SalesOrderFormPage() {
               </div>
 
               {showDropdown && !pendingProduct && (
+                <>
                 <div
-                  className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto ${
+                  className={`absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl max-h-72 overflow-auto ${
                     formData.items.length >= 1 ? 'bottom-full mb-1' : 'top-full mt-1'
                   }`}
                 >
@@ -564,11 +579,12 @@ export function SalesOrderFormPage() {
                         typeof p.minimumStock === 'number' &&
                         p.currentStock > 0 &&
                         p.currentStock <= p.minimumStock;
+                      const thumb = p.imageUrls?.[0];
                       return (
                         <div
                           key={p.id}
                           onClick={() => handleProductSelect(p)}
-                          className={`px-3 py-2.5 cursor-pointer text-sm flex items-center justify-between border-b border-gray-50 last:border-0 ${
+                          className={`px-3 py-2 cursor-pointer text-sm flex items-center gap-2.5 border-b border-gray-50 last:border-0 ${
                             pIdx === selectedIndex
                               ? 'bg-blue-50 text-blue-900'
                               : isZeroStock
@@ -578,21 +594,65 @@ export function SalesOrderFormPage() {
                               : 'hover:bg-gray-50'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            {isZeroStock ? (
-                              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                            ) : isLowStock ? (
-                              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                            ) : (
-                              <Package className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                            )}
-                            <div className="min-w-0">
+                          {/* Miniatura — hover/clique mostra a foto ampliada */}
+                          {thumb ? (
+                            <button
+                              type="button"
+                              title="Ver foto"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPhotoPreview(photoPreview?.id === p.id ? null : p);
+                              }}
+                              onMouseEnter={() => setPhotoPreview(p)}
+                              onMouseLeave={() => setPhotoPreview(null)}
+                              className="w-10 h-10 rounded-md border border-gray-200 overflow-hidden flex-shrink-0 bg-white hover:ring-2 hover:ring-blue-400 transition-shadow"
+                            >
+                              <img
+                                src={thumb}
+                                alt={p.name}
+                                loading="lazy"
+                                className="w-full h-full object-cover"
+                              />
+                            </button>
+                          ) : (
+                            <div className="w-10 h-10 rounded-md border border-gray-100 bg-gray-50 flex items-center justify-center flex-shrink-0">
+                              {isZeroStock || isLowStock ? (
+                                <AlertTriangle
+                                  className={`w-4 h-4 ${isZeroStock ? 'text-red-300' : 'text-amber-300'}`}
+                                />
+                              ) : (
+                                <Package className="w-4 h-4 text-gray-300" />
+                              )}
+                            </div>
+                          )}
+
+                          {/* Codigo (negrito) + nome, e abaixo marca + cod. fornecedor */}
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate">
+                              {p.code && (
+                                <span className="font-bold text-gray-900 mr-1.5">{p.code}</span>
+                              )}
                               <span className="font-medium">{p.name}</span>
-                              {p.code && <span className="ml-2 text-xs text-gray-400">({p.code})</span>}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] overflow-hidden">
+                              {p.manufacturer && (
+                                <span className="px-1.5 py-px rounded bg-blue-50 text-blue-700 font-medium whitespace-nowrap">
+                                  {p.manufacturer}
+                                </span>
+                              )}
+                              {p.factoryCode && (
+                                <span className="px-1.5 py-px rounded bg-gray-100 text-gray-600 font-mono whitespace-nowrap">
+                                  Forn: {p.factoryCode}
+                                </span>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 text-xs flex-shrink-0 ml-3">
-                            {p.salePrice > 0 && <span className="text-gray-500">{formatPrice(p.salePrice)}</span>}
+
+                          {/* Preco + estoque */}
+                          <div className="flex flex-col items-end gap-0.5 text-xs flex-shrink-0 ml-2">
+                            {p.salePrice > 0 && (
+                              <span className="text-gray-700 font-semibold">{formatPrice(p.salePrice)}</span>
+                            )}
                             {typeof p.currentStock === 'number' && (
                               <span
                                 className={`font-semibold px-1.5 py-0.5 rounded ${
@@ -618,6 +678,36 @@ export function SalesOrderFormPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Painel flutuante com a foto ampliada do produto em preview */}
+                {photoPreview?.imageUrls?.[0] && (
+                  <div
+                    className={`absolute z-[60] w-60 bg-white border border-gray-200 rounded-xl shadow-2xl p-3 pointer-events-none right-0 sm:right-auto sm:left-full sm:ml-2 ${
+                      formData.items.length >= 1 ? 'bottom-full mb-1' : 'top-full mt-1'
+                    }`}
+                  >
+                    <img
+                      src={photoPreview.imageUrls[0]}
+                      alt={photoPreview.name}
+                      className="w-full h-44 object-contain rounded-lg bg-gray-50"
+                    />
+                    <div className="mt-2 text-sm truncate">
+                      {photoPreview.code && (
+                        <span className="font-bold mr-1.5">{photoPreview.code}</span>
+                      )}
+                      <span className="font-medium">{photoPreview.name}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {[
+                        photoPreview.manufacturer,
+                        photoPreview.factoryCode && `Forn: ${photoPreview.factoryCode}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                  </div>
+                )}
+                </>
               )}
             </div>
 
