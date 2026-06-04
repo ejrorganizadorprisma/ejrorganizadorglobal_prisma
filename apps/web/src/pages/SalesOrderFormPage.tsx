@@ -640,14 +640,14 @@ export function SalesOrderFormPage() {
                                   {p.manufacturer}
                                 </span>
                               )}
-                              {p.supplierSku && (
-                                <span className="px-1.5 py-px rounded bg-gray-100 text-gray-600 font-mono whitespace-nowrap">
-                                  Forn: {p.supplierSku}
-                                </span>
-                              )}
                               {p.factoryCode && (
                                 <span className="px-1.5 py-px rounded bg-purple-50 text-purple-700 font-mono whitespace-nowrap">
                                   Ind: {p.factoryCode}
+                                </span>
+                              )}
+                              {p.supplierSku && (
+                                <span className="px-1.5 py-px rounded bg-gray-100 text-gray-600 font-mono whitespace-nowrap">
+                                  Forn: {p.supplierSku}
                                 </span>
                               )}
                             </div>
@@ -705,8 +705,8 @@ export function SalesOrderFormPage() {
                     <div className="text-xs text-gray-500 truncate">
                       {[
                         photoPreview.manufacturer,
-                        photoPreview.supplierSku && `Forn: ${photoPreview.supplierSku}`,
                         photoPreview.factoryCode && `Ind: ${photoPreview.factoryCode}`,
+                        photoPreview.supplierSku && `Forn: ${photoPreview.supplierSku}`,
                       ]
                         .filter(Boolean)
                         .join(' · ')}
