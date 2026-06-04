@@ -137,14 +137,13 @@ const menuSections: MenuSection[] = [
         submenu: [
           { name: 'Lista de Orçamentos', path: '/quotes', icon: FileText, page: 'quotes' as AppPage },
           { name: 'Novo Orçamento', path: '/quotes/new', icon: Plus, page: 'quotes' as AppPage },
-          // Acesso temporário ao catálogo imersivo (demo com o orçamento QOT-2026-0014)
-          {
-            name: 'Catálogo (demo)',
-            path: '/quotes/quote-1775749565813-uecz5xs/catalog',
-            icon: Sparkles,
-            page: 'quotes' as AppPage,
-          },
         ],
+      },
+      {
+        name: 'Catálogo Prisma',
+        path: '/catalog',
+        icon: Sparkles,
+        page: 'quotes' as AppPage,
       },
       {
         name: 'Pedidos de Venda',

@@ -16,6 +16,7 @@ import { CustomerFormPage } from './pages/CustomerFormPage';
 import { QuotesPage } from './pages/QuotesPage';
 import { QuoteFormPage } from './pages/QuoteFormPage';
 import { QuoteCatalogPage } from './pages/QuoteCatalogPage';
+import { CatalogPrismaPage } from './pages/CatalogPrismaPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { SupplierFormPage } from './pages/SupplierFormPage';
 import { ReportsHubPage } from './pages/ReportsHubPage';
@@ -333,6 +334,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <QuoteCatalogPage />
+          </ProtectedRoute>
+        }
+      />
+      {/* Catálogo Prisma 2026 — viewer imersivo do catálogo oficial */}
+      <Route
+        path="/catalog"
+        element={
+          <ProtectedRoute>
+            <CatalogPrismaPage />
           </ProtectedRoute>
         }
       />
