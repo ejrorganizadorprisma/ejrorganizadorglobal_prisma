@@ -22,7 +22,7 @@ export class ProductsRepository {
 
     // Filtro de busca
     if (search) {
-      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex})`);
+      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex} OR EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_sku ILIKE $${paramIndex}))`);
       values.push(`%${search}%`);
       paramIndex++;
     }
@@ -81,7 +81,11 @@ export class ProductsRepository {
     }
 
     const query = `
-      SELECT *
+      SELECT products.*,
+        (SELECT ps.supplier_sku FROM product_suppliers ps
+          WHERE ps.product_id = products.id AND ps.supplier_sku IS NOT NULL
+          ORDER BY ps.is_preferred DESC, ps.created_at ASC
+          LIMIT 1) AS supplier_sku
       FROM products
       ${whereClause}
       ORDER BY ${orderBy}
@@ -122,6 +126,8 @@ export class ProductsRepository {
       assemblyCost: product.assembly_cost,
       unit: product.unit,
       factoryCode: product.factory_code,
+      // SKU do fornecedor preferencial (product_suppliers.supplier_sku)
+      supplierSku: product.supplier_sku ?? null,
       warrantyExpirationDate: product.warranty_expiration_date,
       observations: product.observations,
       quantityPerBox: product.quantity_per_box ?? 1,
@@ -152,7 +158,7 @@ export class ProductsRepository {
 
     // Filtro de busca
     if (search) {
-      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex})`);
+      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex} OR EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_sku ILIKE $${paramIndex}))`);
       values.push(`%${search}%`);
       paramIndex++;
     }
