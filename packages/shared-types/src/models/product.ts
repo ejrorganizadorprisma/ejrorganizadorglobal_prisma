@@ -56,19 +56,21 @@ export interface Product {
 }
 
 export const CreateProductSchema = z.object({
+  // Campos opcionais aceitam null alem de undefined — o form web envia null
+  // para campos vazios (mesmo padrao do UpdateProductSchema).
   code: z.string().optional(), // Auto-generated, optional in creation
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   category: z.string().min(1, 'Categoria é obrigatória'),
-  family: z.string().optional(),
-  manufacturer: z.string().optional(),
+  family: z.string().optional().nullable(),
+  manufacturer: z.string().optional().nullable(),
   costPrice: z.number().int().min(0, 'Preço de custo não pode ser negativo'),
   costPriceCurrency: z.enum(['BRL', 'USD', 'PYG']).default('BRL'),
   salePrice: z.number().int().min(0, 'Preço de venda não pode ser negativo'),
   salePriceCurrency: z.enum(['BRL', 'USD', 'PYG']).default('BRL'),
   wholesalePrice: z.number().int().min(0, 'Preço de venda atacado não pode ser negativo').default(0),
   wholesalePriceCurrency: z.enum(['BRL', 'USD', 'PYG']).default('BRL'),
-  technicalDescription: z.string().optional(),
-  commercialDescription: z.string().optional(),
+  technicalDescription: z.string().optional().nullable(),
+  commercialDescription: z.string().optional().nullable(),
   warrantyMonths: z.number().int().min(0).default(0),
   minimumStock: z.number().int().min(0).default(5),
   status: z.nativeEnum(ProductStatus).default(ProductStatus.ACTIVE),
@@ -77,13 +79,13 @@ export const CreateProductSchema = z.object({
   isPart: z.boolean().default(false),
   assemblyCost: z.number().int().min(0).default(0),
   unit: z.nativeEnum(ProductUnit).default(ProductUnit.UNIT),
-  factoryCode: z.string().optional(),
-  warrantyExpirationDate: z.string().optional(),
-  observations: z.string().optional(),
+  factoryCode: z.string().optional().nullable(),
+  warrantyExpirationDate: z.string().optional().nullable(),
+  observations: z.string().optional().nullable(),
   quantityPerBox: z.number().int().min(1).optional().default(1),
-  spaceId: z.string().optional(),
-  shelfId: z.string().optional(),
-  sectionId: z.string().optional(),
+  spaceId: z.string().optional().nullable(),
+  shelfId: z.string().optional().nullable(),
+  sectionId: z.string().optional().nullable(),
   commissionRate: z.number().min(0).max(100).nullable().optional(),
 });
 

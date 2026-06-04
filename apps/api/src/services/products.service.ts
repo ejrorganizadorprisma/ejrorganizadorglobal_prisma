@@ -71,7 +71,10 @@ export class ProductsService {
 
   async create(data: CreateProductDTO) {
     // Verificar se já existe produto com o mesmo código
-    const existingProduct = await this.repository.findByCode(data.code);
+    // (code é opcional — quando vazio, o repository auto-gera PROD-XXXX)
+    const existingProduct = data.code
+      ? await this.repository.findByCode(data.code)
+      : null;
     if (existingProduct) {
       throw new AppError('Já existe um produto com este código', 409, 'DUPLICATE_CODE');
     }

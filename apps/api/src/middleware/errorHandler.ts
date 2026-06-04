@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { AppError } from '../utils/errors';
 import { logger } from '../config/logger';
 
@@ -46,6 +47,22 @@ export function errorHandler(
     path: req.path,
     method: req.method,
   });
+
+  // Zod validation errors (ex: Schema.parse direto no controller) → 400,
+  // com os campos invalidos listados. Antes caia no 500 generico.
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Dados inválidos',
+        details: err.errors.map((e) => ({
+          field: e.path.join('.'),
+          message: e.message,
+        })),
+      },
+    });
+  }
 
   // App errors (custom)
   if (err instanceof AppError) {
