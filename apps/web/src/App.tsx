@@ -15,6 +15,7 @@ import { CustomersPage } from './pages/CustomersPage';
 import { CustomerFormPage } from './pages/CustomerFormPage';
 import { QuotesPage } from './pages/QuotesPage';
 import { QuoteFormPage } from './pages/QuoteFormPage';
+import { QuoteCatalogPage } from './pages/QuoteCatalogPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { SupplierFormPage } from './pages/SupplierFormPage';
 import { ReportsHubPage } from './pages/ReportsHubPage';
@@ -323,6 +324,15 @@ function AppRoutes() {
             <MainLayout>
               <QuoteFormPage />
             </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Catálogo imersivo do orçamento (fullscreen, sem MainLayout) */}
+      <Route
+        path="/quotes/:id/catalog"
+        element={
+          <ProtectedRoute>
+            <QuoteCatalogPage />
           </ProtectedRoute>
         }
       />
