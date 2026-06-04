@@ -547,7 +547,7 @@ export function SalesOrderFormPage() {
                   placeholder={
                     isCustomerInactive
                       ? 'Cliente inativo — busca bloqueada'
-                      : 'Buscar por nome, código, marca ou cód. fornecedor...'
+                      : 'Buscar por nome, código, marca ou cód. fábrica...'
                   }
                   className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
                     pendingProduct ? 'border-green-400 bg-green-50' : ''
@@ -640,12 +640,9 @@ export function SalesOrderFormPage() {
                                   {p.manufacturer}
                                 </span>
                               )}
-                              {/* Labels sempre visiveis — valor fica vazio se nao cadastrado */}
+                              {/* Label sempre visivel — valor fica vazio se nao cadastrado */}
                               <span className="px-1.5 py-px rounded bg-purple-50 text-purple-700 font-mono whitespace-nowrap">
-                                Ind: {p.factoryCode || ''}
-                              </span>
-                              <span className="px-1.5 py-px rounded bg-gray-100 text-gray-600 font-mono whitespace-nowrap">
-                                Forn: {p.supplierSku || ''}
+                                Fáb: {p.factoryCode || ''}
                               </span>
                             </div>
                           </div>
@@ -702,8 +699,7 @@ export function SalesOrderFormPage() {
                     <div className="text-xs text-gray-500 truncate">
                       {[
                         photoPreview.manufacturer,
-                        `Ind: ${photoPreview.factoryCode || ''}`,
-                        `Forn: ${photoPreview.supplierSku || ''}`,
+                        `Fáb: ${photoPreview.factoryCode || ''}`,
                       ]
                         .filter(Boolean)
                         .join(' · ')}
