@@ -352,7 +352,21 @@ export function SalesOrderFormPage() {
               <label className="block text-sm font-medium mb-1">Cliente *</label>
               <select
                 value={formData.customerId}
-                onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
+                onChange={(e) => {
+                  const customerId = e.target.value;
+                  // Auto-preenche o vendedor com o responsavel do cadastro do
+                  // cliente (campo continua editavel). Se o responsavel nao
+                  // estiver na lista de vendedores ativos, fica "Nenhum".
+                  const customer = customersData?.data.find(
+                    (c: any) => c.id === customerId
+                  ) as any;
+                  const respId = customer?.responsibleUserId;
+                  const sellerId =
+                    respId && sellers.some((s: any) => s.id === respId)
+                      ? respId
+                      : '';
+                  setFormData({ ...formData, customerId, sellerId });
+                }}
                 required
                 className="w-full px-3 py-2 border rounded"
               >
@@ -446,6 +460,12 @@ export function SalesOrderFormPage() {
                   </option>
                 ))}
               </select>
+              {!!formData.sellerId &&
+                formData.sellerId === selectedCustomer?.responsibleUserId && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Vendedor do cadastro do cliente (pode ser alterado)
+                  </p>
+                )}
             </div>
 
             <div className="md:col-span-3">
