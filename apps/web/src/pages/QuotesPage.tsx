@@ -13,6 +13,7 @@ import {
   FileText,
   Plus,
   Pencil,
+  Sparkles,
   Trash2,
   Filter,
   Search,
@@ -646,6 +647,15 @@ export function QuotesPage() {
                             title="Editar"
                           >
                             <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => navigate(`/quotes/${quote.id}/catalog`)}
+                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
+                                       text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg
+                                       transition-colors"
+                            title="Catálogo (apresentação para o cliente)"
+                          >
+                            <Sparkles className="w-4 h-4" />
                           </button>
                           <div className="relative">
                             <button
