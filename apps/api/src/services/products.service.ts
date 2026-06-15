@@ -22,20 +22,21 @@ export class ProductsService {
     category?: string;
     family?: string;
     manufacturer?: string;
+    supplierId?: string;
     status?: ProductStatus;
     inStock?: boolean;
     productType?: 'FINAL' | 'COMPONENT';
     sortBy?: string;
   }) {
-    const { page, limit, search, category, family, manufacturer, status, inStock, productType, sortBy } = params;
+    const { page, limit, search, category, family, manufacturer, supplierId, status, inStock, productType, sortBy } = params;
 
     if (page < 1 || limit < 1 || limit > 100) {
       throw new AppError('Parâmetros de paginação inválidos', 400, 'INVALID_PAGINATION');
     }
 
     const [products, total] = await Promise.all([
-      this.repository.findMany({ page, limit, search, category, family, manufacturer, status, inStock, productType, sortBy }),
-      this.repository.count({ search, category, family, manufacturer, status, inStock, productType }),
+      this.repository.findMany({ page, limit, search, category, family, manufacturer, supplierId, status, inStock, productType, sortBy }),
+      this.repository.count({ search, category, family, manufacturer, supplierId, status, inStock, productType }),
     ]);
 
     return {

@@ -5,7 +5,6 @@ import type {
   ProductStatus,
   CreateProductDTO,
   UpdateProductDTO,
-  PaginatedResponse,
 } from '@ejr/shared-types';
 
 interface FindManyParams {
@@ -15,6 +14,8 @@ interface FindManyParams {
   category?: string;
   family?: string;
   manufacturer?: string;
+  /** Filtra produtos por fornecedor/indústria (via product_suppliers ou nome do fabricante) */
+  supplierId?: string;
   status?: ProductStatus;
   inStock?: boolean;
   productType?: 'FINAL' | 'COMPONENT';

@@ -1,28 +1,45 @@
 import { db } from '../config/database';
 import type { Product, ProductStatus, CreateProductDTO, UpdateProductDTO, Currency } from '@ejr/shared-types';
 
+interface ProductFilterParams {
+  search?: string;
+  category?: string;
+  family?: string;
+  manufacturer?: string;
+  supplierId?: string;
+  status?: ProductStatus;
+  inStock?: boolean;
+  productType?: 'FINAL' | 'COMPONENT';
+}
+
 export class ProductsRepository {
-  async findMany(params: {
-    page: number;
-    limit: number;
-    search?: string;
-    category?: string;
-    family?: string;
-    manufacturer?: string;
-    status?: ProductStatus;
-    inStock?: boolean;
-    productType?: 'FINAL' | 'COMPONENT';
-    sortBy?: string;
-  }) {
-    const { page, limit, search, category, family, manufacturer, status, inStock, productType, sortBy } = params;
+  /**
+   * Monta a cláusula WHERE compartilhada por findMany e count.
+   * Centraliza a lógica de filtros para evitar divergência entre busca e contagem.
+   * Retorna o SQL, os valores parametrizados (sem risco de SQL injection) e o
+   * índice do parâmetro de busca (útil para ordenação por relevância).
+   */
+  private buildFilters(params: ProductFilterParams): {
+    whereClause: string;
+    values: any[];
+    searchIndex: number | null;
+  } {
+    const { search, category, family, manufacturer, supplierId, status, inStock, productType } = params;
 
     const conditions: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
+    let searchIndex: number | null = null;
 
-    // Filtro de busca
+    // Filtro de busca — nome, código interno, código da indústria,
+    // fabricante, categoria, código de barras e SKU do fornecedor.
     if (search) {
-      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex} OR EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_sku ILIKE $${paramIndex}))`);
+      searchIndex = paramIndex;
+      conditions.push(
+        `(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} ` +
+        `OR manufacturer ILIKE $${paramIndex} OR category ILIKE $${paramIndex} OR barcode ILIKE $${paramIndex} ` +
+        `OR EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_sku ILIKE $${paramIndex}))`
+      );
       values.push(`%${search}%`);
       paramIndex++;
     }
@@ -48,6 +65,21 @@ export class ProductsRepository {
       paramIndex++;
     }
 
+    // Filtro por fornecedor/indústria — pega TODOS os produtos do fornecedor.
+    // 1) vínculo formal em product_suppliers; OU
+    // 2) fallback por nome do fabricante (compatível com a base atual, onde a
+    //    ligação produto↔fornecedor ainda é feita pelo texto "manufacturer").
+    if (supplierId) {
+      conditions.push(
+        `(EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_id = $${paramIndex}) ` +
+        `OR EXISTS (SELECT 1 FROM suppliers s WHERE s.id = $${paramIndex} ` +
+        `AND products.manufacturer IS NOT NULL AND products.manufacturer <> '' AND s.name <> '' ` +
+        `AND (products.manufacturer ILIKE s.name OR products.manufacturer ILIKE s.name || '%' OR s.name ILIKE products.manufacturer || '%')))`
+      );
+      values.push(supplierId);
+      paramIndex++;
+    }
+
     // Filtro de status
     if (status) {
       conditions.push(`status = $${paramIndex}`);
@@ -68,8 +100,29 @@ export class ProductsRepository {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    return { whereClause, values, searchIndex };
+  }
+
+  async findMany(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    category?: string;
+    family?: string;
+    manufacturer?: string;
+    supplierId?: string;
+    status?: ProductStatus;
+    inStock?: boolean;
+    productType?: 'FINAL' | 'COMPONENT';
+    sortBy?: string;
+  }) {
+    const { page, limit, sortBy } = params;
+
+    const { whereClause, values, searchIndex } = this.buildFilters(params);
 
     const offset = (page - 1) * limit;
+    const limitIndex = values.length + 1;
+    const offsetIndex = values.length + 2;
     values.push(limit, offset);
 
     let orderBy = 'created_at DESC';
@@ -78,6 +131,13 @@ export class ProductsRepository {
       orderBy = 'CASE WHEN current_stock <= 0 THEN 0 WHEN current_stock <= minimum_stock THEN 1 ELSE 2 END ASC, current_stock ASC, name ASC';
     } else if (sortBy === 'name') {
       orderBy = 'name ASC';
+    } else if (sortBy === 'code') {
+      orderBy = 'code ASC';
+    } else if (sortBy === 'relevance') {
+      // Relevância: prioriza match no nome, depois no código, depois o resto.
+      orderBy = searchIndex
+        ? `(CASE WHEN name ILIKE $${searchIndex} THEN 0 WHEN code ILIKE $${searchIndex} THEN 1 ELSE 2 END), name ASC`
+        : 'name ASC';
     }
 
     const query = `
@@ -89,7 +149,7 @@ export class ProductsRepository {
       FROM products
       ${whereClause}
       ORDER BY ${orderBy}
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+      LIMIT $${limitIndex} OFFSET $${offsetIndex}
     `;
 
     const result = await db.query(query, values);
@@ -126,6 +186,7 @@ export class ProductsRepository {
       assemblyCost: product.assembly_cost,
       unit: product.unit,
       factoryCode: product.factory_code,
+      barcode: product.barcode ?? null,
       // SKU do fornecedor preferencial (product_suppliers.supplier_sku)
       supplierSku: product.supplier_sku ?? null,
       warrantyExpirationDate: product.warranty_expiration_date,
@@ -141,69 +202,8 @@ export class ProductsRepository {
     return mapped;
   }
 
-  async count(params: {
-    search?: string;
-    category?: string;
-    family?: string;
-    manufacturer?: string;
-    status?: ProductStatus;
-    inStock?: boolean;
-    productType?: 'FINAL' | 'COMPONENT';
-  }) {
-    const { search, category, family, manufacturer, status, inStock, productType } = params;
-
-    const conditions: string[] = [];
-    const values: any[] = [];
-    let paramIndex = 1;
-
-    // Filtro de busca
-    if (search) {
-      conditions.push(`(name ILIKE $${paramIndex} OR code ILIKE $${paramIndex} OR factory_code ILIKE $${paramIndex} OR manufacturer ILIKE $${paramIndex} OR EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_sku ILIKE $${paramIndex}))`);
-      values.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    // Filtro de categoria
-    if (category) {
-      conditions.push(`category = $${paramIndex}`);
-      values.push(category);
-      paramIndex++;
-    }
-
-    // Filtro de família
-    if (family) {
-      conditions.push(`family = $${paramIndex}`);
-      values.push(family);
-      paramIndex++;
-    }
-
-    // Filtro de fabricante
-    if (manufacturer) {
-      conditions.push(`manufacturer ILIKE $${paramIndex}`);
-      values.push(`%${manufacturer}%`);
-      paramIndex++;
-    }
-
-    // Filtro de status
-    if (status) {
-      conditions.push(`status = $${paramIndex}`);
-      values.push(status);
-      paramIndex++;
-    }
-
-    // Filtro de estoque
-    if (inStock) {
-      conditions.push(`current_stock > 0`);
-    }
-
-    // Filtro de tipo de produto
-    if (productType) {
-      conditions.push(`product_type = $${paramIndex}`);
-      values.push(productType);
-      paramIndex++;
-    }
-
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  async count(params: ProductFilterParams) {
+    const { whereClause, values } = this.buildFilters(params);
 
     const query = `
       SELECT COUNT(*) as count

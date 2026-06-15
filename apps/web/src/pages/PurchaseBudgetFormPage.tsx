@@ -50,15 +50,19 @@ export function PurchaseBudgetFormPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const [manufacturerFilter, setManufacturerFilter] = useState('');
+  // Fornecedor/indústria do orçamento — declarado aqui pois filtra a busca de produtos abaixo
+  const [supplierId, setSupplierId] = useState('');
 
   const { data: budget, isLoading: loadingBudget } = usePurchaseBudget(id);
   const { data: manufacturersList } = useProductManufacturers();
   const { data: productsData, isLoading: loadingProducts } = useProducts({
     page: 1,
-    limit: 20,
+    limit: 50,
     search: debouncedSearch || undefined,
     manufacturer: manufacturerFilter || undefined,
-    sortBy: 'stock_urgency',
+    // Filtra os produtos do fornecedor/indústria selecionado para o orçamento
+    supplierId: supplierId || undefined,
+    sortBy: debouncedSearch ? 'relevance' : 'stock_urgency',
   });
   const { data: suppliersData } = useSuppliers({ page: 1, limit: 100 });
   const { data: documentSettings } = useDefaultDocumentSettings();
@@ -78,7 +82,6 @@ export function PurchaseBudgetFormPage() {
   const [justification, setJustification] = useState('');
   const [priority, setPriority] = useState('NORMAL');
   const [department, setDepartment] = useState('');
-  const [supplierId, setSupplierId] = useState('');
   const [selectedManufacturers, setSelectedManufacturers] = useState<string[]>([]);
   const [paymentTerms, setPaymentTerms] = useState('');
   const [leadTimeDays, setLeadTimeDays] = useState('');
@@ -350,6 +353,7 @@ export function PurchaseBudgetFormPage() {
   };
 
   const products = productsData?.data || [];
+  const productsTotal = productsData?.pagination?.total ?? products.length;
   const suppliers = suppliersData?.data || [];
   const filteredProducts = products;
 
@@ -1391,7 +1395,7 @@ export function PurchaseBudgetFormPage() {
                       if (!productConfirmed) setShowProductDropdown(true);
                     }}
                     onKeyDown={handleProductSearchKeyDown}
-                    placeholder="Buscar produto por nome, SKU..."
+                    placeholder="Buscar por nome, código, cód. fábrica, cód. barras, categoria..."
                     className="w-full pl-9 pr-20 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
                     autoComplete="off"
                   />
@@ -1458,6 +1462,11 @@ export function PurchaseBudgetFormPage() {
                           </div>
                           );
                         })}
+                        {productsTotal > filteredProducts.length && (
+                          <div className="px-3 py-2 text-[11px] text-gray-400 bg-gray-50 border-t">
+                            Mostrando {filteredProducts.length} de {productsTotal} produtos — refine a busca para ver mais.
+                          </div>
+                        )}
                         {productSearch.trim() && !filteredProducts.some((p: any) => p.name.toLowerCase() === productSearch.toLowerCase()) && (
                           <div className="px-3 py-2 text-xs text-gray-400 bg-gray-50 border-t">
                             <kbd className="bg-gray-200 px-1 rounded text-[10px]">Enter</kbd> para usar "{productSearch}" como item manual
@@ -1468,8 +1477,12 @@ export function PurchaseBudgetFormPage() {
                       <div className="px-4 py-3 text-sm text-gray-400">
                         Nenhum produto encontrado. <kbd className="bg-gray-200 px-1 rounded text-[10px]">Enter</kbd> para usar nome manual.
                       </div>
+                    ) : (manufacturerFilter || supplierId) ? (
+                      <div className="px-4 py-3 text-sm text-gray-400">
+                        Nenhum produto para este filtro. <kbd className="bg-gray-200 px-1 rounded text-[10px]">Limpar filtros</kbd> ou digite para buscar.
+                      </div>
                     ) : (
-                      <div className="px-4 py-3 text-sm text-gray-400">Digite para buscar...</div>
+                      <div className="px-4 py-3 text-sm text-gray-400">Digite para buscar ou selecione um fornecedor...</div>
                     )}
                   </div>
                 )}

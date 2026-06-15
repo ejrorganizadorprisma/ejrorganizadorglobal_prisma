@@ -19,6 +19,7 @@ export class ProductsController {
     const category = req.query.category as string | undefined;
     const family = req.query.family as string | undefined;
     const manufacturer = req.query.manufacturer as string | undefined;
+    const supplierId = req.query.supplierId as string | undefined;
     const status = req.query.status as any;
     const inStock = req.query.inStock === 'true';
     const productType = req.query.productType as 'FINAL' | 'COMPONENT' | undefined;
@@ -31,6 +32,7 @@ export class ProductsController {
       category,
       family,
       manufacturer,
+      supplierId,
       status,
       inStock: req.query.inStock ? inStock : undefined,
       productType,
