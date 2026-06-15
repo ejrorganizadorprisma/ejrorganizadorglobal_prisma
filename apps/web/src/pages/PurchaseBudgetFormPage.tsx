@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import type { PurchaseBudgetItem, Currency } from '@ejr/shared-types';
 import { DemandAnalysisPanel } from '../components/DemandAnalysisPanel';
+import { LastPurchasePanel } from '../components/LastPurchasePanel';
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
@@ -412,10 +413,6 @@ export function PurchaseBudgetFormPage() {
     return additionalCosts.reduce((sum, cost) => sum + cost.percentage, 0);
   }, [additionalCosts]);
 
-  const getUnitPriceWithCosts = (unitPriceCents: number): number => {
-    return Math.round(unitPriceCents * (1 + totalAdditionalPercentage / 100));
-  };
-
   // Calculate totals from items with selected quotes
   // Calcula em BRL cents (para storage) e também na moeda de exibição (com arredondamento correto por item)
   const totals = useMemo(() => {
@@ -644,7 +641,10 @@ export function PurchaseBudgetFormPage() {
       setProductSearch('');
       setDebouncedSearch('');
       setProductConfirmed(false);
+      setProductSelectedIndex(-1);
       setAnalysisProductId(undefined);
+      // Reabre a lista e refoca para adicionar o próximo produto sem cliques extras
+      setShowProductDropdown(true);
       searchInputRef.current?.focus();
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Erro ao adicionar.');
@@ -1390,9 +1390,11 @@ export function PurchaseBudgetFormPage() {
                         setDebouncedSearch(val.trim());
                       }, 300);
                     }}
+                    onClick={() => setShowProductDropdown(true)}
                     onFocus={() => {
-                      // Só reabre dropdown se NÃO tem produto confirmado
-                      if (!productConfirmed) setShowProductDropdown(true);
+                      // Focar/clicar sempre abre a lista (mesmo com produto já
+                      // confirmado, para permitir trocar a seleção rapidamente).
+                      setShowProductDropdown(true);
                     }}
                     onKeyDown={handleProductSearchKeyDown}
                     placeholder="Buscar por nome, código, cód. fábrica, cód. barras, categoria..."
@@ -1516,6 +1518,23 @@ export function PurchaseBudgetFormPage() {
                 Adicionar
               </button>
             </div>
+
+            {/* Painel de Última Compra (Demanda 2) */}
+            {analysisProductId && (
+              <div className="mt-3">
+                <LastPurchasePanel
+                  productId={analysisProductId}
+                  exchangeSettings={systemSettings ? {
+                    exchangeRateBrlToPyg: systemSettings.exchangeRateBrlToPyg || 0,
+                    // BRL→USD derivado das taxas em PYG (USD por BRL)
+                    exchangeRateBrlToUsd:
+                      systemSettings.exchangeRateBrlToPyg > 0 && systemSettings.exchangeRateUsdToPyg > 0
+                        ? systemSettings.exchangeRateBrlToPyg / systemSettings.exchangeRateUsdToPyg
+                        : 0,
+                  } : null}
+                />
+              </div>
+            )}
 
             {/* Painel de Análise de Demanda ABC */}
             {analysisProductId && (
