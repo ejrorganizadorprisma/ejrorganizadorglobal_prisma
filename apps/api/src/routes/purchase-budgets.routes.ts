@@ -15,6 +15,9 @@ router.get('/', controller.findMany);
 // GET /api/v1/purchase-budgets/last-price?productId=X&supplierId=Y - Último preço do produto com fornecedor
 router.get('/last-price', controller.getLastPrice);
 
+// GET /api/v1/purchase-budgets/last-purchase?productId=X - Última compra detalhada (painel)
+router.get('/last-purchase', controller.getLastPurchase);
+
 // GET /api/v1/purchase-budgets/:id - Get budget by ID (with items and quotes)
 router.get('/:id', controller.findById);
 

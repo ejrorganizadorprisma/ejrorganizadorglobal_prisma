@@ -323,3 +323,90 @@ export const getLastPrice = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, error: { message: error.message } });
   }
 };
+
+// ==================== ÚLTIMA COMPRA (painel detalhado) ====================
+
+// GET /api/v1/purchase-budgets/last-purchase?productId=X
+// Retorna a última e a penúltima compra do produto (em qualquer fornecedor),
+// com todos os dados para o painel: valor unitário, total, data, fornecedor,
+// indústria, quantidade, prazo, nº do orçamento, nº da NF e moeda.
+// Inclui também o preço de custo atual do produto para cálculo de variação.
+export const getLastPurchase = async (req: Request, res: Response) => {
+  try {
+    const { productId } = req.query;
+    if (!productId || typeof productId !== 'string') {
+      return res.status(400).json({ success: false, error: { message: 'productId é obrigatório.' } });
+    }
+
+    // "Compra" = item com cotação selecionada num orçamento que avançou para
+    // ORDERED/PURCHASED/RECEIVED (eventos reais de compra). Ordena pela data de
+    // compra mais recente. Limita a 2 (última + penúltima).
+    const query = `
+      SELECT
+        pb.id              AS budget_id,
+        pb.budget_number   AS budget_number,
+        pb.invoice_number  AS invoice_number,
+        pb.currency        AS currency,
+        pb.status          AS budget_status,
+        COALESCE(pb.purchased_at, pb.updated_at) AS purchase_date,
+        pbi.quantity       AS quantity,
+        q.unit_price       AS unit_price,
+        q.lead_time_days   AS lead_time_days,
+        q.payment_terms    AS payment_terms,
+        q.supplier_id      AS supplier_id,
+        s.name             AS supplier_name,
+        p.manufacturer     AS manufacturer,
+        p.cost_price       AS current_cost_price,
+        p.cost_price_currency AS current_cost_currency
+      FROM purchase_budget_items pbi
+      JOIN purchase_budgets pb ON pb.id = pbi.budget_id
+      JOIN purchase_budget_quotes q ON q.id = pbi.selected_quote_id
+      LEFT JOIN suppliers s ON s.id = q.supplier_id
+      LEFT JOIN products p ON p.id = pbi.product_id
+      WHERE pbi.product_id = $1
+        AND pbi.selected_quote_id IS NOT NULL
+        AND pb.status IN ('ORDERED', 'PURCHASED', 'RECEIVED')
+      ORDER BY purchase_date DESC
+      LIMIT 2
+    `;
+
+    const result = await db.query(query, [productId]);
+
+    const mapRow = (row: any) => {
+      const unitPrice = parseInt(row.unit_price, 10) || 0;
+      const quantity = parseInt(row.quantity, 10) || 0;
+      return {
+        budgetId: row.budget_id,
+        budgetNumber: row.budget_number,
+        invoiceNumber: row.invoice_number || null,
+        currency: row.currency || 'BRL',
+        status: row.budget_status,
+        date: row.purchase_date,
+        quantity,
+        unitPrice,                       // centavos BRL
+        totalValue: unitPrice * quantity, // centavos BRL
+        leadTimeDays: row.lead_time_days ?? null,
+        paymentTerms: row.payment_terms || null,
+        supplierId: row.supplier_id || null,
+        supplierName: row.supplier_name || null,
+        manufacturer: row.manufacturer || null,
+      };
+    };
+
+    const rows = result.rows;
+    const currentCost = rows[0]
+      ? { value: parseInt(rows[0].current_cost_price, 10) || 0, currency: rows[0].current_cost_currency || 'BRL' }
+      : null;
+
+    res.json({
+      success: true,
+      data: {
+        last: rows[0] ? mapRow(rows[0]) : null,
+        previous: rows[1] ? mapRow(rows[1]) : null,
+        currentCost, // preço de custo atual cadastrado (para variação %)
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: { message: error.message } });
+  }
+};

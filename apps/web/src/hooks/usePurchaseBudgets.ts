@@ -277,3 +277,43 @@ export function useDeleteQuote() {
     },
   });
 }
+
+// ==================== ÚLTIMA COMPRA (painel) ====================
+
+export interface LastPurchaseRecord {
+  budgetId: string;
+  budgetNumber: string;
+  invoiceNumber: string | null;
+  currency: string;
+  status: string;
+  date: string;
+  quantity: number;
+  unitPrice: number;   // centavos BRL
+  totalValue: number;  // centavos BRL
+  leadTimeDays: number | null;
+  paymentTerms: string | null;
+  supplierId: string | null;
+  supplierName: string | null;
+  manufacturer: string | null;
+}
+
+export interface LastPurchaseInfo {
+  last: LastPurchaseRecord | null;
+  previous: LastPurchaseRecord | null;
+  currentCost: { value: number; currency: string } | null;
+}
+
+/** Busca a última e a penúltima compra de um produto (todos os fornecedores). */
+export function useLastPurchase(productId?: string) {
+  return useQuery({
+    queryKey: ['purchase-budgets', 'last-purchase', productId],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: LastPurchaseInfo }>('/purchase-budgets/last-purchase', {
+        params: { productId },
+      });
+      return data.data;
+    },
+    enabled: !!productId,
+    staleTime: 60_000,
+  });
+}
