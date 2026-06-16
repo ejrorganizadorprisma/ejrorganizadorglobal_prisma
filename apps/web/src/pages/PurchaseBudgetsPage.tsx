@@ -101,6 +101,12 @@ export function PurchaseBudgetsPage() {
   const formatCurrency = (value: number, currency: string = 'BRL') =>
     formatPriceValue(value, (currency || 'BRL') as 'BRL' | 'USD' | 'PYG');
 
+  // Total SEM os custos adicionais (subtotal). totalAmount já inclui o % de custos.
+  const subtotalOf = (budget: any): number => {
+    const pct = (budget.additionalCosts || []).reduce((s: number, c: any) => s + (c?.percentage || 0), 0);
+    return pct > 0 ? Math.round((budget.totalAmount || 0) / (1 + pct / 100)) : (budget.totalAmount || 0);
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
   };
@@ -225,7 +231,7 @@ export function PurchaseBudgetsPage() {
                         {budget.supplierName || '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {formatCurrency(budget.totalAmount, budget.currency)}
+                        {formatCurrency(subtotalOf(budget), budget.currency)}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <span className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-full ${STATUS_COLORS[budget.status as PurchaseBudgetStatus]}`}>
