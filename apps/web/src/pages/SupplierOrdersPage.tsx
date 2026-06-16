@@ -231,14 +231,15 @@ export function SupplierOrdersPage() {
                     {data?.data.map((order: any) => (
                       <tr key={order.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {order.orderNumber}
+                          <div className="text-sm font-medium text-gray-900 truncate max-w-[220px]" title={order.budget?.title || order.orderNumber}>
+                            {order.budget?.title || order.orderNumber}
                           </div>
-                          {order.items?.[0]?.product?.name && (
-                            <div className="text-xs text-gray-500 truncate max-w-[180px]" title={order.items[0].product.name}>
-                              {order.items[0].product.name}
-                            </div>
-                          )}
+                          <div className="text-xs text-gray-500">
+                            {order.orderNumber}
+                            {order.budget?.budgetNumber && (
+                              <span className="ml-1 text-gray-400">· {order.budget.budgetNumber}</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">

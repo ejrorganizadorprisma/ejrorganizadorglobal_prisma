@@ -39,11 +39,11 @@ export interface SupplierOrder {
     id: string;
     budgetNumber: string;
     title: string;
-    currency: string;
-    exchangeRate1: number;
-    exchangeRate2: number;
-    exchangeRate3: number;
-    additionalCosts: any[];
+    currency?: string;
+    exchangeRate1?: number;
+    exchangeRate2?: number;
+    exchangeRate3?: number;
+    additionalCosts?: any[];
   } | null;
   items?: SupplierOrderItem[];
 }
@@ -210,10 +210,12 @@ export class SupplierOrdersRepository {
       SELECT
         so.*,
         s.id as supplier_id, s.name as supplier_name, s.document as supplier_document,
-        po.id as po_id, po.order_number as po_order_number
+        po.id as po_id, po.order_number as po_order_number,
+        pb.id as budget_id, pb.budget_number as budget_number, pb.title as budget_title
       FROM supplier_orders so
       LEFT JOIN suppliers s ON s.id = so.supplier_id
       LEFT JOIN purchase_orders po ON po.id = so.purchase_order_id
+      LEFT JOIN purchase_budgets pb ON pb.id = po.purchase_budget_id
       ${whereClause}
       ORDER BY so.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -258,6 +260,11 @@ export class SupplierOrdersRepository {
             id: order.po_id,
             orderNumber: order.po_order_number,
           } : undefined,
+          budget: order.budget_id ? {
+            id: order.budget_id,
+            budgetNumber: order.budget_number,
+            title: order.budget_title,
+          } : null,
           items,
         };
       })
