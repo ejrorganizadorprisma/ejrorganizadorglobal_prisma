@@ -8,7 +8,8 @@ import { useActiveProductCategories } from '../hooks/useProductCategories';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { AppPage, type Currency } from '@ejr/shared-types';
 import { CURRENCY_CONFIG } from '@ejr/shared-types';
-import { Pencil, X, MapPin } from 'lucide-react';
+import { Pencil, X, MapPin, History } from 'lucide-react';
+import { ProductHistoryModal } from '../components/ProductHistoryModal';
 
 export function ProductsPage() {
   const permissionCheck = useRequirePermission({
@@ -21,6 +22,7 @@ export function ProductsPage() {
   const { hasActionPermission } = usePagePermissions();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
+  const [historyProduct, setHistoryProduct] = useState<{ id: string; name: string } | null>(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [manufacturerInput, setManufacturerInput] = useState('');
@@ -525,6 +527,13 @@ export function ProductsPage() {
                 {showActions && (
                   <td className="px-3 py-4 whitespace-nowrap text-sm font-medium sticky right-0 bg-white">
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setHistoryProduct({ id: product.id, name: product.name })}
+                        className="p-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
+                        title="Histórico de compra e venda"
+                      >
+                        <History className="w-4 h-4" />
+                      </button>
                       {canEdit && (
                         <button
                           onClick={() => navigate(`/products/${product.id}/edit`)}
@@ -693,6 +702,14 @@ export function ProductsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {historyProduct && (
+        <ProductHistoryModal
+          productId={historyProduct.id}
+          productName={historyProduct.name}
+          onClose={() => setHistoryProduct(null)}
+        />
       )}
     </div>
   );

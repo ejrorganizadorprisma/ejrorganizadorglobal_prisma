@@ -68,6 +68,9 @@ router.patch('/:id/stock', asyncHandler(controller.updateStock));
 // GET /api/products/:id/stock-history - Obter histórico de ajustes de estoque
 router.get('/:id/stock-history', asyncHandler(controller.getStockAdjustmentHistory));
 
+// GET /api/products/:id/purchase-sale-history - Histórico de compra e venda (Demanda 10)
+router.get('/:id/purchase-sale-history', asyncHandler(controller.getPurchaseSaleHistory));
+
 // Rotas para gerenciar BOM (Bill of Materials)
 // GET /api/products/:id/parts - Listar peças do produto
 router.get('/:id/parts', asyncHandler(controller.getProductParts));

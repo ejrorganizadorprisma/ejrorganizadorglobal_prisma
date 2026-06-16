@@ -827,4 +827,42 @@ export class ProductsRepository {
   async findFinalProducts() {
     return this.findByType('FINAL');
   }
+
+  // Histórico de COMPRA e VENDA do produto (Demanda 10)
+  async getPurchaseSaleHistory(productId: string) {
+    const purchasesQ = db.query(
+      `SELECT pb.budget_number AS doc,
+              COALESCE(pb.purchased_at, pb.updated_at) AS date,
+              s.name AS party, pbi.quantity, q.unit_price AS unit_price,
+              pb.invoice_number, pb.status
+       FROM purchase_budget_items pbi
+       JOIN purchase_budgets pb ON pb.id = pbi.budget_id
+       LEFT JOIN purchase_budget_quotes q ON q.id = pbi.selected_quote_id
+       LEFT JOIN suppliers s ON s.id = q.supplier_id
+       WHERE pbi.product_id = $1 AND pb.status IN ('ORDERED','PURCHASED','RECEIVED')
+       ORDER BY date DESC LIMIT 50`,
+      [productId]
+    );
+    const salesQ = db.query(
+      `SELECT sa.sale_number AS doc, sa.created_at AS date,
+              c.name AS party, si.quantity, si.unit_price AS unit_price, si.total
+       FROM sale_items si
+       JOIN sales sa ON sa.id = si.sale_id
+       LEFT JOIN customers c ON c.id = sa.customer_id
+       WHERE si.product_id = $1
+       ORDER BY sa.created_at DESC LIMIT 50`,
+      [productId]
+    );
+    const [purchases, sales] = await Promise.all([purchasesQ, salesQ]);
+    return {
+      purchases: purchases.rows.map((r) => ({
+        doc: r.doc, date: r.date, party: r.party, quantity: r.quantity,
+        unitPrice: parseInt(r.unit_price, 10) || 0, invoiceNumber: r.invoice_number, status: r.status,
+      })),
+      sales: sales.rows.map((r) => ({
+        doc: r.doc, date: r.date, party: r.party, quantity: r.quantity,
+        unitPrice: parseInt(r.unit_price, 10) || 0, total: parseInt(r.total, 10) || 0,
+      })),
+    };
+  }
 }

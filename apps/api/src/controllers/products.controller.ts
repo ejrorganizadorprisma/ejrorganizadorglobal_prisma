@@ -164,6 +164,12 @@ export class ProductsController {
     });
   };
 
+  getPurchaseSaleHistory = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const history = await this.service.getPurchaseSaleHistory(id);
+    res.json({ success: true, data: history });
+  };
+
   // Novos endpoints para tipos de produtos
   getComponents = async (_req: Request, res: Response) => {
     const components = await this.service.getComponents();

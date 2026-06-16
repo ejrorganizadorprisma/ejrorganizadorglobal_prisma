@@ -389,4 +389,9 @@ export class ProductsService {
     `;
     await db.query(query, [productId, partId]);
   }
+
+  async getPurchaseSaleHistory(productId: string) {
+    await this.findById(productId); // 404 se não existir
+    return this.repository.getPurchaseSaleHistory(productId);
+  }
 }

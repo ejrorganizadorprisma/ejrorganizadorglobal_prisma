@@ -151,3 +151,25 @@ export function useUpdateStock() {
     },
   });
 }
+
+export interface ProductHistoryEntry {
+  doc: string;
+  date: string;
+  party: string | null;
+  quantity: number;
+  unitPrice: number;
+  invoiceNumber?: string | null;
+  status?: string;
+  total?: number;
+}
+
+export function useProductHistory(productId?: string) {
+  return useQuery({
+    queryKey: ['products', productId, 'purchase-sale-history'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: { purchases: ProductHistoryEntry[]; sales: ProductHistoryEntry[] } }>(`/products/${productId}/purchase-sale-history`);
+      return data.data;
+    },
+    enabled: !!productId,
+  });
+}
