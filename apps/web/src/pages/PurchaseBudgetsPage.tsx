@@ -259,11 +259,11 @@ export function PurchaseBudgetsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {canEdit && budget.status === 'DRAFT' && (
+                          {canEdit && ['DRAFT', 'PENDING'].includes(budget.status) && (
                             <button
                               onClick={() => navigate(`/purchase-budgets/${budget.id}/edit`)}
                               className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
-                              title="Editar"
+                              title={budget.status === 'PENDING' ? 'Editar (ajustar valores)' : 'Editar'}
                             >
                               <Pencil className="w-4 h-4" />
                             </button>

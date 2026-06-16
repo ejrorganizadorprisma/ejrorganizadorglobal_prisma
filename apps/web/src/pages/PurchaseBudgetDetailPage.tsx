@@ -8,6 +8,7 @@ import {
   usePurchaseBudgetAction,
   useCancelBudget,
 } from '../hooks/usePurchaseBudgets';
+import { BudgetHistoryPanel } from '../components/BudgetHistoryPanel';
 import { useAuth } from '../hooks/useAuth';
 import { useActiveDelegations } from '../hooks/useApprovalDelegations';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
@@ -987,6 +988,13 @@ export function PurchaseBudgetDetailPage() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Histórico de alterações (Demanda 3) */}
+      {id && (
+        <div className="mt-6">
+          <BudgetHistoryPanel budgetId={id} />
         </div>
       )}
     </div>
