@@ -9,7 +9,26 @@ import {
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useQueryClient } from '@tanstack/react-query';
+import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
+import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
+
+// Converte o valor do pedido (centavos BRL) para a moeda do orçamento de origem
+function formatOrderValue(order: any): string {
+  const cents = order.totalAmount || 0;
+  const cur = (order.budget?.currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
+  if (cur === 'BRL') return formatPriceValue(cents, 'BRL');
+  const brl = cents / 100;
+  if (cur === 'USD') {
+    const r3 = order.budget?.exchangeRate3 || 0; // 1 USD = r3 BRL
+    if (r3 <= 0) return formatPriceValue(cents, 'BRL');
+    return formatPriceValue(Math.round((brl / r3) * 100), 'USD');
+  }
+  // PYG
+  const r1 = order.budget?.exchangeRate1 || 0; // 1 BRL = r1 PYG
+  if (r1 <= 0) return formatPriceValue(cents, 'BRL');
+  return formatPriceValue(Math.round(brl * r1), 'PYG');
+}
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
@@ -109,7 +128,9 @@ export function SupplierOrdersPage() {
     }
   };
 
-  const { formatPrice, defaultCurrency } = useFormatPrice();
+  const { defaultCurrency } = useFormatPrice();
+  const queryClient = useQueryClient();
+  const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
@@ -263,7 +284,7 @@ export function SupplierOrdersPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {formatPrice(order.totalAmount)}
+                            {formatOrderValue(order)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -292,6 +313,16 @@ export function SupplierOrdersPage() {
                             >
                               PDF
                             </button>
+
+                            {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
+                              <button
+                                onClick={() => setReceivingOrderId(order.id)}
+                                className="text-emerald-600 hover:text-emerald-900 font-medium"
+                                title="Receber pedido — conferência e entrada no estoque"
+                              >
+                                Receber
+                              </button>
+                            )}
 
                             {order.status === 'SENT' && (
                               <button
@@ -364,6 +395,17 @@ export function SupplierOrdersPage() {
           )}
         </div>
       </div>
+
+      {receivingOrderId && (
+        <ReceiveOrderModal
+          orderId={receivingOrderId}
+          onClose={() => setReceivingOrderId(null)}
+          onDone={() => {
+            setReceivingOrderId(null);
+            queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+          }}
+        />
+      )}
     </div>
   );
 }
