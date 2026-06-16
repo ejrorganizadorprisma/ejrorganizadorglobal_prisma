@@ -29,6 +29,7 @@ import {
 import type { PurchaseBudgetItem, Currency } from '@ejr/shared-types';
 import { DemandAnalysisPanel } from '../components/DemandAnalysisPanel';
 import { LastPurchasePanel } from '../components/LastPurchasePanel';
+import { ProductSupplierOptionsPanel } from '../components/ProductSupplierOptionsPanel';
 
 const PRIORITY_OPTIONS = [
   { value: 'LOW', label: 'Baixa', color: 'bg-gray-100 text-gray-700' },
@@ -1618,6 +1619,17 @@ export function PurchaseBudgetFormPage() {
                 Adicionar
               </button>
             </div>
+
+            {/* Opções de fornecedor do produto (Demanda 8) */}
+            {analysisProductId && (
+              <div className="mt-3">
+                <ProductSupplierOptionsPanel
+                  productId={analysisProductId}
+                  currentSupplierId={supplierId}
+                  onPick={(sid) => setSupplierId(sid)}
+                />
+              </div>
+            )}
 
             {/* Painel de Última Compra (Demanda 2) */}
             {analysisProductId && (
