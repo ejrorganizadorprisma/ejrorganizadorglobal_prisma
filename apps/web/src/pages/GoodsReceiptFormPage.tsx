@@ -477,16 +477,23 @@ export function GoodsReceiptFormPage() {
                     </div>
                   </div>
 
-                  {/* Notes row */}
+                  {/* Notes row — motivo obrigatório para divergência/rejeição */}
                   {item.status !== 'CONFORME' && (
                     <div className={`px-4 pb-3 ${rowBg}`}>
                       <div className="ml-4">
+                        <label className="block text-[11px] font-medium text-gray-500 mb-0.5">
+                          {item.status === 'REJEITADO'
+                            ? 'Motivo da rejeição *'
+                            : item.quantityReceived < item.quantityPending
+                            ? 'Motivo (chegou menos que o pedido) *'
+                            : 'Motivo da divergência *'}
+                        </label>
                         <input
                           type="text"
                           value={item.notes}
                           onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                          placeholder={item.status === 'REJEITADO' ? 'Motivo da rejeição...' : 'Descreva a divergência...'}
-                          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                          placeholder={item.status === 'REJEITADO' ? 'Ex: produto avariado, fora da especificação...' : 'Ex: faltou no lote, avaria parcial, atraso do restante...'}
+                          className={`w-full px-3 py-1.5 border rounded-lg text-sm bg-white ${!item.notes ? 'border-amber-300 focus:border-amber-500 focus:ring-amber-500' : 'border-gray-300'}`}
                         />
                       </div>
                     </div>

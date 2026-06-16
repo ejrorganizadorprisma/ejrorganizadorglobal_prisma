@@ -79,10 +79,12 @@ export function GoodsReceiptsPage() {
   const approveReceipt = useApproveGoodsReceipt();
   const rejectReceipt = useRejectGoodsReceipt();
 
-  // Filtrar pedidos que ainda não tiveram recebimento registrado (SENT, CONFIRMED)
-  // PARTIAL já teve um recebimento criado, então não aparece mais aqui
+  // Filtrar pedidos que ainda não tiveram recebimento registrado.
+  // Inclui PENDING (pedidos recém-criados a partir de orçamentos transformados)
+  // para que TODO pedido apareça aguardando recebimento. PARTIAL já teve um
+  // recebimento criado, então não aparece mais aqui.
   const pendingOrders = pendingOrdersData?.data?.filter((so: any) =>
-    ['SENT', 'CONFIRMED'].includes(so.status)
+    ['PENDING', 'SENT', 'CONFIRMED'].includes(so.status)
   ) || [];
 
   const handleDelete = async (id: string) => {
