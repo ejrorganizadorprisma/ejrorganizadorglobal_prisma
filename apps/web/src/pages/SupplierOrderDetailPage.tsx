@@ -200,8 +200,10 @@ export function SupplierOrderDetailPage() {
   // Custos adicionais (igual ao orçamento): subtotal × (1 + %)
   const additionalCosts = (budget?.additionalCosts || []) as any[];
   const totalAdditionalPct = additionalCosts.reduce((s, c) => s + (c?.percentage || 0), 0);
+  const costMult = 1 + totalAdditionalPct / 100; // custos embutidos em todos os valores
   const subtotalCents = order.subtotal || 0;
-  const totalWithCostsCents = Math.round(subtotalCents * (1 + totalAdditionalPct / 100));
+  const totalWithCostsCents = Math.round(subtotalCents * costMult);
+  const withCosts = (cents: number) => Math.round((cents || 0) * costMult);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -488,15 +490,15 @@ export function SupplierOrderDetailPage() {
                       </span>
                     </div>
                     <div className="col-span-2 text-center">
-                      <span className="text-sm text-gray-900">{showPrice(item.unitPrice)}</span>
-                      {secondary(item.unitPrice) && (
-                        <p className="text-[10px] text-gray-400">{secondary(item.unitPrice)}</p>
+                      <span className="text-sm text-gray-900">{showPrice(withCosts(item.unitPrice))}</span>
+                      {secondary(withCosts(item.unitPrice)) && (
+                        <p className="text-[10px] text-gray-400">{secondary(withCosts(item.unitPrice))}</p>
                       )}
                     </div>
                     <div className="col-span-3 text-right">
-                      <span className="text-sm font-semibold text-gray-900">{showPrice(item.totalPrice)}</span>
-                      {secondary(item.totalPrice) && (
-                        <p className="text-[10px] text-gray-400">{secondary(item.totalPrice)}</p>
+                      <span className="text-sm font-semibold text-gray-900">{showPrice(withCosts(item.totalPrice))}</span>
+                      {secondary(withCosts(item.totalPrice)) && (
+                        <p className="text-[10px] text-gray-400">{secondary(withCosts(item.totalPrice))}</p>
                       )}
                     </div>
                   </div>
@@ -512,22 +514,13 @@ export function SupplierOrderDetailPage() {
                   {order.items?.length || 0} {(order.items?.length || 0) === 1 ? 'item' : 'itens'}
                 </span>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-gray-700">
-                    <span className="text-xs font-normal text-gray-400 mr-1">Subtotal</span>
-                    {showPrice(subtotalCents)}
+                  <div className="text-xl font-bold text-gray-900">
+                    <span className="text-xs font-normal text-gray-400 mr-1">Total</span>
+                    {showPrice(totalWithCostsCents)}
                   </div>
-                  {secondary(subtotalCents) && <p className="text-xs text-gray-400">{secondary(subtotalCents)}</p>}
+                  {secondary(totalWithCostsCents) && <p className="text-xs text-gray-500">{secondary(totalWithCostsCents)}</p>}
                   {totalAdditionalPct > 0 && (
-                    <>
-                      <div className="text-xs text-amber-600 mt-1">
-                        Custos Adic. (+{totalAdditionalPct.toFixed(1)}%): +{showPrice(totalWithCostsCents - subtotalCents)}
-                      </div>
-                      <div className="text-lg font-bold text-gray-900">
-                        <span className="text-xs font-normal text-gray-400 mr-1">Total</span>
-                        {showPrice(totalWithCostsCents)}
-                      </div>
-                      {secondary(totalWithCostsCents) && <p className="text-xs text-gray-500">{secondary(totalWithCostsCents)}</p>}
-                    </>
+                    <p className="text-[11px] text-amber-600 mt-0.5">Valores já incluem +{totalAdditionalPct.toFixed(1)}% de custos adicionais</p>
                   )}
                 </div>
               </div>

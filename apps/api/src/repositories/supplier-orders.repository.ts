@@ -216,7 +216,8 @@ export class SupplierOrdersRepository {
         po.id as po_id, po.order_number as po_order_number,
         pb.id as budget_id, pb.budget_number as budget_number, pb.title as budget_title,
         pb.currency as budget_currency,
-        pb.exchange_rate_1 as budget_rate1, pb.exchange_rate_2 as budget_rate2, pb.exchange_rate_3 as budget_rate3
+        pb.exchange_rate_1 as budget_rate1, pb.exchange_rate_2 as budget_rate2, pb.exchange_rate_3 as budget_rate3,
+        pb.additional_costs as budget_additional_costs
       FROM supplier_orders so
       LEFT JOIN suppliers s ON s.id = so.supplier_id
       LEFT JOIN purchase_orders po ON po.id = so.purchase_order_id
@@ -273,6 +274,7 @@ export class SupplierOrdersRepository {
             exchangeRate1: parseFloat(order.budget_rate1) || 0,
             exchangeRate2: parseFloat(order.budget_rate2) || 0,
             exchangeRate3: parseFloat(order.budget_rate3) || 0,
+            additionalCosts: order.budget_additional_costs || [],
           } : null,
           items,
         };

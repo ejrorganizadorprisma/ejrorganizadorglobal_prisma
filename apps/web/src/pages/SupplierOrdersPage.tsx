@@ -14,9 +14,16 @@ import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2 } from 'lucide
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
-// Converte o valor do pedido (centavos BRL) para a moeda do orçamento de origem
+// Multiplicador dos custos adicionais (impostos etc.) do orçamento de origem.
+// No pedido, os custos ficam EMBUTIDOS em todos os valores.
+function orderCostMult(order: any): number {
+  const pct = (order.budget?.additionalCosts || []).reduce((s: number, c: any) => s + (c?.percentage || 0), 0);
+  return 1 + pct / 100;
+}
+
+// Converte o valor do pedido (centavos BRL, JÁ com custos embutidos) para a moeda do orçamento
 function formatOrderValue(order: any): string {
-  const cents = order.totalAmount || 0;
+  const cents = Math.round((order.totalAmount || 0) * orderCostMult(order));
   const cur = (order.budget?.currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
   if (cur === 'BRL') return formatPriceValue(cents, 'BRL');
   const brl = cents / 100;
@@ -33,7 +40,7 @@ function formatOrderValue(order: any): string {
 
 // Valor do pedido nas DUAS outras moedas (diferentes da moeda do orçamento)
 function orderAmountIn(order: any, cur: 'BRL' | 'USD' | 'PYG'): string | null {
-  const cents = order.totalAmount || 0;
+  const cents = Math.round((order.totalAmount || 0) * orderCostMult(order));
   const brl = cents / 100;
   if (cur === 'BRL') return formatPriceValue(cents, 'BRL');
   if (cur === 'USD') {
