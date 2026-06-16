@@ -463,19 +463,34 @@ export function PurchaseBudgetFormPage() {
       return Math.round(unitAmount * 100) / 100;
     };
 
+    // Simulação com os preços ANTERIORES (qtd × preço anterior digitado)
+    let prevSubtotal = 0;
+    let prevDisplaySubtotal = 0;
+
     items.forEach((item) => {
+      // Preço efetivo: cotação salva tem prioridade; senão usa o "Preço Atual"
+      // digitado ao vivo (para subtotal/total atualizarem antes de salvar).
+      let unitCents = 0;
       if (item.selectedQuoteId && item.quotes) {
         const selectedQuote = item.quotes.find((q) => q.id === item.selectedQuoteId);
-        if (selectedQuote) {
-          subtotal += Math.round(selectedQuote.unitPrice * item.quantity);
-          displaySubtotal += roundUnitForDisplay(selectedQuote.unitPrice, currency) * item.quantity;
-          // Sempre calcular subtotal em PYG (para exibir no rodapé quando moeda é BRL/USD)
-          const pygUnit = directRates
-            ? Math.round((selectedQuote.unitPrice / 100) * (directRates.BRL_PYG || 0))
-            : 0;
-          pygSubtotal += pygUnit * item.quantity;
-          quotedItems++;
-        }
+        if (selectedQuote) unitCents = selectedQuote.unitPrice;
+      }
+      if (!unitCents && inlinePrice[item.id] && parseFloat(inlinePrice[item.id]) > 0) {
+        unitCents = inputToBrlCents(inlinePrice[item.id]);
+      }
+      if (unitCents > 0) {
+        subtotal += Math.round(unitCents * item.quantity);
+        displaySubtotal += roundUnitForDisplay(unitCents, currency) * item.quantity;
+        const pygUnit = directRates ? Math.round((unitCents / 100) * (directRates.BRL_PYG || 0)) : 0;
+        pygSubtotal += pygUnit * item.quantity;
+        quotedItems++;
+      }
+
+      // Simulação com preço anterior
+      if (prevPrice[item.id] && parseFloat(prevPrice[item.id]) > 0) {
+        const prevCents = inputToBrlCents(prevPrice[item.id]);
+        prevSubtotal += Math.round(prevCents * item.quantity);
+        prevDisplaySubtotal += roundUnitForDisplay(prevCents, currency) * item.quantity;
       }
     });
 
@@ -484,8 +499,16 @@ export function PurchaseBudgetFormPage() {
       ? Math.round(displaySubtotal * (1 + totalAdditionalPercentage / 100))
       : displaySubtotal * (1 + totalAdditionalPercentage / 100);
     const pygTotalWithCosts = Math.round(pygSubtotal * (1 + totalAdditionalPercentage / 100));
-    return { itemCount, subtotal, totalWithCosts, quotedItems, displaySubtotal, displayTotalWithCosts, pygSubtotal, pygTotalWithCosts };
-  }, [items, totalAdditionalPercentage, directRates, currency]);
+    const prevTotalWithCosts = Math.round(prevSubtotal * (1 + totalAdditionalPercentage / 100));
+    const prevDisplayTotalWithCosts = currency === 'PYG'
+      ? Math.round(prevDisplaySubtotal * (1 + totalAdditionalPercentage / 100))
+      : prevDisplaySubtotal * (1 + totalAdditionalPercentage / 100);
+    return {
+      itemCount, subtotal, totalWithCosts, quotedItems, displaySubtotal, displayTotalWithCosts,
+      pygSubtotal, pygTotalWithCosts,
+      prevSubtotal, prevTotalWithCosts, prevDisplaySubtotal, prevDisplayTotalWithCosts,
+    };
+  }, [items, totalAdditionalPercentage, directRates, currency, inlinePrice, prevPrice]);
 
   // --- Handlers ---
 
@@ -1626,7 +1649,11 @@ export function PurchaseBudgetFormPage() {
                   const selectedQuote = item.selectedQuoteId && item.quotes
                     ? item.quotes.find((q) => q.id === item.selectedQuoteId)
                     : null;
-                  const subtotalCents = selectedQuote ? Math.round(selectedQuote.unitPrice * item.quantity) : 0;
+                  // Preço efetivo: cotação salva OU "Preço Atual" digitado ao vivo
+                  const effectiveUnitCents = selectedQuote
+                    ? selectedQuote.unitPrice
+                    : (inlinePrice[item.id] && parseFloat(inlinePrice[item.id]) > 0 ? inputToBrlCents(inlinePrice[item.id]) : 0);
+                  const subtotalCents = Math.round(effectiveUnitCents * item.quantity);
                   const isExpanded = expandedItems.has(item.id);
                   const quoteCount = item.quotes?.length || 0;
                   const isSaving = savingInline[item.id];
@@ -1749,16 +1776,19 @@ export function PurchaseBudgetFormPage() {
                           )}
                         </div>
 
-                        {/* Subtotal */}
+                        {/* Subtotal — qtd × Preço Atual (ao vivo) + 2 outras moedas */}
                         <div className="col-span-2 text-right">
-                          {subtotalCents > 0 && selectedQuote ? (
+                          {subtotalCents > 0 ? (
                             <div>
-                              <span className="text-sm font-semibold text-gray-900">{displayItemSubtotal(selectedQuote.unitPrice, item.quantity)}</span>
-                              {secondaryItemSubtotals(selectedQuote.unitPrice, item.quantity) && (
-                                <p className="text-[10px] text-gray-400">{secondaryItemSubtotals(selectedQuote.unitPrice, item.quantity)}</p>
+                              <span className="text-sm font-semibold text-gray-900">{displayItemSubtotal(effectiveUnitCents, item.quantity)}</span>
+                              {secondaryItemSubtotals(effectiveUnitCents, item.quantity) && (
+                                <p className="text-[10px] text-gray-400">{secondaryItemSubtotals(effectiveUnitCents, item.quantity)}</p>
                               )}
                               {totalAdditionalPercentage > 0 && (
-                                <p className="text-[10px] text-green-600">c/ custos: <span className="font-bold">{displaySubtotalWithCosts(selectedQuote.unitPrice, item.quantity)}</span></p>
+                                <p className="text-[10px] text-green-600">c/ custos: <span className="font-bold">{displaySubtotalWithCosts(effectiveUnitCents, item.quantity)}</span></p>
+                              )}
+                              {!selectedQuote && (
+                                <p className="text-[9px] text-amber-500">Enter p/ salvar</p>
                               )}
                             </div>
                           ) : (
@@ -1883,12 +1913,33 @@ export function PurchaseBudgetFormPage() {
               {/* ===== RODAPE COM TOTAIS ===== */}
               <div className="border-t-2 border-gray-200 bg-gray-50 px-4 py-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    {totals.itemCount} {totals.itemCount === 1 ? 'item' : 'itens'}
-                    {totals.quotedItems < totals.itemCount && (
-                      <span className="text-orange-500 ml-2">({totals.itemCount - totals.quotedItems} sem cotação)</span>
+                  <div className="text-sm text-gray-500">
+                    <div>
+                      {totals.itemCount} {totals.itemCount === 1 ? 'item' : 'itens'}
+                      {totals.quotedItems < totals.itemCount && (
+                        <span className="text-orange-500 ml-2">({totals.itemCount - totals.quotedItems} sem preço)</span>
+                      )}
+                    </div>
+                    {/* Simulação: total usando os preços ANTERIORES */}
+                    {totals.prevSubtotal > 0 && (
+                      <div className="text-xs text-gray-400 mt-1 flex items-center gap-1 flex-wrap">
+                        <History className="w-3 h-3 text-emerald-500" />
+                        Simulado c/ preços anteriores: <strong className="text-gray-600">{fmtAmount(totals.prevDisplayTotalWithCosts, currency)}</strong>
+                        {secondaryFromPrimary(totals.prevDisplayTotalWithCosts) && (
+                          <span className="text-[10px]">({secondaryFromPrimary(totals.prevDisplayTotalWithCosts)})</span>
+                        )}
+                        {totals.displayTotalWithCosts > 0 && (() => {
+                          const diff = totals.displayTotalWithCosts - totals.prevDisplayTotalWithCosts;
+                          const pct = (diff / totals.prevDisplayTotalWithCosts) * 100;
+                          return (
+                            <span className={diff > 0 ? 'text-amber-600' : diff < 0 ? 'text-emerald-600' : 'text-gray-400'}>
+                              {diff >= 0 ? '+' : ''}{pct.toFixed(1)}% vs atual
+                            </span>
+                          );
+                        })()}
+                      </div>
                     )}
-                  </span>
+                  </div>
                   <div className="text-right">
                     {totalAdditionalPercentage > 0 && (
                       <>
