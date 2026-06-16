@@ -90,7 +90,6 @@ export function SalesOrderConvertPage() {
   }
 
   const items = order.items || [];
-  const orderDiscount = discount || order.discount || 0;
 
   // Helpers para acessar/atualizar seleção
   const getKey = (item: any, idx: number) => item.id || `idx-${idx}`;
@@ -113,13 +112,21 @@ export function SalesOrderConvertPage() {
     const lineTotal = r.state.quantity * r.item.unitPrice - (r.item.discount || 0);
     return sum + Math.max(0, lineTotal);
   }, 0);
-  const finalTotal = subtotal - orderDiscount + shippingCost;
 
   // Detecta conversão parcial (item desmarcado ou qty < original)
   const isPartialConversion = items.some((item, idx) => {
     const st = getState(item, idx);
     return !st.selected || st.quantity < item.quantity;
   });
+
+  // Desconto do pedido. Em faturamento PARCIAL, rateia proporcional ao subtotal
+  // selecionado (senão o desconto cheio cairia sobre a parte E de novo no saldo).
+  const fullSubtotal = items.reduce((sum, item) => sum + Math.max(0, item.quantity * item.unitPrice - (item.discount || 0)), 0);
+  const headerDiscount = discount || order.discount || 0;
+  const orderDiscount = isPartialConversion && fullSubtotal > 0
+    ? Math.round(headerDiscount * (subtotal / fullSubtotal))
+    : headerDiscount;
+  const finalTotal = Math.max(0, subtotal - orderDiscount + shippingCost);
 
   const hasAnySelected = selectedRows.length > 0;
 
