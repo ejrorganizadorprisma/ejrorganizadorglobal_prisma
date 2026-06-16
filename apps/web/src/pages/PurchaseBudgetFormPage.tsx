@@ -1924,13 +1924,13 @@ export function PurchaseBudgetFormPage() {
                     {totals.prevSubtotal > 0 && (
                       <div className="text-xs text-gray-400 mt-1 flex items-center gap-1 flex-wrap">
                         <History className="w-3 h-3 text-emerald-500" />
-                        Simulado c/ preços anteriores: <strong className="text-gray-600">{fmtAmount(totals.prevDisplayTotalWithCosts, currency)}</strong>
-                        {secondaryFromPrimary(totals.prevDisplayTotalWithCosts) && (
-                          <span className="text-[10px]">({secondaryFromPrimary(totals.prevDisplayTotalWithCosts)})</span>
+                        Simulado c/ preços anteriores: <strong className="text-gray-600">{fmtAmount(totals.prevDisplaySubtotal, currency)}</strong>
+                        {secondaryFromPrimary(totals.prevDisplaySubtotal) && (
+                          <span className="text-[10px]">({secondaryFromPrimary(totals.prevDisplaySubtotal)})</span>
                         )}
-                        {totals.displayTotalWithCosts > 0 && (() => {
-                          const diff = totals.displayTotalWithCosts - totals.prevDisplayTotalWithCosts;
-                          const pct = (diff / totals.prevDisplayTotalWithCosts) * 100;
+                        {totals.displaySubtotal > 0 && (() => {
+                          const diff = totals.displaySubtotal - totals.prevDisplaySubtotal;
+                          const pct = (diff / totals.prevDisplaySubtotal) * 100;
                           return (
                             <span className={diff > 0 ? 'text-amber-600' : diff < 0 ? 'text-emerald-600' : 'text-gray-400'}>
                               {diff >= 0 ? '+' : ''}{pct.toFixed(1)}% vs atual
