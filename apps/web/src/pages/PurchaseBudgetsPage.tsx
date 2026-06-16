@@ -283,15 +283,23 @@ export function PurchaseBudgetsPage() {
                               <Pencil className="w-4 h-4" />
                             </button>
                           )}
-                          {canEdit && ['DRAFT', 'PENDING', 'ORDERED'].includes(budget.status) && (
+                          {canEdit && ['DRAFT', 'PENDING'].includes(budget.status) && (
                             <button
-                              onClick={() => handleConvert(budget.id, budget.title, budget.status === 'ORDERED')}
+                              onClick={() => handleConvert(budget.id, budget.title, false)}
                               disabled={convertToOrder.isPending}
-                              className={`p-1.5 rounded disabled:opacity-50 ${budget.status === 'ORDERED' ? 'text-indigo-400 hover:bg-indigo-50' : 'text-indigo-600 hover:bg-indigo-50'}`}
-                              title={budget.status === 'ORDERED' ? 'Atualizar pedido (regerar)' : 'Transformar em pedido'}
+                              className="p-1.5 rounded text-indigo-600 hover:bg-indigo-50 disabled:opacity-50"
+                              title="Transformar em pedido"
                             >
                               <Truck className="w-4 h-4" />
                             </button>
+                          )}
+                          {budget.status === 'ORDERED' && (
+                            <span
+                              className="p-1.5 rounded text-gray-300 cursor-default"
+                              title="Já é um pedido — abra em Pedidos por Fornecedor"
+                            >
+                              <Truck className="w-4 h-4" />
+                            </span>
                           )}
                           {canDelete && !['PURCHASED', 'RECEIVED'].includes(budget.status) && (
                             <button

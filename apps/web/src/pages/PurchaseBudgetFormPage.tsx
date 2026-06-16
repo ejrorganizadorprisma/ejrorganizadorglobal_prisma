@@ -11,6 +11,7 @@ import {
   useAddQuote,
   useDeleteQuote,
   useSelectQuote,
+  useConvertToOrder,
 } from '../hooks/usePurchaseBudgets';
 import { useProducts, useProductManufacturers } from '../hooks/useProducts';
 import { useSuppliers } from '../hooks/useSuppliers';
@@ -23,7 +24,7 @@ import { toast } from 'sonner';
 import {
   Plus, Trash2, ChevronDown, ChevronUp, Check, Save,
   ArrowLeft, Package, Search, DollarSign, ShoppingCart, Globe, X, Filter, AlertTriangle, FileText, Printer,
-  History, Copy, ArrowRight,
+  History, Copy, ArrowRight, Truck,
 } from 'lucide-react';
 import type { PurchaseBudgetItem, Currency } from '@ejr/shared-types';
 import { DemandAnalysisPanel } from '../components/DemandAnalysisPanel';
@@ -77,6 +78,7 @@ export function PurchaseBudgetFormPage() {
   const updateItem = useUpdateBudgetItem();
   const deleteItem = useDeleteBudgetItem();
   const duplicateItem = useDuplicateBudgetItem();
+  const convertToOrder = useConvertToOrder();
   const addQuote = useAddQuote();
   const deleteQuote = useDeleteQuote();
   const selectQuote = useSelectQuote();
@@ -124,6 +126,8 @@ export function PurchaseBudgetFormPage() {
   // Coluna "Preço Anterior" — input editável, pré-preenchido com a última compra
   const [prevPrice, setPrevPrice] = useState<Record<string, string>>({});
   const prefilledPriceRef = useRef<Set<string>>(new Set());
+  // Modal "transformar em pedido" exibido após salvar
+  const [showConvertModal, setShowConvertModal] = useState(false);
   const [savingInline, setSavingInline] = useState<Record<string, boolean>>({});
 
   // New quote form per item (painel expandido — fluxo avançado multi-cotação)
@@ -676,6 +680,8 @@ export function PurchaseBudgetFormPage() {
         // Persiste também os preços atuais digitados que não foram confirmados
         const savedPrices = await flushPendingPrices();
         toast.success(savedPrices > 0 ? `Salvo! ${savedPrices} preço(s) gravado(s).` : 'Salvo!');
+        // Pergunta se deseja transformar em pedido (somente se houver itens)
+        if (items.length > 0) setShowConvertModal(true);
       } else {
         const created = await createBudget.mutateAsync({
           title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts,
@@ -685,6 +691,21 @@ export function PurchaseBudgetFormPage() {
       }
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Erro ao salvar.');
+    }
+  };
+
+  const isOrdered = budget?.status === 'ORDERED';
+
+  // Confirma transformar/atualizar pedido a partir do modal
+  const handleConfirmConvert = async () => {
+    setShowConvertModal(false);
+    if (!id) return;
+    try {
+      await convertToOrder.mutateAsync(id);
+      toast.success(isOrdered ? 'Pedido atualizado!' : 'Orçamento transformado em pedido!');
+      navigate('/supplier-orders');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao transformar em pedido.');
     }
   };
 
@@ -1989,6 +2010,43 @@ export function PurchaseBudgetFormPage() {
       {!isEditing && !showGeneralData && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
           Preencha o título e clique em <strong>Criar</strong> para começar a adicionar itens.
+        </div>
+      )}
+
+      {/* Modal: transformar orçamento em pedido (após salvar) */}
+      {showConvertModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={() => setShowConvertModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                <Truck className="w-5 h-5 text-indigo-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {isOrdered ? 'Atualizar pedido?' : 'Transformar em pedido?'}
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-5">
+              {isOrdered
+                ? 'Este orçamento já é um pedido. Deseja atualizar o pedido com as alterações que você salvou? Ele será regenerado em Pedidos por Fornecedor.'
+                : 'Deseja transformar este orçamento em pedido agora? Ele passará a aparecer em Pedidos por Fornecedor e ficará aguardando recebimento.'}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Não
+              </button>
+              <button
+                onClick={handleConfirmConvert}
+                disabled={convertToOrder.isPending}
+                className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <Truck className="w-4 h-4" />
+                Sim, {isOrdered ? 'atualizar' : 'transformar'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

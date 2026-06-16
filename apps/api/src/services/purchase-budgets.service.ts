@@ -544,6 +544,20 @@ export class PurchaseBudgetsService {
 
     const purchaseOrder = await this.createPurchaseOrderFromBudget(budget, userId);
 
+    // Garante que o Pedido por Fornecedor foi realmente gerado (a geração é
+    // tolerante a falha internamente). Se não veio, avisa em vez de deixar o
+    // orçamento como "Pedido" sem aparecer na lista de pedidos.
+    const soCheck = await db.query(
+      'SELECT COUNT(*)::int AS n FROM supplier_orders WHERE purchase_order_id = $1',
+      [purchaseOrder.id]
+    );
+    if ((soCheck.rows[0]?.n || 0) === 0) {
+      throw Object.assign(
+        new Error('O pedido foi gerado mas não apareceu em Pedidos por Fornecedor. Verifique o fornecedor do orçamento e tente novamente.'),
+        { statusCode: 500, code: 'SUPPLIER_ORDER_NOT_GENERATED' }
+      );
+    }
+
     await this.repository.logHistory({
       budgetId, userId, action: 'STATUS_CHANGE', field: 'status',
       newValue: 'Pedido',
