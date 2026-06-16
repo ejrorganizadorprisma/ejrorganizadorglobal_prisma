@@ -19,6 +19,10 @@ interface ConfItem {
   unitPrice: number;
   status: ConfStatus;
   notes: string;
+  // Precificação (R$): custo ↔ margem% ↔ venda (cálculo automático)
+  costPrice: string;
+  margin: string;
+  salePrice: string;
 }
 
 interface Boleto { amount: string; dueDate: string; notes: string; }
@@ -51,16 +55,21 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
 
   useEffect(() => {
     if (order?.items) {
+      // Custos adicionais (impostos etc.) embutidos no custo do produto
+      const pct = ((order as any)?.budget?.additionalCosts || []).reduce((s: number, c: any) => s + (c?.percentage || 0), 0);
+      const mult = 1 + pct / 100;
       setItems(
         order.items
           .filter((it: any) => (it.quantityPending ?? it.quantity) > 0)
           .map((it: any) => {
             const pending = it.quantityPending ?? it.quantity;
+            const costCents = Math.round(it.unitPrice * mult);
             return {
               supplierOrderItemId: it.id, productId: it.productId,
               productName: it.product?.name || '-', productCode: it.product?.code,
               quantityOrdered: it.quantity, quantityPending: pending, quantityReceived: pending,
               unitPrice: it.unitPrice, status: 'CONFORME' as ConfStatus, notes: '',
+              costPrice: (costCents / 100).toFixed(2), margin: '', salePrice: '',
             };
           })
       );
@@ -68,6 +77,30 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
+
+  // Cálculo automático custo ↔ margem% ↔ venda
+  const updatePricing = (idx: number, field: 'costPrice' | 'margin' | 'salePrice', value: string) => {
+    setItems((prev) => {
+      const u = [...prev];
+      const it = { ...u[idx], [field]: value };
+      const cost = parseFloat(field === 'costPrice' ? value : it.costPrice) || 0;
+      if (field === 'margin') {
+        const m = parseFloat(value) || 0;
+        it.salePrice = cost > 0 ? (cost * (1 + m / 100)).toFixed(2) : it.salePrice;
+      } else if (field === 'salePrice') {
+        const sale = parseFloat(value) || 0;
+        it.margin = cost > 0 && sale > 0 ? (((sale - cost) / cost) * 100).toFixed(1) : '';
+      } else {
+        // mudou o custo: se tem margem, recalcula venda; senão recalcula margem pela venda
+        const m = parseFloat(it.margin);
+        const sale = parseFloat(it.salePrice) || 0;
+        if (!isNaN(m)) it.salePrice = cost > 0 ? (cost * (1 + m / 100)).toFixed(2) : it.salePrice;
+        else if (sale > 0 && cost > 0) it.margin = (((sale - cost) / cost) * 100).toFixed(1);
+      }
+      u[idx] = it;
+      return u;
+    });
+  };
 
   const summary = useMemo(() => ({
     conformes: items.filter((i) => i.status === 'CONFORME').length,
@@ -141,6 +174,23 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
         })),
       } as any);
       await approveReceipt.mutateAsync(receipt.id);
+
+      // Atualiza o preço de custo e de venda dos produtos
+      let pricedAny = false;
+      for (const item of items) {
+        const costCents = Math.round((parseFloat(item.costPrice) || 0) * 100);
+        const saleCents = Math.round((parseFloat(item.salePrice) || 0) * 100);
+        if (item.productId && (costCents > 0 || saleCents > 0)) {
+          try {
+            await api.patch(`/products/${item.productId}`, {
+              ...(costCents > 0 ? { costPrice: costCents, costPriceCurrency: 'BRL' } : {}),
+              ...(saleCents > 0 ? { salePrice: saleCents, salePriceCurrency: 'BRL' } : {}),
+            });
+            pricedAny = true;
+          } catch { /* não bloqueia o recebimento */ }
+        }
+      }
+      if (pricedAny) queryClient.invalidateQueries({ queryKey: ['products'] });
 
       // Registra NF + boletos em Contas a Pagar (se informados)
       if (boletos.length > 0 && (order as any).budget?.id) {
@@ -236,6 +286,27 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                         <Stat label="Pendente"
                           value={<span className={item.quantityPending - item.quantityReceived > 0 ? 'text-amber-600' : 'text-emerald-600'}>{Math.max(0, item.quantityPending - item.quantityReceived)}</span>}
                           tone="bg-slate-100" />
+                      </div>
+                      {/* Precificação: Custo ↔ Margem% ↔ Venda */}
+                      <div className="mt-2.5 flex items-end gap-2">
+                        <div className="flex-1">
+                          <label className="block text-[9px] uppercase tracking-wide text-slate-400 font-semibold">Preço de Custo (R$)</label>
+                          <input type="number" step="0.01" value={item.costPrice}
+                            onChange={(e) => updatePricing(idx, 'costPrice', e.target.value)}
+                            className="w-full px-2 py-1 border border-slate-300 rounded-lg text-sm text-right" />
+                        </div>
+                        <div className="w-20">
+                          <label className="block text-[9px] uppercase tracking-wide text-blue-500 font-semibold text-center">Margem %</label>
+                          <input type="number" step="0.1" value={item.margin}
+                            onChange={(e) => updatePricing(idx, 'margin', e.target.value)}
+                            placeholder="%" className="w-full px-2 py-1 border border-blue-300 bg-blue-50/40 rounded-lg text-sm text-center font-semibold text-blue-700" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[9px] uppercase tracking-wide text-emerald-600 font-semibold">Valor de Venda (R$)</label>
+                          <input type="number" step="0.01" value={item.salePrice}
+                            onChange={(e) => updatePricing(idx, 'salePrice', e.target.value)}
+                            className="w-full px-2 py-1 border border-emerald-300 rounded-lg text-sm text-right font-semibold text-emerald-700" />
+                        </div>
                       </div>
                       {item.status !== 'CONFORME' && (
                         <input
