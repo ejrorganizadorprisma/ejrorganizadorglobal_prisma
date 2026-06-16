@@ -641,7 +641,8 @@ export class SupplierOrdersRepository {
       productId: data.product_id,
       quantity: data.quantity,
       quantityReceived: data.quantity_received || 0,
-      quantityPending: data.quantity_pending || data.quantity,
+      // Usa ?? para preservar 0 (totalmente recebido). Com || , 0 caía para quantity.
+      quantityPending: data.quantity_pending ?? (data.quantity - (data.quantity_received || 0)),
       unitPrice: data.unit_price,
       discountPercentage: data.discount_percentage || 0,
       totalPrice: data.total_price,

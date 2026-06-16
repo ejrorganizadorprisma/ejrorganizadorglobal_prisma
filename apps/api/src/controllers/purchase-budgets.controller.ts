@@ -151,6 +151,17 @@ export const purchase = async (req: Request, res: Response) => {
   }
 };
 
+export const registerInvoice = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const budget = await service.registerInvoice(req.params.id, userId, req.body);
+    res.json({ success: true, data: budget });
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ success: false, error: { code: error.code || 'INTERNAL_ERROR', message: error.message } });
+  }
+};
+
 export const convertToOrder = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;

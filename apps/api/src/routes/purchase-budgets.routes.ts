@@ -53,6 +53,9 @@ router.post('/:id/purchase', controller.purchase);
 // POST /api/v1/purchase-budgets/:id/convert-to-order - Transformar orçamento em pedido
 router.post('/:id/convert-to-order', controller.convertToOrder);
 
+// POST /api/v1/purchase-budgets/:id/register-invoice - Registrar NF + vencimentos (Contas a Pagar)
+router.post('/:id/register-invoice', controller.registerInvoice);
+
 // POST /api/v1/purchase-budgets/:id/cancel - Cancel budget
 router.post('/:id/cancel', controller.cancel);
 

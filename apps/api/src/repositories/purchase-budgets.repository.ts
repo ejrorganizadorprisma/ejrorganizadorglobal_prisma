@@ -366,6 +366,25 @@ export class PurchaseBudgetsRepository {
     return (await this.findById(budgetId))!;
   }
 
+  // Grava os dados da Nota Fiscal (nº, valor total, forma de pagamento e
+  // vencimentos dos boletos) SEM alterar o status do orçamento/pedido.
+  // As parcelas alimentam automaticamente Contas a Pagar (financial.getPayables).
+  async updateInvoiceData(budgetId: string, data: {
+    invoiceNumber: string | null;
+    finalAmount: number | null;
+    paymentMethod: string | null;
+    paymentInstallments: string; // JSON string
+  }): Promise<PurchaseBudget> {
+    await db.query(
+      `UPDATE purchase_budgets
+       SET invoice_number = $2, final_amount = $3, payment_method = $4,
+           payment_installments = $5::jsonb, updated_at = NOW()
+       WHERE id = $1`,
+      [budgetId, data.invoiceNumber, data.finalAmount, data.paymentMethod, data.paymentInstallments]
+    );
+    return (await this.findById(budgetId))!;
+  }
+
   // ==================== ITEMS ====================
 
   async getItems(budgetId: string): Promise<PurchaseBudgetItem[]> {

@@ -271,6 +271,53 @@ export class PurchaseBudgetsService {
     return result;
   }
 
+  // Registra a Nota Fiscal do pedido (nº, valor total e vencimentos dos
+  // boletos) sem mudar o status. Grava no orçamento e alimenta Contas a Pagar.
+  async registerInvoice(id: string, userId: string, data: {
+    invoiceNumber?: string;
+    finalAmount?: number;
+    paymentMethod?: string;
+    installments?: Array<{ installmentNumber?: number; amount: number; dueDate: string; notes?: string }>;
+  }) {
+    const budget = await this.findById(id);
+    if (['CANCELLED', 'DRAFT', 'REJECTED'].includes(budget.status)) {
+      throw Object.assign(new Error('Não é possível registrar nota fiscal neste orçamento'), { statusCode: 400, code: 'INVALID_STATUS' });
+    }
+
+    const installmentsInput = data.installments || [];
+    if (installmentsInput.length === 0) {
+      throw Object.assign(new Error('Informe ao menos um vencimento (boleto)'), { statusCode: 400, code: 'NO_INSTALLMENTS' });
+    }
+    for (const inst of installmentsInput) {
+      if (!inst.dueDate) throw Object.assign(new Error('Informe a data de vencimento de todos os boletos'), { statusCode: 400, code: 'INVALID_DUE_DATE' });
+      if (!inst.amount || inst.amount <= 0) throw Object.assign(new Error('Informe o valor de todos os boletos'), { statusCode: 400, code: 'INVALID_AMOUNT' });
+    }
+
+    const paymentInstallments = installmentsInput.map((inst, idx) => ({
+      id: `inst-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+      installmentNumber: inst.installmentNumber ?? idx + 1,
+      amount: inst.amount,
+      dueDate: inst.dueDate,
+      status: 'PENDING',
+      notes: inst.notes || null,
+    }));
+
+    const result = await this.repository.updateInvoiceData(id, {
+      invoiceNumber: data.invoiceNumber || null,
+      finalAmount: data.finalAmount || null,
+      paymentMethod: data.paymentMethod || null,
+      paymentInstallments: JSON.stringify(paymentInstallments),
+    });
+
+    await this.repository.logHistory({
+      budgetId: id, userId, action: 'BUDGET_UPDATE', field: 'invoice',
+      newValue: data.invoiceNumber || '',
+      description: `Nota fiscal registrada${data.invoiceNumber ? ` (NF ${data.invoiceNumber})` : ''} — ${paymentInstallments.length} boleto(s) em Contas a Pagar`,
+    });
+
+    return result;
+  }
+
   async cancel(id: string, userId: string, userRole: string) {
     const budget = await this.findById(id);
     if (['PURCHASED', 'RECEIVED', 'CANCELLED'].includes(budget.status)) {

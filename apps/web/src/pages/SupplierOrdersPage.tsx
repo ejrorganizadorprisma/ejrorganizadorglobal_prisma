@@ -10,8 +10,9 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { PackageCheck } from 'lucide-react';
+import { PackageCheck, Receipt } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
+import { RegisterInvoiceModal } from '../components/RegisterInvoiceModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
 // Converte o valor do pedido (centavos BRL) para a moeda do orçamento de origem
@@ -132,6 +133,7 @@ export function SupplierOrdersPage() {
   const { defaultCurrency } = useFormatPrice();
   const queryClient = useQueryClient();
   const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<any | null>(null);
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
@@ -233,9 +235,6 @@ export function SupplierOrdersPage() {
                         Fornecedor
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ordem de Compra
-                      </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Data
                       </th>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -267,16 +266,6 @@ export function SupplierOrdersPage() {
                           <div className="text-sm text-gray-900">
                             {order.supplier?.name || '-'}
                           </div>
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {order.purchaseOrder?.orderNumber || '-'}
-                          </div>
-                          {order.purchaseOrder?.name && (
-                            <div className="text-xs text-gray-500 truncate max-w-[150px]" title={order.purchaseOrder.name}>
-                              {order.purchaseOrder.name}
-                            </div>
-                          )}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
@@ -322,6 +311,16 @@ export function SupplierOrdersPage() {
                                 title="Receber pedido — conferência e entrada no estoque"
                               >
                                 <PackageCheck className="w-3.5 h-3.5" /> Receber
+                              </button>
+                            )}
+
+                            {order.budget?.id && order.status !== 'CANCELLED' && (
+                              <button
+                                onClick={() => setInvoiceOrder(order)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold"
+                                title="Registrar Nota Fiscal e vencimentos (Contas a Pagar)"
+                              >
+                                <Receipt className="w-3.5 h-3.5" /> NF
                               </button>
                             )}
 
@@ -405,6 +404,16 @@ export function SupplierOrdersPage() {
             setReceivingOrderId(null);
             queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
           }}
+        />
+      )}
+
+      {invoiceOrder && (
+        <RegisterInvoiceModal
+          budgetId={invoiceOrder.budget.id}
+          suggestedTotalCents={invoiceOrder.totalAmount || 0}
+          orderLabel={`${invoiceOrder.budget?.title || ''} · Pedido ${invoiceOrder.orderNumber}`}
+          onClose={() => setInvoiceOrder(null)}
+          onDone={() => setInvoiceOrder(null)}
         />
       )}
     </div>
