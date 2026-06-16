@@ -10,6 +10,7 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
+import { PackageCheck } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
@@ -225,25 +226,25 @@ export function SupplierOrdersPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Pedido
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fornecedor
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ordem de Compra
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Data
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
                         Ações
                       </th>
                     </tr>
@@ -251,7 +252,7 @@ export function SupplierOrdersPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {data?.data.map((order: any) => (
                       <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900 truncate max-w-[220px]" title={order.budget?.title || order.orderNumber}>
                             {order.budget?.title || order.orderNumber}
                           </div>
@@ -262,12 +263,12 @@ export function SupplierOrdersPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {order.supplier?.name || '-'}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {order.purchaseOrder?.orderNumber || '-'}
                           </div>
@@ -277,17 +278,17 @@ export function SupplierOrdersPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
                             {formatDate(order.orderDate)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {formatOrderValue(order)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-3 whitespace-nowrap">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                               STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'
@@ -296,8 +297,8 @@ export function SupplierOrdersPage() {
                             {STATUS_LABELS[order.status] || order.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-2">
+                        <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                          <div className="flex justify-end gap-2 items-center">
                             <button
                               onClick={() => navigate(`/supplier-orders/${order.id}`)}
                               className="text-blue-600 hover:text-blue-900"
@@ -317,10 +318,10 @@ export function SupplierOrdersPage() {
                             {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
                               <button
                                 onClick={() => setReceivingOrderId(order.id)}
-                                className="text-emerald-600 hover:text-emerald-900 font-medium"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs font-semibold shadow-sm"
                                 title="Receber pedido — conferência e entrada no estoque"
                               >
-                                Receber
+                                <PackageCheck className="w-3.5 h-3.5" /> Receber
                               </button>
                             )}
 
