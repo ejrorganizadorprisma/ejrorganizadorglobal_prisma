@@ -9,7 +9,7 @@ import {
 } from '../hooks/useSupplierOrders';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { toast } from 'sonner';
 import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
 
@@ -127,7 +127,7 @@ export function SupplierOrderDetailPage() {
     }
   };
 
-  const { formatPrice, defaultCurrency } = useFormatPrice();
+  const { defaultCurrency } = useFormatPrice();
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
@@ -161,6 +161,48 @@ export function SupplierOrderDetailPage() {
     );
   }
 
+  // ==================== Multi-moeda (mesmo formato do orçamento) ====================
+  const budget = (order as any).budget;
+  const currency = (budget?.currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
+  const symbolOf: Record<string, string> = { BRL: 'R$', USD: 'US$', PYG: '₲' };
+  const currencySymbol = symbolOf[currency] || 'R$';
+  const r1 = budget?.exchangeRate1 || 0; // 1 BRL = X PYG
+  const r2 = budget?.exchangeRate2 || 0; // 1 USD = X PYG
+  const r3 = budget?.exchangeRate3 || 0; // 1 USD = X BRL
+  const hasRates = r1 > 0 && r2 > 0 && r3 > 0;
+  const directRates = hasRates
+    ? { BRL_PYG: r1, PYG_BRL: 1 / r1, USD_PYG: r2, PYG_USD: 1 / r2, USD_BRL: r3, BRL_USD: 1 / r3 }
+    : null;
+  const convertDirect = (amount: number, from: string, to: string): number => {
+    if (from === to || !directRates) return amount;
+    return amount * (directRates[`${from}_${to}` as keyof typeof directRates] as number);
+  };
+  const fmtCur = (amount: number, cur: string) => {
+    if (cur === 'PYG') return formatPriceValue(Math.round(amount), 'PYG');
+    if (cur === 'USD') return formatPriceValue(Math.round(amount * 100), 'USD');
+    return formatPriceValue(Math.round(amount * 100), 'BRL');
+  };
+  // BRL cents → moeda principal (valor)
+  const toPrimary = (centsBRL: number): number => {
+    const amt = convertDirect(centsBRL / 100, 'BRL', currency);
+    return currency === 'PYG' ? Math.round(amt) : Math.round(amt * 100) / 100;
+  };
+  // Exibe BRL cents na moeda principal
+  const showPrice = (centsBRL: number) => fmtCur(toPrimary(centsBRL), currency);
+  const otherCurrencies = (['BRL', 'USD', 'PYG'] as const).filter((c) => c !== currency);
+  // As 2 outras moedas (a partir do valor já na moeda principal)
+  const secondary = (centsBRL: number): string | null => {
+    if (!hasRates) return null;
+    const primary = toPrimary(centsBRL);
+    return otherCurrencies.map((c) => fmtCur(convertDirect(primary, currency, c), c)).join(' · ');
+  };
+
+  // Custos adicionais (igual ao orçamento): subtotal × (1 + %)
+  const additionalCosts = (budget?.additionalCosts || []) as any[];
+  const totalAdditionalPct = additionalCosts.reduce((s, c) => s + (c?.percentage || 0), 0);
+  const subtotalCents = order.subtotal || 0;
+  const totalWithCostsCents = Math.round(subtotalCents * (1 + totalAdditionalPct / 100));
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -176,7 +218,7 @@ export function SupplierOrderDetailPage() {
                   &larr; Voltar
                 </button>
                 <h1 className="text-xl lg:text-2xl font-bold text-gray-900">
-                  Pedido {order.orderNumber}
+                  {budget ? `${budget.budgetNumber} - ${budget.title}` : `Pedido ${order.orderNumber}`}
                 </h1>
                 <span
                   className={`px-3 py-1 text-sm font-semibold rounded-full ${
@@ -187,7 +229,8 @@ export function SupplierOrderDetailPage() {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                Grupo: {order.groupCode}
+                Pedido {order.orderNumber}
+                {budget && <span className="ml-2 text-gray-400">· Orçamento {budget.budgetNumber}</span>}
               </p>
             </div>
 
@@ -401,112 +444,87 @@ export function SupplierOrderDetailPage() {
             </div>
           )}
 
-          {/* Items Table */}
+          {/* Items Table — mesmo formato do Orçamento de Compra */}
           <div className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-medium text-gray-900">Itens do Pedido</h3>
+              <span className="text-xs text-gray-400">Valores em {currencySymbol} {currency}</span>
             </div>
             <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Produto
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Qtd
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Recebido
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pendente
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Preço Unit.
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Desconto
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {order.items?.map((item: any) => (
-                  <tr key={item.id}>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.product?.code || '-'}
+            <div className="min-w-[680px]">
+              {/* Cabeçalho */}
+              <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b">
+                <div className="col-span-4">Produto</div>
+                <div className="col-span-1 text-center">Qtd</div>
+                <div className="col-span-1 text-center">Receb.</div>
+                <div className="col-span-1 text-center">Pend.</div>
+                <div className="col-span-2 text-center">Preço Unit. {currencySymbol}</div>
+                <div className="col-span-3 text-right">Subtotal</div>
+              </div>
+              {/* Itens */}
+              <div className="divide-y divide-gray-100">
+                {order.items?.map((item: any, idx: number) => (
+                  <div key={item.id} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-gray-50">
+                    <div className="col-span-4 flex items-center gap-2 min-w-0">
+                      <span className="text-xs text-gray-400 w-5 shrink-0">{idx + 1}.</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.product?.name || '-'}</p>
+                        <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                          {item.product?.code && <span>{item.product.code}</span>}
+                          {item.product?.factoryCode && <span>· cód. fáb. {item.product.factoryCode}</span>}
+                        </div>
+                        {item.notes && <p className="text-[11px] text-amber-600 mt-0.5">{item.notes}</p>}
                       </div>
-                      <div className="text-sm text-gray-500">{item.product?.name || '-'}</div>
-                      {item.notes && (
-                        <div className="text-xs text-gray-400 mt-1">{item.notes}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-900">
-                      {item.quantity}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-900">
-                      {item.quantityReceived}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm">
-                      <span
-                        className={
-                          item.quantityPending > 0
-                            ? 'text-orange-600 font-medium'
-                            : 'text-green-600'
-                        }
-                      >
+                    </div>
+                    <div className="col-span-1 text-center text-sm font-medium">{item.quantity}</div>
+                    <div className="col-span-1 text-center text-sm text-gray-700">{item.quantityReceived}</div>
+                    <div className="col-span-1 text-center text-sm">
+                      <span className={item.quantityPending > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
                         {item.quantityPending}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-900">
-                      {formatPrice(item.unitPrice)}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm text-gray-900">
-                      {item.discountPercentage > 0 ? `${item.discountPercentage}%` : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                      {formatPrice(item.totalPrice)}
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="col-span-2 text-center">
+                      <span className="text-sm text-gray-900">{showPrice(item.unitPrice)}</span>
+                      {secondary(item.unitPrice) && (
+                        <p className="text-[10px] text-gray-400">{secondary(item.unitPrice)}</p>
+                      )}
+                    </div>
+                    <div className="col-span-3 text-right">
+                      <span className="text-sm font-semibold text-gray-900">{showPrice(item.totalPrice)}</span>
+                      {secondary(item.totalPrice) && (
+                        <p className="text-[10px] text-gray-400">{secondary(item.totalPrice)}</p>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
             </div>
 
-            {/* Totals */}
-            <div className="bg-gray-50 px-4 lg:px-6 py-4 border-t border-gray-200">
-              <div className="flex flex-wrap justify-end gap-4 sm:gap-8">
+            {/* Totais — mesmo formato do orçamento (subtotal em destaque + custos + total) */}
+            <div className="border-t-2 border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">
+                  {order.items?.length || 0} {(order.items?.length || 0) === 1 ? 'item' : 'itens'}
+                </span>
                 <div className="text-right">
-                  <div className="text-sm text-gray-500">Subtotal</div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {formatPrice(order.subtotal)}
+                  <div className="text-lg font-bold text-gray-700">
+                    <span className="text-xs font-normal text-gray-400 mr-1">Subtotal</span>
+                    {showPrice(subtotalCents)}
                   </div>
-                </div>
-                {order.discountAmount > 0 && (
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">Desconto</div>
-                    <div className="text-sm font-medium text-red-600">
-                      -{formatPrice(order.discountAmount)}
-                    </div>
-                  </div>
-                )}
-                {order.shippingCost > 0 && (
-                  <div className="text-right">
-                    <div className="text-sm text-gray-500">Frete</div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatPrice(order.shippingCost)}
-                    </div>
-                  </div>
-                )}
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">Total</div>
-                  <div className="text-lg font-bold text-gray-900">
-                    {formatPrice(order.totalAmount)}
-                  </div>
+                  {secondary(subtotalCents) && <p className="text-xs text-gray-400">{secondary(subtotalCents)}</p>}
+                  {totalAdditionalPct > 0 && (
+                    <>
+                      <div className="text-xs text-amber-600 mt-1">
+                        Custos Adic. (+{totalAdditionalPct.toFixed(1)}%): +{showPrice(totalWithCostsCents - subtotalCents)}
+                      </div>
+                      <div className="text-lg font-bold text-gray-900">
+                        <span className="text-xs font-normal text-gray-400 mr-1">Total</span>
+                        {showPrice(totalWithCostsCents)}
+                      </div>
+                      {secondary(totalWithCostsCents) && <p className="text-xs text-gray-500">{secondary(totalWithCostsCents)}</p>}
+                    </>
+                  )}
                 </div>
               </div>
             </div>

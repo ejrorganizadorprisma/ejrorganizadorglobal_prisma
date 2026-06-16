@@ -34,6 +34,17 @@ export interface SupplierOrder {
     orderNumber: string;
     name?: string;
   };
+  // Orçamento de compra de origem (para exibir o pedido no mesmo formato/nome)
+  budget?: {
+    id: string;
+    budgetNumber: string;
+    title: string;
+    currency: string;
+    exchangeRate1: number;
+    exchangeRate2: number;
+    exchangeRate3: number;
+    additionalCosts: any[];
+  } | null;
   items?: SupplierOrderItem[];
 }
 
@@ -263,10 +274,15 @@ export class SupplierOrdersRepository {
       SELECT
         so.*,
         s.id as supplier_id, s.name as supplier_name, s.document as supplier_document,
-        po.id as po_id, po.order_number as po_order_number
+        po.id as po_id, po.order_number as po_order_number, po.name as po_name,
+        pb.id as budget_id, pb.budget_number as budget_number, pb.title as budget_title,
+        pb.currency as budget_currency,
+        pb.exchange_rate_1 as budget_rate1, pb.exchange_rate_2 as budget_rate2, pb.exchange_rate_3 as budget_rate3,
+        pb.additional_costs as budget_additional_costs
       FROM supplier_orders so
       LEFT JOIN suppliers s ON s.id = so.supplier_id
       LEFT JOIN purchase_orders po ON po.id = so.purchase_order_id
+      LEFT JOIN purchase_budgets pb ON pb.id = po.purchase_budget_id
       WHERE so.id = $1
     `;
 
@@ -290,6 +306,17 @@ export class SupplierOrdersRepository {
         id: order.po_id,
         orderNumber: order.po_order_number,
         name: order.po_name,
+      } : null,
+      // Orçamento de compra de origem (para exibir o pedido no mesmo formato/nome)
+      budget: order.budget_id ? {
+        id: order.budget_id,
+        budgetNumber: order.budget_number,
+        title: order.budget_title,
+        currency: order.budget_currency || 'BRL',
+        exchangeRate1: parseFloat(order.budget_rate1) || 0,
+        exchangeRate2: parseFloat(order.budget_rate2) || 0,
+        exchangeRate3: parseFloat(order.budget_rate3) || 0,
+        additionalCosts: order.budget_additional_costs || [],
       } : null,
       items,
     });
@@ -561,6 +588,7 @@ export class SupplierOrdersRepository {
       updatedAt: data.updated_at,
       supplier: data.supplier,
       purchaseOrder: data.purchase_order,
+      budget: data.budget,
       items: data.items?.map((item: any) => {
         // Se já está mapeado (vem de getItems), usar diretamente
         if (item.productId !== undefined) {
