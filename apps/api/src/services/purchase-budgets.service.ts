@@ -61,7 +61,7 @@ export class PurchaseBudgetsService {
   // Status em que o orçamento ainda pode ser editado (preços/itens/quantidade).
   // DRAFT = rascunho; PENDING = enviado para aprovação (indústria pode devolver
   // proposta atualizada e precisamos ajustar SEM recriar o orçamento — Demanda 3).
-  private static readonly EDITABLE_STATUSES = ['DRAFT', 'PENDING'];
+  private static readonly EDITABLE_STATUSES = ['DRAFT', 'PENDING', 'ORDERED'];
 
   private assertEditable(status: string, entity: string) {
     if (!PurchaseBudgetsService.EDITABLE_STATUSES.includes(status)) {
@@ -489,6 +489,68 @@ export class PurchaseBudgetsService {
       description: 'Cotação removida',
     });
     return { success: true };
+  }
+
+  // ==================== TRANSFORMAR EM PEDIDO ====================
+
+  // Transforma o orçamento em pedido: muda para ORDERED e gera o Pedido por
+  // Fornecedor (aparece em /supplier-orders). O orçamento continua editável;
+  // ao reconverter, o pedido é regenerado — desde que ainda não tenha recebimento.
+  async convertToOrder(budgetId: string, userId: string) {
+    const budget = await this.findById(budgetId);
+
+    if (['PURCHASED', 'RECEIVED', 'CANCELLED'].includes(budget.status)) {
+      throw Object.assign(new Error('Este orçamento não pode mais ser transformado em pedido'), { statusCode: 400, code: 'INVALID_STATUS' });
+    }
+    if (!budget.items || budget.items.length === 0) {
+      throw Object.assign(new Error('O orçamento precisa ter pelo menos um item'), { statusCode: 400, code: 'NO_ITEMS' });
+    }
+    for (const item of budget.items) {
+      if (!item.selectedQuoteId) {
+        throw Object.assign(new Error(`Informe o preço do item "${item.productName}" antes de transformar em pedido`), { statusCode: 400, code: 'NO_QUOTES' });
+      }
+    }
+    if (!budget.supplierId) {
+      throw Object.assign(new Error('Defina o fornecedor do orçamento antes de transformar em pedido'), { statusCode: 400, code: 'NO_SUPPLIER' });
+    }
+
+    // Já existe pedido para este orçamento? Regenera, se ainda não houve recebimento.
+    const existingPOs = await db.query('SELECT id FROM purchase_orders WHERE purchase_budget_id = $1', [budgetId]);
+    if (existingPOs.rows.length > 0) {
+      const poIds = existingPOs.rows.map((r: any) => r.id);
+      const recv = await db.query(
+        `SELECT COALESCE(SUM(soi.quantity_received), 0)::int AS received
+         FROM supplier_order_items soi
+         JOIN supplier_orders so ON so.id = soi.supplier_order_id
+         WHERE so.purchase_order_id = ANY($1::text[])`,
+        [poIds]
+      );
+      if ((recv.rows[0]?.received || 0) > 0) {
+        throw Object.assign(
+          new Error('Este pedido já possui recebimentos e não pode ser regenerado. Edite diretamente o Pedido por Fornecedor.'),
+          { statusCode: 400, code: 'HAS_RECEIPTS' }
+        );
+      }
+      // Sem recebimentos: remove o pedido antigo (cascateia supplier_orders/itens) e recria
+      await db.query('DELETE FROM purchase_orders WHERE purchase_budget_id = $1', [budgetId]);
+    }
+
+    if (budget.status !== 'ORDERED') {
+      await this.repository.updateStatus(budgetId, 'ORDERED', {
+        approvedBy: userId,
+        approvedAt: new Date().toISOString(),
+      });
+    }
+
+    const purchaseOrder = await this.createPurchaseOrderFromBudget(budget, userId);
+
+    await this.repository.logHistory({
+      budgetId, userId, action: 'STATUS_CHANGE', field: 'status',
+      newValue: 'Pedido',
+      description: `Transformado em pedido ${purchaseOrder.orderNumber}`,
+    });
+
+    return { ...(await this.repository.findById(budgetId) as any), purchaseOrder };
   }
 
   // ==================== HELPERS ====================

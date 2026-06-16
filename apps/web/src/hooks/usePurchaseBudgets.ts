@@ -166,6 +166,21 @@ export function useCancelBudget() {
   });
 }
 
+/** Transforma o orçamento em pedido (gera o Pedido por Fornecedor). */
+export function useConvertToOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post(`/purchase-budgets/${id}/convert-to-order`);
+      return data.data as PurchaseBudget;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-budgets'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    },
+  });
+}
+
 // ==================== ITEMS ====================
 
 export function useBudgetItems(budgetId?: string) {

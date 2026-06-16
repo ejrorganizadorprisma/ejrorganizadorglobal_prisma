@@ -11,7 +11,6 @@ import {
   useAddQuote,
   useDeleteQuote,
   useSelectQuote,
-  useSubmitBudget,
 } from '../hooks/usePurchaseBudgets';
 import { useProducts, useProductManufacturers } from '../hooks/useProducts';
 import { useSuppliers } from '../hooks/useSuppliers';
@@ -22,7 +21,7 @@ import { formatPriceValue } from '../hooks/useFormatPrice';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { toast } from 'sonner';
 import {
-  Plus, Trash2, ChevronDown, ChevronUp, Check, Send, Save,
+  Plus, Trash2, ChevronDown, ChevronUp, Check, Save,
   ArrowLeft, Package, Search, DollarSign, ShoppingCart, Globe, X, Filter, AlertTriangle, FileText, Printer,
   History, Copy, ArrowRight,
 } from 'lucide-react';
@@ -81,7 +80,6 @@ export function PurchaseBudgetFormPage() {
   const addQuote = useAddQuote();
   const deleteQuote = useDeleteQuote();
   const selectQuote = useSelectQuote();
-  const submitBudget = useSubmitBudget();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -690,20 +688,6 @@ export function PurchaseBudgetFormPage() {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!id) return;
-    if (!window.confirm('Enviar para aprovação? Você ainda poderá ajustar os valores depois.')) return;
-    try {
-      // Garante que os preços digitados estão gravados antes da validação de envio
-      await flushPendingPrices();
-      await submitBudget.mutateAsync(id);
-      toast.success('Enviado para aprovação!');
-      navigate(`/purchase-budgets/${id}`);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || 'Erro ao enviar.');
-    }
-  };
-
   const handleAddItem = async () => {
     if (!id) return;
     const name = newItemName || products.find((p: any) => p.id === newItemProductId)?.name;
@@ -952,16 +936,6 @@ export function PurchaseBudgetFormPage() {
                 <Printer className="w-4 h-4" />
               </button>
             </>
-          )}
-          {isEditing && items.length > 0 && budget?.status === 'DRAFT' && (
-            <button
-              onClick={handleSubmit}
-              disabled={submitBudget.isPending}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium"
-            >
-              <Send className="w-4 h-4" />
-              Enviar p/ Aprovação
-            </button>
           )}
         </div>
       </div>

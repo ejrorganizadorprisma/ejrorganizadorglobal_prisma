@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePurchaseBudgets, useDeletePurchaseBudget } from '../hooks/usePurchaseBudgets';
+import { usePurchaseBudgets, useDeletePurchaseBudget, useConvertToOrder } from '../hooks/usePurchaseBudgets';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { toast } from 'sonner';
 import { formatPriceValue } from '../hooks/useFormatPrice';
-import { Plus, Eye, Pencil, Trash2, ShoppingCart } from 'lucide-react';
+import { Plus, Eye, Pencil, Trash2, ShoppingCart, Truck } from 'lucide-react';
 import { AppPage, type PurchaseBudgetStatus, type BudgetPriority } from '@ejr/shared-types';
 
 const STATUS_LABELS: Record<PurchaseBudgetStatus, string> = {
@@ -71,6 +71,7 @@ export function PurchaseBudgetsPage() {
   });
 
   const deleteBudget = useDeletePurchaseBudget();
+  const convertToOrder = useConvertToOrder();
 
   const handleDelete = async (id: string, title: string) => {
     if (window.confirm(`Excluir o orçamento de compra "${title}"?`)) {
@@ -80,6 +81,20 @@ export function PurchaseBudgetsPage() {
       } catch (error: any) {
         toast.error(error.response?.data?.error?.message || 'Erro ao excluir.');
       }
+    }
+  };
+
+  const handleConvert = async (id: string, title: string, alreadyOrder: boolean) => {
+    const msg = alreadyOrder
+      ? `Atualizar o pedido a partir do orçamento "${title}"?`
+      : `Transformar o orçamento "${title}" em pedido? Ele passará a aparecer em Pedidos por Fornecedor.`;
+    if (!window.confirm(msg)) return;
+    try {
+      await convertToOrder.mutateAsync(id);
+      toast.success(alreadyOrder ? 'Pedido atualizado!' : 'Orçamento transformado em pedido!');
+      navigate('/supplier-orders');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao transformar em pedido.');
     }
   };
 
@@ -259,13 +274,23 @@ export function PurchaseBudgetsPage() {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          {canEdit && ['DRAFT', 'PENDING'].includes(budget.status) && (
+                          {canEdit && ['DRAFT', 'PENDING', 'ORDERED'].includes(budget.status) && (
                             <button
                               onClick={() => navigate(`/purchase-budgets/${budget.id}/edit`)}
                               className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
-                              title={budget.status === 'PENDING' ? 'Editar (ajustar valores)' : 'Editar'}
+                              title={budget.status === 'DRAFT' ? 'Editar' : 'Editar (ajustar valores)'}
                             >
                               <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canEdit && ['DRAFT', 'PENDING', 'ORDERED'].includes(budget.status) && (
+                            <button
+                              onClick={() => handleConvert(budget.id, budget.title, budget.status === 'ORDERED')}
+                              disabled={convertToOrder.isPending}
+                              className={`p-1.5 rounded disabled:opacity-50 ${budget.status === 'ORDERED' ? 'text-indigo-400 hover:bg-indigo-50' : 'text-indigo-600 hover:bg-indigo-50'}`}
+                              title={budget.status === 'ORDERED' ? 'Atualizar pedido (regerar)' : 'Transformar em pedido'}
+                            >
+                              <Truck className="w-4 h-4" />
                             </button>
                           )}
                           {canDelete && !['PURCHASED', 'RECEIVED'].includes(budget.status) && (
