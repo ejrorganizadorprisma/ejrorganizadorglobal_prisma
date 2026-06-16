@@ -18,6 +18,9 @@ router.get('/last-price', controller.getLastPrice);
 // GET /api/v1/purchase-budgets/last-purchase?productId=X - Última compra detalhada (painel)
 router.get('/last-purchase', controller.getLastPurchase);
 
+// GET /api/v1/purchase-budgets/:id/history - Histórico de alterações (Demanda 3)
+router.get('/:id/history', controller.getHistory);
+
 // GET /api/v1/purchase-budgets/:id - Get budget by ID (with items and quotes)
 router.get('/:id', controller.findById);
 
@@ -63,6 +66,9 @@ router.post('/:id/items', controller.addItem);
 
 // PUT /api/v1/purchase-budgets/items/:itemId - Update item
 router.put('/items/:itemId', controller.updateItem);
+
+// POST /api/v1/purchase-budgets/items/:itemId/duplicate - Duplicate item
+router.post('/items/:itemId/duplicate', controller.duplicateItem);
 
 // DELETE /api/v1/purchase-budgets/items/:itemId - Delete item
 router.delete('/items/:itemId', controller.deleteItem);

@@ -491,6 +491,80 @@ export class PurchaseBudgetsRepository {
     return result.rows[0]?.budget_id || null;
   }
 
+  async getItemById(itemId: string): Promise<any | null> {
+    const result = await db.query('SELECT * FROM purchase_budget_items WHERE id = $1', [itemId]);
+    return result.rows[0] || null;
+  }
+
+  async getQuoteById(quoteId: string): Promise<any | null> {
+    const result = await db.query('SELECT * FROM purchase_budget_quotes WHERE id = $1', [quoteId]);
+    return result.rows[0] || null;
+  }
+
+  // ==================== HISTÓRICO (Demanda 3) ====================
+
+  async logHistory(entry: {
+    budgetId: string;
+    userId?: string | null;
+    action: string;
+    field?: string | null;
+    oldValue?: string | null;
+    newValue?: string | null;
+    description?: string | null;
+  }): Promise<void> {
+    await db.query(
+      `INSERT INTO purchase_budget_history
+        (id, budget_id, user_id, action, field, old_value, new_value, description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        generateId('pbh'),
+        entry.budgetId,
+        entry.userId || null,
+        entry.action,
+        entry.field || null,
+        entry.oldValue ?? null,
+        entry.newValue ?? null,
+        entry.description || null,
+      ]
+    );
+  }
+
+  async getHistory(budgetId: string): Promise<any[]> {
+    const result = await db.query(
+      `SELECT h.*, u.name AS user_name, u.email AS user_email
+       FROM purchase_budget_history h
+       LEFT JOIN users u ON u.id = h.user_id
+       WHERE h.budget_id = $1
+       ORDER BY h.created_at DESC`,
+      [budgetId]
+    );
+    return result.rows.map((r) => ({
+      id: r.id,
+      budgetId: r.budget_id,
+      userId: r.user_id,
+      userName: r.user_name || null,
+      userEmail: r.user_email || null,
+      action: r.action,
+      field: r.field,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+      description: r.description,
+      createdAt: r.created_at,
+    }));
+  }
+
+  async duplicateItem(itemId: string): Promise<PurchaseBudgetItem | null> {
+    const original = await this.getItemById(itemId);
+    if (!original) return null;
+    return this.addItem(original.budget_id, {
+      productId: original.product_id || undefined,
+      productName: original.product_name,
+      quantity: original.quantity,
+      unit: original.unit || 'UNIT',
+      notes: original.notes || undefined,
+    });
+  }
+
   async selectQuote(itemId: string, quoteId: string): Promise<void> {
     await db.query(
       'UPDATE purchase_budget_items SET selected_quote_id = $1 WHERE id = $2',

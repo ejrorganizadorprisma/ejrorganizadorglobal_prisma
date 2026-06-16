@@ -58,17 +58,55 @@ export class PurchaseBudgetsService {
     return this.repository.create(data);
   }
 
-  async update(id: string, data: UpdatePurchaseBudgetDTO) {
-    const budget = await this.findById(id);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Somente orçamentos em rascunho podem ser editados'), { statusCode: 400, code: 'INVALID_STATUS' });
+  // Status em que o orçamento ainda pode ser editado (preços/itens/quantidade).
+  // DRAFT = rascunho; PENDING = enviado para aprovação (indústria pode devolver
+  // proposta atualizada e precisamos ajustar SEM recriar o orçamento — Demanda 3).
+  private static readonly EDITABLE_STATUSES = ['DRAFT', 'PENDING'];
+
+  private assertEditable(status: string, entity: string) {
+    if (!PurchaseBudgetsService.EDITABLE_STATUSES.includes(status)) {
+      throw Object.assign(
+        new Error(`${entity} só pode ser alterado enquanto o orçamento está em rascunho ou aguardando aprovação`),
+        { statusCode: 400, code: 'INVALID_STATUS' }
+      );
     }
+  }
+
+  async update(id: string, data: UpdatePurchaseBudgetDTO, userId?: string) {
+    const budget = await this.findById(id);
+    this.assertEditable(budget.status, 'O orçamento');
+
+    // Log de histórico dos campos alterados (valor anterior → novo)
+    const tracked: Record<string, any> = {
+      title: budget.title,
+      description: (budget as any).description,
+      supplierId: (budget as any).supplierId,
+      paymentTerms: (budget as any).paymentTerms,
+      leadTimeDays: (budget as any).leadTimeDays,
+      priority: (budget as any).priority,
+      department: (budget as any).department,
+    };
+    for (const [field, oldVal] of Object.entries(tracked)) {
+      if ((data as any)[field] !== undefined && String((data as any)[field] ?? '') !== String(oldVal ?? '')) {
+        await this.repository.logHistory({
+          budgetId: id, userId, action: 'BUDGET_UPDATE', field,
+          oldValue: oldVal == null ? null : String(oldVal),
+          newValue: (data as any)[field] == null ? null : String((data as any)[field]),
+        });
+      }
+    }
+
     await this.repository.update(id, data);
     // Recalculate total if additional costs changed
     if (data.additionalCosts !== undefined) {
       await this.repository.recalculateTotal(id);
     }
     return this.repository.findById(id) as any;
+  }
+
+  async getHistory(id: string) {
+    await this.findById(id); // garante que existe (404 se não)
+    return this.repository.getHistory(id);
   }
 
   async delete(id: string) {
@@ -265,55 +303,115 @@ export class PurchaseBudgetsService {
     return this.repository.getItems(budgetId);
   }
 
-  async addItem(budgetId: string, data: CreateBudgetItemDTO) {
+  async addItem(budgetId: string, data: CreateBudgetItemDTO, userId?: string) {
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Itens só podem ser adicionados em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
+    this.assertEditable(budget.status, 'Itens');
+
+    // Validações (Demanda 6)
+    if (data.quantity !== undefined && data.quantity <= 0) {
+      throw Object.assign(new Error('A quantidade deve ser maior que zero'), { statusCode: 400, code: 'INVALID_QUANTITY' });
     }
+    // Evita duplicidade do mesmo produto (apenas para itens vinculados a produto)
+    if (data.productId) {
+      const existing = (budget.items || []).find((i: any) => i.productId === data.productId);
+      if (existing) {
+        throw Object.assign(new Error(`O produto "${data.productName}" já está no orçamento`), { statusCode: 400, code: 'DUPLICATE_ITEM' });
+      }
+    }
+
     const item = await this.repository.addItem(budgetId, data);
     await this.repository.recalculateTotal(budgetId);
+    await this.repository.logHistory({
+      budgetId, userId, action: 'ITEM_ADD', field: 'item',
+      newValue: `${data.productName} (qtd ${data.quantity ?? 1})`,
+      description: `Item adicionado: ${data.productName}`,
+    });
     return item;
   }
 
-  async updateItem(itemId: string, data: UpdateBudgetItemDTO) {
+  async duplicateItem(itemId: string, userId?: string) {
+    const budgetId = await this.repository.getItemBudgetId(itemId);
+    if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
+    const budget = await this.findById(budgetId);
+    this.assertEditable(budget.status, 'Itens');
+
+    const item = await this.repository.duplicateItem(itemId);
+    if (!item) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
+    await this.repository.recalculateTotal(budgetId);
+    await this.repository.logHistory({
+      budgetId, userId, action: 'ITEM_ADD', field: 'item',
+      newValue: item.productName,
+      description: `Item duplicado: ${item.productName}`,
+    });
+    return item;
+  }
+
+  async updateItem(itemId: string, data: UpdateBudgetItemDTO, userId?: string) {
     const budgetId = await this.repository.getItemBudgetId(itemId);
     if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
 
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Itens só podem ser editados em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
+    this.assertEditable(budget.status, 'Itens');
+
+    if (data.quantity !== undefined && data.quantity <= 0) {
+      throw Object.assign(new Error('A quantidade deve ser maior que zero'), { statusCode: 400, code: 'INVALID_QUANTITY' });
     }
+
+    const before = await this.repository.getItemById(itemId);
 
     await this.repository.updateItem(itemId, data);
     await this.repository.recalculateTotal(budgetId);
+
+    if (before) {
+      if (data.quantity !== undefined && Number(data.quantity) !== Number(before.quantity)) {
+        await this.repository.logHistory({
+          budgetId, userId, action: 'ITEM_UPDATE', field: 'quantity',
+          oldValue: String(before.quantity), newValue: String(data.quantity),
+          description: `Quantidade de "${before.product_name}": ${before.quantity} → ${data.quantity}`,
+        });
+      }
+      if (data.notes !== undefined && (data.notes || '') !== (before.notes || '')) {
+        await this.repository.logHistory({
+          budgetId, userId, action: 'ITEM_UPDATE', field: 'notes',
+          oldValue: before.notes || null, newValue: data.notes || null,
+          description: `Observação de "${before.product_name}" alterada`,
+        });
+      }
+    }
     return { success: true };
   }
 
-  async deleteItem(itemId: string) {
+  async deleteItem(itemId: string, userId?: string) {
     const budgetId = await this.repository.getItemBudgetId(itemId);
     if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
 
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Itens só podem ser removidos em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
-    }
+    this.assertEditable(budget.status, 'Itens');
 
+    const before = await this.repository.getItemById(itemId);
     await this.repository.deleteItem(itemId);
     await this.repository.recalculateTotal(budgetId);
+    await this.repository.logHistory({
+      budgetId, userId, action: 'ITEM_DELETE', field: 'item',
+      oldValue: before?.product_name || itemId,
+      description: `Item removido: ${before?.product_name || itemId}`,
+    });
     return { success: true };
   }
 
-  async selectQuote(itemId: string, quoteId: string) {
+  async selectQuote(itemId: string, quoteId: string, userId?: string) {
     const budgetId = await this.repository.getItemBudgetId(itemId);
     if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
 
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Cotações só podem ser selecionadas em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
-    }
+    this.assertEditable(budget.status, 'Cotações');
 
     await this.repository.selectQuote(itemId, quoteId);
     await this.repository.recalculateTotal(budgetId);
+    await this.repository.logHistory({
+      budgetId, userId, action: 'QUOTE_SELECT', field: 'selected_quote',
+      newValue: quoteId, description: 'Cotação selecionada alterada',
+    });
     return { success: true };
   }
 
@@ -323,19 +421,29 @@ export class PurchaseBudgetsService {
     return this.repository.getQuotes(itemId);
   }
 
-  async addQuote(itemId: string, data: CreateBudgetQuoteDTO) {
+  async addQuote(itemId: string, data: CreateBudgetQuoteDTO, userId?: string) {
     const budgetId = await this.repository.getItemBudgetId(itemId);
     if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
 
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Cotações só podem ser adicionadas em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
+    this.assertEditable(budget.status, 'Cotações');
+
+    // Validação (Demanda 6): preço maior que zero
+    if (data.unitPrice === undefined || data.unitPrice <= 0) {
+      throw Object.assign(new Error('O preço unitário deve ser maior que zero'), { statusCode: 400, code: 'INVALID_PRICE' });
     }
 
-    return this.repository.addQuote(itemId, data);
+    const quote = await this.repository.addQuote(itemId, data);
+    await this.repository.recalculateTotal(budgetId);
+    await this.repository.logHistory({
+      budgetId, userId, action: 'QUOTE_ADD', field: 'unit_price',
+      newValue: String(data.unitPrice),
+      description: `Cotação adicionada (${(data.unitPrice / 100).toFixed(2)})`,
+    });
+    return quote;
   }
 
-  async updateQuote(quoteId: string, data: UpdateBudgetQuoteDTO) {
+  async updateQuote(quoteId: string, data: UpdateBudgetQuoteDTO, userId?: string) {
     const itemId = await this.repository.getQuoteItemId(quoteId);
     if (!itemId) throw Object.assign(new Error('Cotação não encontrada'), { statusCode: 404, code: 'QUOTE_NOT_FOUND' });
 
@@ -343,16 +451,28 @@ export class PurchaseBudgetsService {
     if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
 
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Cotações só podem ser editadas em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
+    this.assertEditable(budget.status, 'Cotações');
+
+    if (data.unitPrice !== undefined && data.unitPrice <= 0) {
+      throw Object.assign(new Error('O preço unitário deve ser maior que zero'), { statusCode: 400, code: 'INVALID_PRICE' });
     }
+
+    const before = await this.repository.getQuoteById(quoteId);
 
     await this.repository.updateQuote(quoteId, data);
     await this.repository.recalculateTotal(budgetId);
+
+    if (before && data.unitPrice !== undefined && Number(data.unitPrice) !== Number(before.unit_price)) {
+      await this.repository.logHistory({
+        budgetId, userId, action: 'QUOTE_UPDATE', field: 'unit_price',
+        oldValue: String(before.unit_price), newValue: String(data.unitPrice),
+        description: `Preço unitário: ${(before.unit_price / 100).toFixed(2)} → ${(data.unitPrice / 100).toFixed(2)}`,
+      });
+    }
     return { success: true };
   }
 
-  async deleteQuote(quoteId: string) {
+  async deleteQuote(quoteId: string, userId?: string) {
     const itemId = await this.repository.getQuoteItemId(quoteId);
     if (!itemId) throw Object.assign(new Error('Cotação não encontrada'), { statusCode: 404, code: 'QUOTE_NOT_FOUND' });
 
@@ -360,12 +480,14 @@ export class PurchaseBudgetsService {
     if (!budgetId) throw Object.assign(new Error('Item não encontrado'), { statusCode: 404, code: 'ITEM_NOT_FOUND' });
 
     const budget = await this.findById(budgetId);
-    if (budget.status !== 'DRAFT') {
-      throw Object.assign(new Error('Cotações só podem ser removidas em rascunhos'), { statusCode: 400, code: 'INVALID_STATUS' });
-    }
+    this.assertEditable(budget.status, 'Cotações');
 
     await this.repository.deleteQuote(quoteId);
     await this.repository.recalculateTotal(budgetId);
+    await this.repository.logHistory({
+      budgetId, userId, action: 'QUOTE_DELETE', field: 'unit_price',
+      description: 'Cotação removida',
+    });
     return { success: true };
   }
 

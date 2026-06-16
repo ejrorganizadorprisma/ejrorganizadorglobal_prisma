@@ -216,6 +216,19 @@ export function useDeleteBudgetItem() {
   });
 }
 
+export function useDuplicateBudgetItem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      const response = await api.post(`/purchase-budgets/items/${itemId}/duplicate`);
+      return response.data.data as PurchaseBudgetItem;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-budgets'] });
+    },
+  });
+}
+
 export function useSelectQuote() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -301,6 +314,32 @@ export interface LastPurchaseInfo {
   last: LastPurchaseRecord | null;
   previous: LastPurchaseRecord | null;
   currentCost: { value: number; currency: string } | null;
+}
+
+export interface BudgetHistoryEntry {
+  id: string;
+  budgetId: string;
+  userId: string | null;
+  userName: string | null;
+  userEmail: string | null;
+  action: string;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  description: string | null;
+  createdAt: string;
+}
+
+/** Histórico de alterações de um orçamento (Demanda 3). */
+export function useBudgetHistory(budgetId?: string) {
+  return useQuery({
+    queryKey: ['purchase-budgets', budgetId, 'history'],
+    queryFn: async () => {
+      const { data } = await api.get<{ data: BudgetHistoryEntry[] }>(`/purchase-budgets/${budgetId}/history`);
+      return data.data;
+    },
+    enabled: !!budgetId,
+  });
 }
 
 /** Busca a última e a penúltima compra de um produto (todos os fornecedores). */

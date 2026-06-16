@@ -5,7 +5,9 @@ import {
   useCreatePurchaseBudget,
   useUpdatePurchaseBudget,
   useAddBudgetItem,
+  useUpdateBudgetItem,
   useDeleteBudgetItem,
+  useDuplicateBudgetItem,
   useAddQuote,
   useDeleteQuote,
   useSelectQuote,
@@ -22,6 +24,7 @@ import { toast } from 'sonner';
 import {
   Plus, Trash2, ChevronDown, ChevronUp, Check, Send, Save,
   ArrowLeft, Package, Search, DollarSign, ShoppingCart, Globe, X, Filter, AlertTriangle, FileText, Printer,
+  History, Copy, ArrowRight,
 } from 'lucide-react';
 import type { PurchaseBudgetItem, Currency } from '@ejr/shared-types';
 import { DemandAnalysisPanel } from '../components/DemandAnalysisPanel';
@@ -72,7 +75,9 @@ export function PurchaseBudgetFormPage() {
   const createBudget = useCreatePurchaseBudget();
   const updateBudget = useUpdatePurchaseBudget();
   const addItem = useAddBudgetItem();
+  const updateItem = useUpdateBudgetItem();
   const deleteItem = useDeleteBudgetItem();
+  const duplicateItem = useDuplicateBudgetItem();
   const addQuote = useAddQuote();
   const deleteQuote = useDeleteQuote();
   const selectQuote = useSelectQuote();
@@ -118,6 +123,9 @@ export function PurchaseBudgetFormPage() {
 
   // Preço inline direto na linha do item (fluxo rápido)
   const [inlinePrice, setInlinePrice] = useState<Record<string, string>>({});
+  // Preço da última compra por item (centavos BRL) — coluna "Preço Anterior"
+  const [lastPurchaseCents, setLastPurchaseCents] = useState<Record<string, number>>({});
+  const prefilledPriceRef = useRef<Set<string>>(new Set());
   const [savingInline, setSavingInline] = useState<Record<string, boolean>>({});
 
   // New quote form per item (painel expandido — fluxo avançado multi-cotação)
@@ -409,6 +417,30 @@ export function PurchaseBudgetFormPage() {
 
   const items: PurchaseBudgetItem[] = budget?.items || [];
 
+  // Busca o preço da última compra de cada produto para exibir na coluna
+  // "Preço Anterior" (referência, só leitura). Demanda 2/Compras.
+  useEffect(() => {
+    const pending = items.filter(
+      (it) => it.productId && !prefilledPriceRef.current.has(it.id),
+    );
+    if (pending.length === 0) return;
+    pending.forEach(async (it) => {
+      prefilledPriceRef.current.add(it.id);
+      try {
+        const { data: resp } = await api.get('/purchase-budgets/last-purchase', {
+          params: { productId: it.productId },
+        });
+        const last = resp.data?.last;
+        if (last?.unitPrice) {
+          setLastPurchaseCents((prev) => ({ ...prev, [it.id]: last.unitPrice }));
+        }
+      } catch {
+        /* silencioso */
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
   const totalAdditionalPercentage = useMemo(() => {
     return additionalCosts.reduce((sum, cost) => sum + cost.percentage, 0);
   }, [additionalCosts]);
@@ -683,6 +715,26 @@ export function PurchaseBudgetFormPage() {
       await deleteItem.mutateAsync(itemId);
     } catch {
       toast.error('Erro ao remover item.');
+    }
+  };
+
+  // Edita a quantidade de um item já adicionado (Demanda 3)
+  const handleUpdateQty = async (itemId: string, newQty: number) => {
+    if (!newQty || newQty < 1) return;
+    try {
+      await updateItem.mutateAsync({ itemId, data: { quantity: newQty } });
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao alterar quantidade.');
+    }
+  };
+
+  // Duplica um item do orçamento (Demanda 3)
+  const handleDuplicateItem = async (itemId: string) => {
+    try {
+      await duplicateItem.mutateAsync(itemId);
+      toast.success('Item duplicado.');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao duplicar item.');
     }
   };
 
@@ -1559,16 +1611,17 @@ export function PurchaseBudgetFormPage() {
             <>
               {/* Cabeçalho */}
               <div className="overflow-x-auto">
-              <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b min-w-[600px]">
+              <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b min-w-[680px]">
                 <div className="col-span-4">Produto</div>
                 <div className="col-span-1 text-center">Qtd</div>
-                <div className="col-span-3 text-center">Preço Unit. {currencySymbol}</div>
-                <div className="col-span-3 text-right">Subtotal</div>
+                <div className="col-span-2 text-center" title="Referência da última compra deste produto">Preço Anterior</div>
+                <div className="col-span-2 text-center">Preço Atual {currencySymbol}</div>
+                <div className="col-span-2 text-right">Subtotal</div>
                 <div className="col-span-1 text-right"></div>
               </div>
 
               {/* Itens com preço inline */}
-              <div className="divide-y divide-gray-100 min-w-[600px]">
+              <div className="divide-y divide-gray-100 min-w-[680px]">
                 {items.map((item, idx) => {
                   const selectedQuote = item.selectedQuoteId && item.quotes
                     ? item.quotes.find((q) => q.id === item.selectedQuoteId)
@@ -1591,12 +1644,54 @@ export function PurchaseBudgetFormPage() {
                             )}
                           </div>
                         </div>
-                        <div className="col-span-1 text-center">
-                          <span className="text-sm font-medium">{item.quantity}</span>
+                        <div className="col-span-1 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="number"
+                            min={1}
+                            defaultValue={item.quantity}
+                            key={`qty-${item.id}-${item.quantity}`}
+                            onBlur={(e) => {
+                              const v = parseInt(e.target.value, 10);
+                              if (v && v !== item.quantity) handleUpdateQty(item.id, v);
+                              else e.target.value = String(item.quantity);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            }}
+                            title="Editar quantidade"
+                            className="w-14 px-1 py-0.5 text-sm text-center font-medium border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 rounded"
+                          />
                         </div>
 
-                        {/* PREÇO INLINE — digita e Enter para salvar */}
-                        <div className="col-span-3" onClick={(e) => e.stopPropagation()}>
+                        {/* PREÇO ANTERIOR — referência da última compra (só leitura) + seta copiar */}
+                        <div className="col-span-2 flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                          {lastPurchaseCents[item.id] ? (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-gray-600 inline-flex items-center gap-0.5" title="Última compra deste produto">
+                                  <History className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                                  {displayPrice(lastPurchaseCents[item.id])}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setInlinePrice((prev) => ({ ...prev, [item.id]: brlCentsToInputVal(lastPurchaseCents[item.id]) }))}
+                                  className="p-0.5 text-blue-500 hover:bg-blue-100 rounded shrink-0"
+                                  title="Copiar para Preço Atual"
+                                >
+                                  <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              {secondaryPrices(lastPurchaseCents[item.id]) && (
+                                <p className="text-[10px] text-gray-400 text-center">{secondaryPrices(lastPurchaseCents[item.id])}</p>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-300" title="Primeira compra deste produto">—</span>
+                          )}
+                        </div>
+
+                        {/* PREÇO ATUAL — preço do distribuidor (editável) */}
+                        <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
                           {selectedQuote && !inlinePrice[item.id] ? (
                             /* Tem preço — mostra valor, clica para editar */
                             <div
@@ -1616,38 +1711,43 @@ export function PurchaseBudgetFormPage() {
                             </div>
                           ) : (
                             /* Sem preço ou editando — input direto */
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-gray-400 shrink-0">{currencySymbol}</span>
-                              <input
-                                type="number"
-                                step={currency === 'PYG' ? '1' : '0.01'}
-                                value={inlinePrice[item.id] || ''}
-                                onChange={(e) => setInlinePrice((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleInlineQuote(item.id);
-                                  if (e.key === 'Escape') setInlinePrice((prev) => ({ ...prev, [item.id]: '' }));
-                                }}
-                                placeholder="Preço"
-                                disabled={isSaving}
-                                autoFocus={!!selectedQuote}
-                                className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
-                              />
-                              {inlinePrice[item.id] && (
-                                <button
-                                  onClick={() => handleInlineQuote(item.id)}
+                            <div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-gray-400 shrink-0">{currencySymbol}</span>
+                                <input
+                                  type="number"
+                                  step={currency === 'PYG' ? '1' : '0.01'}
+                                  value={inlinePrice[item.id] || ''}
+                                  onChange={(e) => setInlinePrice((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleInlineQuote(item.id);
+                                    if (e.key === 'Escape') setInlinePrice((prev) => ({ ...prev, [item.id]: '' }));
+                                  }}
+                                  placeholder="Preço"
                                   disabled={isSaving}
-                                  className="p-1 text-green-600 hover:bg-green-50 rounded shrink-0"
-                                  title="Salvar (Enter)"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
+                                  autoFocus={!!selectedQuote}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                                />
+                                {inlinePrice[item.id] && (
+                                  <button
+                                    onClick={() => handleInlineQuote(item.id)}
+                                    disabled={isSaving}
+                                    className="p-1 text-green-600 hover:bg-green-50 rounded shrink-0"
+                                    title="Salvar (Enter)"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                              {inlinePrice[item.id] && parseFloat(inlinePrice[item.id]) > 0 && secondaryPrices(inputToBrlCents(inlinePrice[item.id])) && (
+                                <p className="text-[10px] text-gray-400 text-right mt-0.5">{secondaryPrices(inputToBrlCents(inlinePrice[item.id]))}</p>
                               )}
                             </div>
                           )}
                         </div>
 
                         {/* Subtotal */}
-                        <div className="col-span-3 text-right">
+                        <div className="col-span-2 text-right">
                           {subtotalCents > 0 && selectedQuote ? (
                             <div>
                               <span className="text-sm font-semibold text-gray-900">{displayItemSubtotal(selectedQuote.unitPrice, item.quantity)}</span>
@@ -1671,6 +1771,13 @@ export function PurchaseBudgetFormPage() {
                             title="Comparar cotações"
                           >
                             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          </button>
+                          <button
+                            onClick={() => handleDuplicateItem(item.id)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="Duplicar item"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDeleteItem(item.id)}

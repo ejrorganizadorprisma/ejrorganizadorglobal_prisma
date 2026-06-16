@@ -62,8 +62,19 @@ export const create = async (req: Request, res: Response) => {
 
 export const update = async (req: Request, res: Response) => {
   try {
-    const budget = await service.update(req.params.id, req.body);
+    const userId = (req as any).user?.id;
+    const budget = await service.update(req.params.id, req.body, userId);
     res.json({ success: true, data: budget });
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ success: false, error: { code: error.code || 'INTERNAL_ERROR', message: error.message } });
+  }
+};
+
+export const getHistory = async (req: Request, res: Response) => {
+  try {
+    const history = await service.getHistory(req.params.id);
+    res.json({ success: true, data: history });
   } catch (error: any) {
     const status = error.statusCode || 500;
     res.status(status).json({ success: false, error: { code: error.code || 'INTERNAL_ERROR', message: error.message } });
@@ -180,7 +191,19 @@ export const getItems = async (req: Request, res: Response) => {
 
 export const addItem = async (req: Request, res: Response) => {
   try {
-    const item = await service.addItem(req.params.id, req.body);
+    const userId = (req as any).user?.id;
+    const item = await service.addItem(req.params.id, req.body, userId);
+    res.status(201).json({ success: true, data: item });
+  } catch (error: any) {
+    const status = error.statusCode || 500;
+    res.status(status).json({ success: false, error: { code: error.code || 'INTERNAL_ERROR', message: error.message } });
+  }
+};
+
+export const duplicateItem = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.id;
+    const item = await service.duplicateItem(req.params.itemId, userId);
     res.status(201).json({ success: true, data: item });
   } catch (error: any) {
     const status = error.statusCode || 500;
@@ -190,7 +213,8 @@ export const addItem = async (req: Request, res: Response) => {
 
 export const updateItem = async (req: Request, res: Response) => {
   try {
-    await service.updateItem(req.params.itemId, req.body);
+    const userId = (req as any).user?.id;
+    await service.updateItem(req.params.itemId, req.body, userId);
     res.json({ success: true });
   } catch (error: any) {
     const status = error.statusCode || 500;
@@ -200,7 +224,8 @@ export const updateItem = async (req: Request, res: Response) => {
 
 export const deleteItem = async (req: Request, res: Response) => {
   try {
-    await service.deleteItem(req.params.itemId);
+    const userId = (req as any).user?.id;
+    await service.deleteItem(req.params.itemId, userId);
     res.json({ success: true });
   } catch (error: any) {
     const status = error.statusCode || 500;
@@ -210,7 +235,8 @@ export const deleteItem = async (req: Request, res: Response) => {
 
 export const selectQuote = async (req: Request, res: Response) => {
   try {
-    await service.selectQuote(req.params.itemId, req.params.quoteId);
+    const userId = (req as any).user?.id;
+    await service.selectQuote(req.params.itemId, req.params.quoteId, userId);
     res.json({ success: true });
   } catch (error: any) {
     const status = error.statusCode || 500;
@@ -232,7 +258,8 @@ export const getQuotes = async (req: Request, res: Response) => {
 
 export const addQuote = async (req: Request, res: Response) => {
   try {
-    const quote = await service.addQuote(req.params.itemId, req.body);
+    const userId = (req as any).user?.id;
+    const quote = await service.addQuote(req.params.itemId, req.body, userId);
     res.status(201).json({ success: true, data: quote });
   } catch (error: any) {
     const status = error.statusCode || 500;
@@ -242,7 +269,8 @@ export const addQuote = async (req: Request, res: Response) => {
 
 export const updateQuote = async (req: Request, res: Response) => {
   try {
-    await service.updateQuote(req.params.quoteId, req.body);
+    const userId = (req as any).user?.id;
+    await service.updateQuote(req.params.quoteId, req.body, userId);
     res.json({ success: true });
   } catch (error: any) {
     const status = error.statusCode || 500;
@@ -252,7 +280,8 @@ export const updateQuote = async (req: Request, res: Response) => {
 
 export const deleteQuote = async (req: Request, res: Response) => {
   try {
-    await service.deleteQuote(req.params.quoteId);
+    const userId = (req as any).user?.id;
+    await service.deleteQuote(req.params.quoteId, userId);
     res.json({ success: true });
   } catch (error: any) {
     const status = error.statusCode || 500;
