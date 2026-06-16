@@ -63,7 +63,7 @@ export class FinancialRepository {
       SELECT COALESCE(SUM(sp.amount), 0)::bigint AS total
       FROM sale_payments sp
       WHERE sp.status = 'PENDING'
-        AND sp.due_date = CURRENT_DATE
+        AND sp.due_date::date = CURRENT_DATE
     `;
 
     const dueTodayPayableQuery = `
@@ -374,14 +374,14 @@ export class FinancialRepository {
     // Recebíveis por dia (PENDING apenas, pois PAID já foi recebido)
     const receivableByDayQuery = `
       SELECT
-        sp.due_date::text AS day,
+        sp.due_date::date::text AS day,
         COALESCE(SUM(sp.amount), 0)::bigint AS total
       FROM sale_payments sp
       WHERE sp.status = 'PENDING'
         AND sp.due_date >= CURRENT_DATE
         AND sp.due_date < CURRENT_DATE + $1::int
-      GROUP BY sp.due_date
-      ORDER BY sp.due_date
+      GROUP BY sp.due_date::date
+      ORDER BY sp.due_date::date
     `;
 
     // Pagáveis por dia
@@ -1195,14 +1195,14 @@ export class FinancialRepository {
 
     const receivableByDayQuery = `
       SELECT
-        sp.due_date::text AS day,
+        sp.due_date::date::text AS day,
         COALESCE(SUM(sp.amount), 0)::bigint AS total
       FROM sale_payments sp
       WHERE sp.status = 'PENDING'
         AND sp.due_date >= CURRENT_DATE
         AND sp.due_date < CURRENT_DATE + 30
-      GROUP BY sp.due_date
-      ORDER BY sp.due_date
+      GROUP BY sp.due_date::date
+      ORDER BY sp.due_date::date
     `;
 
     const payableByDayQuery = `

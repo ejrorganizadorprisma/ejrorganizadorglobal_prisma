@@ -92,6 +92,7 @@ export function useApproveCollection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
     },
   });
 }
@@ -105,6 +106,7 @@ export function useRejectCollection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
     },
   });
 }
@@ -118,6 +120,7 @@ export function useDepositCollection() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
     },
   });
 }

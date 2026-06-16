@@ -21,7 +21,7 @@ export interface CommissionEntry {
   sourceType: 'SALE' | 'COLLECTION';
   sourceId: string;
   baseAmount: number;
-  rate: number;
+  commissionRate: number;
   commissionAmount: number;
   status: 'PENDING' | 'SETTLED' | 'CANCELLED';
   settlementId?: string;
@@ -34,7 +34,7 @@ export interface CommissionSummary {
   totalPending: number;
   totalSettled: number;
   totalCancelled: number;
-  totalCurrentMonth: number;
+  currentMonthEarned: number;
   entryCount: number;
 }
 
@@ -151,6 +151,7 @@ export function useCreateSettlement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commissions'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
     },
   });
 }
@@ -164,6 +165,7 @@ export function usePaySettlement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['commissions'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
     },
   });
 }

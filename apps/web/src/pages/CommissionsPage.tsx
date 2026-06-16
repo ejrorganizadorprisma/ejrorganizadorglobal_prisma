@@ -314,7 +314,7 @@ function EntriesTab() {
   // KPI from summaries
   const totalPending = summaries?.reduce((sum, s) => sum + s.totalPending, 0) || 0;
   const totalSettled = summaries?.reduce((sum, s) => sum + s.totalSettled, 0) || 0;
-  const totalCurrentMonth = summaries?.reduce((sum, s) => sum + s.totalCurrentMonth, 0) || 0;
+  const totalCurrentMonth = summaries?.reduce((sum, s) => sum + s.currentMonthEarned, 0) || 0;
 
   const entryStatusConfig: Record<string, { label: string; bg: string; text: string }> = {
     PENDING: { label: 'Pendente', bg: 'bg-amber-100', text: 'text-amber-800' },
@@ -428,7 +428,7 @@ function EntriesTab() {
                       <td className="px-4 py-3 font-medium text-gray-900">{entry.sellerName}</td>
                       <td className="px-4 py-3 text-gray-700">{sourceTypeLabels[entry.sourceType] || entry.sourceType}</td>
                       <td className="px-4 py-3 text-right text-gray-900">{formatPrice(entry.baseAmount)}</td>
-                      <td className="px-4 py-3 text-center text-gray-600">{entry.rate}%</td>
+                      <td className="px-4 py-3 text-center text-gray-600">{entry.commissionRate}%</td>
                       <td className="px-4 py-3 text-right font-semibold text-purple-700">{formatPrice(entry.commissionAmount)}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sCfg.bg} ${sCfg.text}`}>

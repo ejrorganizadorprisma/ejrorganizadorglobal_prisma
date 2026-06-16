@@ -196,11 +196,15 @@ function AppRoutes() {
   const location = useLocation();
 
   useEffect(() => {
-    // Só tenta buscar o usuário se não estiver na página de login
+    // Restaura a sessão apenas no MOUNT (não a cada navegação). Chamar
+    // fetchUser() em toda mudança de rota gerava enxurrada de /auth/me que,
+    // com o token de 15min expirado, disparava 401 concorrentes e a corrida
+    // de rotação de refresh — deslogando o usuário (ex.: ao sair das Configurações).
     if (location.pathname !== '/login') {
       fetchUser();
     }
-  }, [fetchUser, location.pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Routes>
