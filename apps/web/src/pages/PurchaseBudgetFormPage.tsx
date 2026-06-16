@@ -101,7 +101,7 @@ export function PurchaseBudgetFormPage() {
   const [newCostPercentage, setNewCostPercentage] = useState('');
 
   // Sugestões editáveis de custos adicionais (persistidas no localStorage)
-  const DEFAULT_COST_SUGGESTIONS = ['Frete', 'Seguro', 'Impostos', 'Cambio', 'Comissao'];
+  const DEFAULT_COST_SUGGESTIONS = ['Frete', 'Seguro', 'Impostos', 'Câmbio', 'Comissão'];
   const [costSuggestions, setCostSuggestions] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('ejr_cost_suggestions');
@@ -928,7 +928,7 @@ export function PurchaseBudgetFormPage() {
                 className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-l-lg hover:bg-blue-700 text-sm font-medium"
               >
                 <FileText className="w-4 h-4" />
-                PDF Cotacao
+                PDF Cotação
               </button>
               <button
                 onClick={handleGeneratePdfPrint}

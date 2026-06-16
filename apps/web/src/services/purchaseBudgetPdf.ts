@@ -166,7 +166,7 @@ export function generatePurchaseBudgetPdf(budget: PurchaseBudget, settings?: Doc
   const rightLines = [`Data: ${formatDate(budget.createdAt)}`];
   if (budget.leadTimeDays) rightLines.push(`Prazo desejado: ${budget.leadTimeDays} dias`);
 
-  const headerHeight = drawHeader(doc, pageWidth, budget, 'SOLICITACAO DE COTACAO', settings, primaryColor, secondaryColor, print, rightLines);
+  const headerHeight = drawHeader(doc, pageWidth, budget, 'SOLICITAÇÃO DE COTAÇÃO', settings, primaryColor, secondaryColor, print, rightLines);
 
   let yPos = headerHeight + 10;
 
@@ -220,7 +220,7 @@ export function generatePurchaseBudgetPdf(budget: PurchaseBudget, settings?: Doc
 
   autoTable(doc, {
     startY: yPos,
-    head: [['#', 'Cod. Fab.', 'Produto', 'Qtd', 'Unidade', 'Observacoes']],
+    head: [['#', 'Cód. Fáb.', 'Produto', 'Qtd', 'Unidade', 'Observações']],
     body: tableData,
     theme: print ? 'grid' : 'striped',
     headStyles: print
@@ -305,7 +305,7 @@ export function generatePurchaseBudgetFullPdf(budget: PurchaseBudget, settings?:
 
   const rightLines = [`Data: ${formatDate(budget.createdAt)}`, `Status: ${STATUS_LABELS[budget.status] || budget.status}`];
 
-  const headerHeight = drawHeader(doc, pageWidth, budget, 'ORCAMENTO DE COMPRA', settings, primaryColor, secondaryColor, print, rightLines);
+  const headerHeight = drawHeader(doc, pageWidth, budget, 'ORÇAMENTO DE COMPRA', settings, primaryColor, secondaryColor, print, rightLines);
 
   let yPos = headerHeight + 10;
 
@@ -313,7 +313,7 @@ export function generatePurchaseBudgetFullPdf(budget: PurchaseBudget, settings?:
   doc.setTextColor(...textColor);
 
   const fields: Array<{ label: string; value: string }> = [];
-  fields.push({ label: 'Titulo', value: budget.title });
+  fields.push({ label: 'Título', value: budget.title });
   fields.push({ label: 'Prioridade', value: PRIORITY_LABELS[budget.priority] || budget.priority });
   if (budget.department) fields.push({ label: 'Departamento', value: budget.department });
   if (budget.supplierName) fields.push({ label: 'Fornecedor', value: budget.supplierName });
@@ -326,7 +326,7 @@ export function generatePurchaseBudgetFullPdf(budget: PurchaseBudget, settings?:
   if (budget.approvedByUser && budget.approvedAt) {
     fields.push({ label: 'Aprovado por', value: `${budget.approvedByUser.name} em ${formatDate(budget.approvedAt)}` });
   }
-  if (budget.description) fields.push({ label: 'Descricao', value: budget.description });
+  if (budget.description) fields.push({ label: 'Descrição', value: budget.description });
   if (budget.justification) fields.push({ label: 'Justificativa', value: budget.justification });
 
   const rowCount = Math.ceil(fields.length / 2);
@@ -389,7 +389,7 @@ export function generatePurchaseBudgetFullPdf(budget: PurchaseBudget, settings?:
 
   autoTable(doc, {
     startY: yPos,
-    head: [['#', 'Cod. Fab.', 'Produto', 'Qtd', 'Un', 'Fornecedor Cotacao', 'Preco Unit.', 'Total']],
+    head: [['#', 'Cód. Fáb.', 'Produto', 'Qtd', 'Un', 'Fornecedor Cotação', 'Preço Unit.', 'Total']],
     body: tableData,
     theme: print ? 'grid' : 'striped',
     headStyles: print

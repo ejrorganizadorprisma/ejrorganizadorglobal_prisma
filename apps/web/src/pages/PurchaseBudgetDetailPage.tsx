@@ -476,7 +476,7 @@ export function PurchaseBudgetDetailPage() {
           {budget.items && budget.items.length > 0 && (
             <>
               <button onClick={handleGeneratePdf} className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-l hover:bg-blue-700 text-sm">
-                <FileText className="w-4 h-4" /> PDF Cotacao
+                <FileText className="w-4 h-4" /> PDF Cotação
               </button>
               <button onClick={handleGeneratePdfPrint} className="flex items-center gap-1 px-2 py-2 bg-blue-500 text-white rounded-r hover:bg-blue-600 text-sm border-l border-blue-700" title="Versao para impressao">
                 <Printer className="w-4 h-4" />
