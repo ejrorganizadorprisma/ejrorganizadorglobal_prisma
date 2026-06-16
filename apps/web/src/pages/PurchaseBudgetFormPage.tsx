@@ -126,6 +126,8 @@ export function PurchaseBudgetFormPage() {
   const [inlinePrice, setInlinePrice] = useState<Record<string, string>>({});
   // Coluna "Preço Anterior" — input editável, pré-preenchido com a última compra
   const [prevPrice, setPrevPrice] = useState<Record<string, string>>({});
+  // Buffer de edição do campo "% de diferença" entre Anterior e Atual (limpa no blur)
+  const [pctEditing, setPctEditing] = useState<Record<string, string>>({});
   const prefilledPriceRef = useRef<Set<string>>(new Set());
   // Modal "transformar em pedido" exibido após salvar
   const [showConvertModal, setShowConvertModal] = useState(false);
@@ -341,6 +343,23 @@ export function PurchaseBudgetFormPage() {
     const unitWithCosts = unitInPrimary * (1 + totalAdditionalPercentage / 100);
     const rounded = Math.round(unitWithCosts * 100) * quantity / 100;
     return `${fmtAmount(rounded, currency)} · ${fmtPYG(pygTotal)}`;
+  };
+
+  // Valor unitário ATUAL com custos adicionais, sempre em Guaraní (destaque)
+  // Reaproveita calcPygWithCosts (BRL centavos → PYG × (1 + custos%))
+  const unitCostsSecondary = (unitPriceCents: number): string | null => {
+    if (!hasRates || unitPriceCents <= 0) return null;
+    const factor = 1 + totalAdditionalPercentage / 100;
+    const brl = (unitPriceCents / 100) * factor;
+    const usd = convertDirect(brl, 'BRL', 'USD');
+    return `${fmtBRL(Math.round(brl * 100))} · ${fmtUSD(Math.round(usd * 100))}`;
+  };
+
+  // % de diferença entre Preço Anterior e Preço Atual (string limpa p/ exibição)
+  const computedDeltaPct = (prevCents: number, atualCents: number): string => {
+    if (prevCents <= 0 || atualCents <= 0) return '';
+    const pct = ((atualCents - prevCents) / prevCents) * 100;
+    return (Math.round(pct * 10) / 10).toString();
   };
 
   // Input na moeda de referência → centavos BRL para storage (conversão DIRETA)
@@ -1671,13 +1690,15 @@ export function PurchaseBudgetFormPage() {
             <>
               {/* Cabeçalho */}
               <div className="overflow-x-auto">
-              <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b min-w-[680px]">
+              <div className="grid grid-cols-[repeat(24,minmax(0,1fr))] gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b min-w-[1200px]">
                 <div className="col-span-4">Produto</div>
-                <div className="col-span-1 text-center">Qtd</div>
-                <div className="col-span-2 text-center" title="Referência da última compra deste produto">Preço Anterior</div>
-                <div className="col-span-2 text-center">Preço Atual {currencySymbol}</div>
+                <div className="col-span-2 text-center">Qtd</div>
+                <div className="col-span-4 text-center" title="Referência da última compra deste produto">Preço Anterior</div>
+                <div className="col-span-2 text-center" title="% de diferença (editável)">Δ %</div>
+                <div className="col-span-4 text-center">Preço Atual {currencySymbol}</div>
+                <div className="col-span-4 text-center" title="Preço atual + custos adicionais, em Guaraní">Custo c/ taxas ₲</div>
                 <div className="col-span-2 text-right">Subtotal</div>
-                <div className="col-span-1 text-right"></div>
+                <div className="col-span-2 text-right"></div>
               </div>
 
               {/* Itens com preço inline */}
@@ -1698,7 +1719,7 @@ export function PurchaseBudgetFormPage() {
                   return (
                     <div key={item.id}>
                       {/* Linha do item — preço inline direto */}
-                      <div className={`grid grid-cols-12 gap-2 px-4 py-2.5 items-center ${isExpanded ? 'bg-blue-50/30' : 'hover:bg-gray-50'} transition-colors`}>
+                      <div className={`grid grid-cols-[repeat(24,minmax(0,1fr))] gap-2 px-4 py-2.5 items-center ${isExpanded ? 'bg-blue-50/30' : 'hover:bg-gray-50'} transition-colors`}>
                         <div className="col-span-4 flex items-center gap-2 min-w-0">
                           <span className="text-xs text-gray-400 w-5 shrink-0">{idx + 1}.</span>
                           <div className="min-w-0">
@@ -1708,7 +1729,7 @@ export function PurchaseBudgetFormPage() {
                             )}
                           </div>
                         </div>
-                        <div className="col-span-1 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="col-span-2 text-center" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="number"
                             min={1}
@@ -1728,7 +1749,7 @@ export function PurchaseBudgetFormPage() {
                         </div>
 
                         {/* PREÇO ANTERIOR — input editável, pré-preenchido com a última compra */}
-                        <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="col-span-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             <span className="shrink-0" title="Última compra deste produto">
                               <History className="w-3 h-3 text-emerald-500" />
@@ -1757,8 +1778,40 @@ export function PurchaseBudgetFormPage() {
                           )}
                         </div>
 
+                        {/* Δ% — diferença entre Anterior e Atual (editável: ajusta o Atual) */}
+                        <div className="col-span-2 text-center" onClick={(e) => e.stopPropagation()}>
+                          {(() => {
+                            const prevCents = prevPrice[item.id] && parseFloat(prevPrice[item.id]) > 0 ? inputToBrlCents(prevPrice[item.id]) : 0;
+                            const derived = computedDeltaPct(prevCents, effectiveUnitCents);
+                            const val = pctEditing[item.id] ?? derived;
+                            const num = parseFloat(val);
+                            const tone = !val ? 'text-gray-400' : num > 0 ? 'text-red-600' : num < 0 ? 'text-emerald-600' : 'text-gray-500';
+                            return (
+                              <input
+                                type="number"
+                                step="0.1"
+                                value={val}
+                                disabled={prevCents <= 0}
+                                placeholder="%"
+                                title="% de diferença vs. anterior — digite para ajustar o Preço Atual"
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  setPctEditing((prev) => ({ ...prev, [item.id]: raw }));
+                                  const pct = parseFloat(raw);
+                                  if (!isNaN(pct) && prevCents > 0) {
+                                    const newCents = Math.round(prevCents * (1 + pct / 100));
+                                    setInlinePrice((prev) => ({ ...prev, [item.id]: brlCentsToInputVal(newCents) }));
+                                  }
+                                }}
+                                onBlur={() => setPctEditing((prev) => { const n = { ...prev }; delete n[item.id]; return n; })}
+                                className={`w-full px-1 py-1 border border-gray-200 rounded text-sm text-center font-semibold ${tone} focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:opacity-40`}
+                              />
+                            );
+                          })()}
+                        </div>
+
                         {/* PREÇO ATUAL — preço do distribuidor (editável) */}
-                        <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="col-span-4" onClick={(e) => e.stopPropagation()}>
                           {selectedQuote && !inlinePrice[item.id] ? (
                             /* Tem preço — mostra valor, clica para editar */
                             <div
@@ -1813,6 +1866,23 @@ export function PurchaseBudgetFormPage() {
                           )}
                         </div>
 
+                        {/* CUSTO C/ TAXAS — preço atual unitário + custos adicionais, em Guaraní (destaque) */}
+                        <div className="col-span-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          {effectiveUnitCents > 0 ? (
+                            <div className="rounded-md bg-emerald-50/70 border border-emerald-100 px-2 py-1">
+                              <p className="text-sm font-bold text-emerald-700 leading-tight">{fmtPYG(calcPygWithCosts(effectiveUnitCents))}</p>
+                              {unitCostsSecondary(effectiveUnitCents) && (
+                                <p className="text-[10px] text-emerald-600/80 leading-tight mt-0.5">{unitCostsSecondary(effectiveUnitCents)}</p>
+                              )}
+                              {totalAdditionalPercentage > 0 && (
+                                <p className="text-[9px] text-emerald-500/80 leading-tight">+{totalAdditionalPercentage}% custos</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </div>
+
                         {/* Subtotal — qtd × Preço Atual (ao vivo) + 2 outras moedas */}
                         <div className="col-span-2 text-right">
                           {subtotalCents > 0 ? (
@@ -1834,7 +1904,7 @@ export function PurchaseBudgetFormPage() {
                         </div>
 
                         {/* Ações */}
-                        <div className="col-span-1 flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                        <div className="col-span-2 flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => { toggleExpand(item.id); initQuoteForm(item.id); }}
                             className={`p-1 rounded text-xs ${isExpanded ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}`}
