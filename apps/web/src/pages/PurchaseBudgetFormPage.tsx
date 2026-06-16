@@ -638,6 +638,32 @@ export function PurchaseBudgetFormPage() {
     generatePurchaseBudgetFullPdf(budget, pdfSettings, true, currency as Currency);
   };
 
+  // Grava como cotação todos os "Preço Atual" digitados que ainda não foram
+  // salvos (Enter/✓). Retorna quantos preços foram persistidos.
+  const flushPendingPrices = async (): Promise<number> => {
+    const pending = items.filter((it) => inlinePrice[it.id] && parseFloat(inlinePrice[it.id]) > 0);
+    if (pending.length === 0) return 0;
+    if (!supplierId) {
+      toast.error('Selecione um fornecedor no topo para gravar os preços.');
+      return 0;
+    }
+    let saved = 0;
+    for (const it of pending) {
+      try {
+        const newQuote = await addQuote.mutateAsync({
+          itemId: it.id,
+          data: { supplierId, unitPrice: inputToBrlCents(inlinePrice[it.id]) },
+        });
+        await selectQuote.mutateAsync({ itemId: it.id, quoteId: newQuote.id });
+        saved++;
+      } catch {
+        /* continua nos demais */
+      }
+    }
+    if (saved > 0) setInlinePrice({});
+    return saved;
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error('Informe o título do orçamento de compra.');
@@ -649,7 +675,9 @@ export function PurchaseBudgetFormPage() {
           id: id!,
           data: { title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts },
         });
-        toast.success('Salvo!');
+        // Persiste também os preços atuais digitados que não foram confirmados
+        const savedPrices = await flushPendingPrices();
+        toast.success(savedPrices > 0 ? `Salvo! ${savedPrices} preço(s) gravado(s).` : 'Salvo!');
       } else {
         const created = await createBudget.mutateAsync({
           title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts,
@@ -664,8 +692,10 @@ export function PurchaseBudgetFormPage() {
 
   const handleSubmit = async () => {
     if (!id) return;
-    if (!window.confirm('Enviar para aprovação? Não será possível editar após o envio.')) return;
+    if (!window.confirm('Enviar para aprovação? Você ainda poderá ajustar os valores depois.')) return;
     try {
+      // Garante que os preços digitados estão gravados antes da validação de envio
+      await flushPendingPrices();
       await submitBudget.mutateAsync(id);
       toast.success('Enviado para aprovação!');
       navigate(`/purchase-budgets/${id}`);
