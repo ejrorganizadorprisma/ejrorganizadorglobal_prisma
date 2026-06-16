@@ -10,7 +10,7 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { PackageCheck, Receipt } from 'lucide-react';
+import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2 } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { RegisterInvoiceModal } from '../components/RegisterInvoiceModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
@@ -279,7 +279,7 @@ export function SupplierOrdersPage() {
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap ${
                               STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'
                             }`}
                           >
@@ -287,23 +287,7 @@ export function SupplierOrdersPage() {
                           </span>
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
-                          <div className="flex justify-end gap-2 items-center">
-                            <button
-                              onClick={() => navigate(`/supplier-orders/${order.id}`)}
-                              className="text-blue-600 hover:text-blue-900"
-                              title="Ver detalhes"
-                            >
-                              Ver
-                            </button>
-
-                            <button
-                              onClick={() => handleGeneratePdf(order.id)}
-                              className="text-green-600 hover:text-green-900"
-                              title="Gerar PDF do pedido"
-                            >
-                              PDF
-                            </button>
-
+                          <div className="flex justify-end gap-1.5 items-center">
                             {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
                               <button
                                 onClick={() => setReceivingOrderId(order.id)}
@@ -324,33 +308,49 @@ export function SupplierOrdersPage() {
                               </button>
                             )}
 
+                            <button
+                              onClick={() => navigate(`/supplier-orders/${order.id}`)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                              title="Ver detalhes"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => handleGeneratePdf(order.id)}
+                              className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"
+                              title="Gerar PDF do pedido"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+
                             {order.status === 'SENT' && (
                               <button
                                 onClick={() => handleConfirm(order.id)}
-                                className="text-green-600 hover:text-green-900"
+                                className="p-1.5 text-green-600 hover:bg-green-50 rounded"
                                 title="Confirmar recebimento"
                               >
-                                Confirmar
+                                <Check className="w-4 h-4" />
                               </button>
                             )}
 
                             {(order.status === 'PENDING' || order.status === 'SENT') && (
                               <button
                                 onClick={() => handleCancel(order.id)}
-                                className="text-orange-600 hover:text-orange-900"
+                                className="p-1.5 text-orange-600 hover:bg-orange-50 rounded"
                                 title="Cancelar pedido"
                               >
-                                Cancelar
+                                <Ban className="w-4 h-4" />
                               </button>
                             )}
 
                             {order.status === 'PENDING' && isAdmin && (
                               <button
                                 onClick={() => handleDelete(order.id)}
-                                className="text-red-600 hover:text-red-900"
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded"
                                 title="Excluir"
                               >
-                                Excluir
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
