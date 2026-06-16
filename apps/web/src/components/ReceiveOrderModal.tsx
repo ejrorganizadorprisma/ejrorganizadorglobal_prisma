@@ -34,6 +34,8 @@ interface ReceiveOrderModalProps {
 }
 
 const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100);
+// Data local em YYYY-MM-DD (evita off-by-one do toISOString em UTC)
+const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModalProps) {
   const { data: order, isLoading } = useSupplierOrder(orderId);
@@ -134,7 +136,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     for (let i = 0; i < n; i++) {
       const d = new Date(today); d.setDate(d.getDate() + days * (i + 1));
       const cents = base + (i < rest ? 1 : 0);
-      list.push({ amount: (cents / 100).toFixed(2), dueDate: d.toISOString().split('T')[0], notes: `Boleto ${i + 1}/${n}` });
+      list.push({ amount: (cents / 100).toFixed(2), dueDate: localDate(d), notes: `Boleto ${i + 1}/${n}` });
     }
     setBoletos(list);
   };
@@ -160,7 +162,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     try {
       const receipt = await createReceipt.mutateAsync({
         supplierOrderId: order.id, supplierId: order.supplierId,
-        receiptDate: new Date().toISOString().split('T')[0],
+        receiptDate: localDate(new Date()),
         invoiceNumber: invoiceNumber || undefined,
         items: items.map((item) => ({
           supplierOrderItemId: item.supplierOrderItemId, productId: item.productId,

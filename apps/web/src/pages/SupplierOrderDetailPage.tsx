@@ -280,7 +280,7 @@ export function SupplierOrderDetailPage() {
                 </button>
               )}
 
-              {(order.status === 'CONFIRMED' || order.status === 'PARTIAL') && (
+              {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
                 <button
                   onClick={() => navigate(`/goods-receipts/new?supplierOrderId=${id}`)}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useProductHistory } from '../hooks/useProducts';
+import { useFormatPrice } from '../hooks/useFormatPrice';
 import { X, ShoppingCart, TrendingUp, History } from 'lucide-react';
 
 interface ProductHistoryModalProps {
@@ -8,11 +9,11 @@ interface ProductHistoryModalProps {
   onClose: () => void;
 }
 
-const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100);
 const fmtDate = (iso: string) => { try { return new Date(iso).toLocaleDateString('pt-BR'); } catch { return '—'; } };
 
 export function ProductHistoryModal({ productId, productName, onClose }: ProductHistoryModalProps) {
   const { data, isLoading } = useProductHistory(productId);
+  const { formatPrice } = useFormatPrice();
   const [tab, setTab] = useState<'compras' | 'vendas'>('compras');
 
   const rows = tab === 'compras' ? data?.purchases || [] : data?.sales || [];
@@ -67,8 +68,8 @@ export function ProductHistoryModal({ productId, productName, onClose }: Product
                     <td className="py-1.5 px-2 text-gray-500">{fmtDate(r.date)}</td>
                     <td className="py-1.5 px-2 text-gray-600 truncate max-w-[140px]">{r.party || '—'}</td>
                     <td className="py-1.5 px-2 text-center font-medium">{r.quantity}</td>
-                    <td className="py-1.5 px-2 text-right text-gray-700">{brl(r.unitPrice)}</td>
-                    <td className="py-1.5 px-2 text-right font-semibold text-gray-800">{brl(r.total ?? r.unitPrice * r.quantity)}</td>
+                    <td className="py-1.5 px-2 text-right text-gray-700">{formatPrice(r.unitPrice)}</td>
+                    <td className="py-1.5 px-2 text-right font-semibold text-gray-800">{formatPrice(r.total ?? r.unitPrice * r.quantity)}</td>
                   </tr>
                 ))}
               </tbody>

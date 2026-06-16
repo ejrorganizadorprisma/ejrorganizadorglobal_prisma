@@ -126,7 +126,7 @@ export class SupplierOrdersRepository {
     }
 
     const lastNumber = result.rows[0].order_number;
-    const lastSequence = parseInt(lastNumber.slice(-4));
+    const lastSequence = parseInt(lastNumber.slice(-4)) || 0;
     const newSequence = String(lastSequence + 1).padStart(4, '0');
 
     return `PED${year}${month}${newSequence}`;

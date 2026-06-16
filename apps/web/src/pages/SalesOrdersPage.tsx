@@ -90,7 +90,8 @@ export function SalesOrdersPage() {
     if (s === 'RECEIVED') return { label: 'Separar', color: 'bg-violet-600 hover:bg-violet-700', run: () => setSeparatingId(order.id) };
     if (s === 'SEPARATED') return { label: 'Autorizar', color: 'bg-blue-600 hover:bg-blue-700', run: () => setApproveTarget({ id: order.id, number: order.orderNumber }) };
     if (s === 'APPROVED') return { label: 'Faturar', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
-    if (s === 'CONVERTED' || s === 'PARTIALLY_CONVERTED') return { label: 'A entregar', color: 'bg-orange-600 hover:bg-orange-700', run: async () => { try { await toDeliverOrder.mutateAsync({ id: order.id }); toast.success('Venda em entrega!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
+    if (s === 'PARTIALLY_CONVERTED') return { label: 'Faturar saldo', color: 'bg-teal-600 hover:bg-teal-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
+    if (s === 'CONVERTED') return { label: 'A entregar', color: 'bg-orange-600 hover:bg-orange-700', run: async () => { try { await toDeliverOrder.mutateAsync({ id: order.id }); toast.success('Venda em entrega!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
     if (s === 'TO_DELIVER') return { label: 'Entregue', color: 'bg-lime-600 hover:bg-lime-700', run: () => setDeliveringOrder({ id: order.id, number: order.orderNumber }) };
     if (s === 'DELIVERED') return { label: 'Concluir', color: 'bg-green-600 hover:bg-green-700', run: async () => { try { await completeOrder.mutateAsync({ id: order.id }); toast.success('Venda concluída!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
     return null;

@@ -630,7 +630,7 @@ export class PurchaseBudgetsService {
     if (!lastPO.rows || lastPO.rows.length === 0) {
       orderNumber = `PO${year}${month}0001`;
     } else {
-      const lastSeq = parseInt(lastPO.rows[0].order_number.slice(-4));
+      const lastSeq = parseInt(lastPO.rows[0].order_number.slice(-4)) || 0;
       orderNumber = `PO${year}${month}${String(lastSeq + 1).padStart(4, '0')}`;
     }
 

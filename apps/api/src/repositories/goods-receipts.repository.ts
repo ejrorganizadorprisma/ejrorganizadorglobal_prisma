@@ -560,18 +560,26 @@ export class GoodsReceiptsRepository {
 
     // Atualiza cada item individualmente
     for (const item of items) {
+      // Quantidade ACEITA = recebida − rejeitada (só a aceita entra no estoque).
+      // Preserva a rejeição/divergência já registrada (não dá UPDATE cego).
+      const rejected = (item as any).quantityRejected || 0;
+      const accepted = Math.max(0, item.quantityReceived - rejected);
+      const finalStatus = (item as any).qualityStatus === 'REJECTED'
+        ? 'REJECTED'
+        : rejected > 0 ? 'PARTIAL' : 'APPROVED';
+
       await db.query(
         `UPDATE goods_receipt_items
-         SET quantity_accepted = $1, quantity_rejected = 0, quality_status = 'APPROVED'
-         WHERE id = $2`,
-        [item.quantityReceived, item.id]
+         SET quantity_accepted = $1, quantity_rejected = $2, quality_status = $3
+         WHERE id = $4`,
+        [accepted, rejected, finalStatus, item.id]
       );
 
-      // Registrar movimentação de estoque via função centralizada
-      if (item.quantityReceived > 0) {
+      // Registrar movimentação de estoque via função centralizada (só o aceito)
+      if (accepted > 0) {
         await db.query(
           `SELECT update_product_stock($1, $2, $3, $4, $5, $6, $7)`,
-          [item.productId, item.quantityReceived, null, 'PURCHASE',
+          [item.productId, accepted, null, 'PURCHASE',
            'Recebimento aprovado - GR ' + receiptId, receiptId, 'GOODS_RECEIPT']
         );
       }
@@ -585,7 +593,7 @@ export class GoodsReceiptsRepository {
         );
 
         const currentReceived = soItemResult.rows[0]?.quantity_received || 0;
-        const newReceived = currentReceived + item.quantityReceived;
+        const newReceived = currentReceived + accepted;
 
         await db.query(
           'UPDATE supplier_order_items SET quantity_received = $1 WHERE id = $2',
