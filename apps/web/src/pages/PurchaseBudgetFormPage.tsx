@@ -123,8 +123,8 @@ export function PurchaseBudgetFormPage() {
 
   // Preço inline direto na linha do item (fluxo rápido)
   const [inlinePrice, setInlinePrice] = useState<Record<string, string>>({});
-  // Preço da última compra por item (centavos BRL) — coluna "Preço Anterior"
-  const [lastPurchaseCents, setLastPurchaseCents] = useState<Record<string, number>>({});
+  // Coluna "Preço Anterior" — input editável, pré-preenchido com a última compra
+  const [prevPrice, setPrevPrice] = useState<Record<string, string>>({});
   const prefilledPriceRef = useRef<Set<string>>(new Set());
   const [savingInline, setSavingInline] = useState<Record<string, boolean>>({});
 
@@ -432,7 +432,7 @@ export function PurchaseBudgetFormPage() {
         });
         const last = resp.data?.last;
         if (last?.unitPrice) {
-          setLastPurchaseCents((prev) => ({ ...prev, [it.id]: last.unitPrice }));
+          setPrevPrice((prev) => (prev[it.id] ? prev : { ...prev, [it.id]: brlCentsToInputVal(last.unitPrice) }));
         }
       } catch {
         /* silencioso */
@@ -1663,30 +1663,33 @@ export function PurchaseBudgetFormPage() {
                           />
                         </div>
 
-                        {/* PREÇO ANTERIOR — referência da última compra (só leitura) + seta copiar */}
-                        <div className="col-span-2 flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                          {lastPurchaseCents[item.id] ? (
-                            <>
-                              <div className="flex items-center gap-1">
-                                <span className="text-xs text-gray-600 inline-flex items-center gap-0.5" title="Última compra deste produto">
-                                  <History className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
-                                  {displayPrice(lastPurchaseCents[item.id])}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setInlinePrice((prev) => ({ ...prev, [item.id]: brlCentsToInputVal(lastPurchaseCents[item.id]) }))}
-                                  className="p-0.5 text-blue-500 hover:bg-blue-100 rounded shrink-0"
-                                  title="Copiar para Preço Atual"
-                                >
-                                  <ArrowRight className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                              {secondaryPrices(lastPurchaseCents[item.id]) && (
-                                <p className="text-[10px] text-gray-400 text-center">{secondaryPrices(lastPurchaseCents[item.id])}</p>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-xs text-gray-300" title="Primeira compra deste produto">—</span>
+                        {/* PREÇO ANTERIOR — input editável, pré-preenchido com a última compra */}
+                        <div className="col-span-2" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center gap-1">
+                            <span className="shrink-0" title="Última compra deste produto">
+                              <History className="w-3 h-3 text-emerald-500" />
+                            </span>
+                            <input
+                              type="number"
+                              step={currency === 'PYG' ? '1' : '0.01'}
+                              value={prevPrice[item.id] || ''}
+                              onChange={(e) => setPrevPrice((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                              placeholder="Anterior"
+                              title="Preço da última compra (editável)"
+                              className="w-full px-2 py-1 border border-gray-200 bg-gray-50/60 rounded text-sm text-right text-gray-600 focus:bg-white focus:ring-blue-500 focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setInlinePrice((prev) => ({ ...prev, [item.id]: prevPrice[item.id] || '' }))}
+                              disabled={!prevPrice[item.id]}
+                              className="p-0.5 text-blue-500 hover:bg-blue-100 rounded shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Copiar para Preço Atual"
+                            >
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {prevPrice[item.id] && parseFloat(prevPrice[item.id]) > 0 && secondaryPrices(inputToBrlCents(prevPrice[item.id])) && (
+                            <p className="text-[10px] text-gray-400 text-right mt-0.5">{secondaryPrices(inputToBrlCents(prevPrice[item.id]))}</p>
                           )}
                         </div>
 
