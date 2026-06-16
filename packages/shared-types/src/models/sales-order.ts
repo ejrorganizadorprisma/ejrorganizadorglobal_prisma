@@ -3,11 +3,16 @@ import { z } from 'zod';
 // Status possíveis de um Pedido de Venda
 export enum SalesOrderStatus {
   DRAFT = 'DRAFT',                                 // Rascunho (ainda não sincronizado)
-  PENDING = 'PENDING',                             // Aguardando faturamento
-  APPROVED = 'APPROVED',                           // Aprovado pelo admin, pronto para virar venda
+  PENDING = 'PENDING',                             // 1. Pedido de venda (vendedor criou)
+  RECEIVED = 'RECEIVED',                           // 2. Pedido recebido (Candy recebeu)
+  SEPARATED = 'SEPARATED',                         // 3. Pedido separado (depósito separou)
+  APPROVED = 'APPROVED',                           // 4. Venda autorizada (Candy conferiu)
   CONVERTING = 'CONVERTING',                       // Lock otimista: faturamento em andamento (transitório)
   PARTIALLY_CONVERTED = 'PARTIALLY_CONVERTED',     // Faturado parcialmente; saldo aguarda novo convertToSale
-  CONVERTED = 'CONVERTED',                         // Já foi transformado em venda (totalmente)
+  CONVERTED = 'CONVERTED',                         // 5. Faturado (virou venda)
+  TO_DELIVER = 'TO_DELIVER',                       // 6. Venda a entregar (no depósito)
+  DELIVERED = 'DELIVERED',                         // 7. Venda entregue (cliente ou transportadora)
+  COMPLETED = 'COMPLETED',                         // 8. Venda concluída
   CANCELLED = 'CANCELLED',                         // Cancelado
 }
 

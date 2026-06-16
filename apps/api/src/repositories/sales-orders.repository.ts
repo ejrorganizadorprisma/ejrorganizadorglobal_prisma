@@ -581,8 +581,57 @@ export class SalesOrdersRepository {
               approved_by = $1,
               updated_at  = NOW()
         WHERE id = $2
-          AND status = 'PENDING'`,
+          AND status IN ('PENDING', 'SEPARATED')`,
       [userId, id]
+    );
+  }
+
+  // ==================== WORKFLOW (Demanda 9) ====================
+
+  async receive(id: string, userId: string): Promise<void> {
+    await db.query(
+      `UPDATE sales_orders SET status='RECEIVED', received_at=NOW(), received_by=$1, updated_at=NOW()
+        WHERE id=$2 AND status='PENDING'`,
+      [userId, id]
+    );
+  }
+
+  async separate(id: string, userId: string, items: Array<{ id: string; quantitySeparated: number; separationStatus: string }>): Promise<void> {
+    for (const it of items) {
+      await db.query(
+        `UPDATE sales_order_items SET quantity_separated=$1, separation_status=$2 WHERE id=$3 AND sales_order_id=$4`,
+        [it.quantitySeparated, it.separationStatus, it.id, id]
+      );
+    }
+    await db.query(
+      `UPDATE sales_orders SET status='SEPARATED', separated_at=NOW(), separated_by=$1, updated_at=NOW()
+        WHERE id=$2 AND status='RECEIVED'`,
+      [userId, id]
+    );
+  }
+
+  async toDeliver(id: string): Promise<void> {
+    await db.query(
+      `UPDATE sales_orders SET status='TO_DELIVER', updated_at=NOW()
+        WHERE id=$1 AND status IN ('CONVERTED','PARTIALLY_CONVERTED')`,
+      [id]
+    );
+  }
+
+  async markDelivered(id: string, userId: string, deliveryType: string, carrierName: string | null): Promise<void> {
+    await db.query(
+      `UPDATE sales_orders SET status='DELIVERED', delivery_type=$1, carrier_name=$2,
+              delivered_at=NOW(), delivered_by=$3, updated_at=NOW()
+        WHERE id=$4 AND status='TO_DELIVER'`,
+      [deliveryType, carrierName, userId, id]
+    );
+  }
+
+  async complete(id: string): Promise<void> {
+    await db.query(
+      `UPDATE sales_orders SET status='COMPLETED', completed_at=NOW(), updated_at=NOW()
+        WHERE id=$1 AND status='DELIVERED'`,
+      [id]
     );
   }
 

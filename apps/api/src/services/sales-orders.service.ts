@@ -573,9 +573,9 @@ export class SalesOrdersService {
       // Idempotente
       return existing;
     }
-    if (existing.status !== SalesOrderStatus.PENDING) {
+    if (existing.status !== SalesOrderStatus.PENDING && existing.status !== SalesOrderStatus.SEPARATED) {
       throw new BadRequestError(
-        `Apenas pedidos em PENDING podem ser aprovados (atual: ${existing.status})`
+        `Apenas pedidos pendentes ou separados podem ser autorizados (atual: ${existing.status})`
       );
     }
 
@@ -593,6 +593,57 @@ export class SalesOrdersService {
       .catch((err) => console.error('[push] approve:', err));
 
     return updated;
+  }
+
+  // ==================== WORKFLOW (Demanda 9) ====================
+
+  async receive(id: string, userId: string) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status === SalesOrderStatus.RECEIVED) return o;
+    if (o.status !== SalesOrderStatus.PENDING)
+      throw new BadRequestError(`Só pedidos pendentes podem ser recebidos (atual: ${o.status})`);
+    await this.repository.receive(id, userId);
+    return this.repository.findById(id);
+  }
+
+  async separate(id: string, userId: string, items: Array<{ id: string; quantitySeparated: number; separationStatus: string }>) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status !== SalesOrderStatus.RECEIVED)
+      throw new BadRequestError(`Só pedidos recebidos podem ser separados (atual: ${o.status})`);
+    await this.repository.separate(id, userId, items || []);
+    return this.repository.findById(id);
+  }
+
+  async toDeliver(id: string) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status === SalesOrderStatus.TO_DELIVER) return o;
+    if (o.status !== SalesOrderStatus.CONVERTED && o.status !== SalesOrderStatus.PARTIALLY_CONVERTED)
+      throw new BadRequestError(`Só vendas faturadas vão para entrega (atual: ${o.status})`);
+    await this.repository.toDeliver(id);
+    return this.repository.findById(id);
+  }
+
+  async markDelivered(id: string, userId: string, data: { deliveryType?: string; carrierName?: string }) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status !== SalesOrderStatus.TO_DELIVER)
+      throw new BadRequestError(`Só vendas a entregar podem ser marcadas como entregues (atual: ${o.status})`);
+    const type = data.deliveryType === 'CARRIER' ? 'CARRIER' : 'CUSTOMER';
+    await this.repository.markDelivered(id, userId, type, type === 'CARRIER' ? (data.carrierName || null) : null);
+    return this.repository.findById(id);
+  }
+
+  async complete(id: string) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status === SalesOrderStatus.COMPLETED) return o;
+    if (o.status !== SalesOrderStatus.DELIVERED)
+      throw new BadRequestError(`Só vendas entregues podem ser concluídas (atual: ${o.status})`);
+    await this.repository.complete(id);
+    return this.repository.findById(id);
   }
 
   /**

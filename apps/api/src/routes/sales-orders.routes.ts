@@ -11,7 +11,12 @@ router.use(authenticate);
 router.post('/convert-from-quote', controller.convertFromQuote);
 router.post('/:id/convert-to-sale', controller.convertToSale);
 router.post('/:id/cancel', controller.cancel);
+router.post('/:id/receive', controller.receive);
+router.post('/:id/separate', controller.separate);
 router.post('/:id/approve', controller.approve);
+router.post('/:id/to-deliver', controller.toDeliver);
+router.post('/:id/mark-delivered', controller.markDelivered);
+router.post('/:id/complete', controller.complete);
 router.get('/:id/conversions', controller.conversions);
 
 router.get('/', controller.list);

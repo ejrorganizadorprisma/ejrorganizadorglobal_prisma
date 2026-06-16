@@ -207,3 +207,25 @@ export function useSalesOrderConversions(id: string, options?: { enabled?: boole
     enabled: options?.enabled ?? !!id,
   });
 }
+
+// ==================== WORKFLOW (Demanda 9) ====================
+
+function useWorkflowAction(action: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body?: any }) => {
+      const response = await api.post(`/sales-orders/${id}/${action}`, body || {});
+      return response.data.data as SalesOrder;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', vars.id] });
+    },
+  });
+}
+
+export const useReceiveSalesOrder = () => useWorkflowAction('receive');
+export const useSeparateSalesOrder = () => useWorkflowAction('separate');
+export const useToDeliverSalesOrder = () => useWorkflowAction('to-deliver');
+export const useMarkDeliveredSalesOrder = () => useWorkflowAction('mark-delivered');
+export const useCompleteSalesOrder = () => useWorkflowAction('complete');

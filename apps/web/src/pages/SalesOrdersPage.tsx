@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder } from '../hooks/useSalesOrders';
+import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder, useReceiveSalesOrder, useToDeliverSalesOrder, useCompleteSalesOrder } from '../hooks/useSalesOrders';
+import { SeparationModal } from '../components/sales-order/SeparationModal';
+import { DeliveryModal } from '../components/sales-order/DeliveryModal';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
@@ -25,21 +27,24 @@ import {
   FileText,
   FileDown,
   Ban,
-  ThumbsUp,
 } from 'lucide-react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
-import { useAuth } from '../hooks/useAuth';
 import { ApproveSalesOrderModal } from '../components/ApproveSalesOrderModal';
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: any }> = {
   DRAFT: { label: 'Rascunho', bg: 'bg-gray-100', text: 'text-gray-600', icon: FileText },
-  PENDING: { label: 'Pendente', bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
-  APPROVED: { label: 'Aprovado', bg: 'bg-blue-50', text: 'text-blue-700', icon: CheckCircle },
+  PENDING: { label: 'Pedido de venda', bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
+  RECEIVED: { label: 'Pedido recebido', bg: 'bg-sky-50', text: 'text-sky-700', icon: CheckCircle },
+  SEPARATED: { label: 'Pedido separado', bg: 'bg-violet-50', text: 'text-violet-700', icon: CheckCircle },
+  APPROVED: { label: 'Venda autorizada', bg: 'bg-blue-50', text: 'text-blue-700', icon: CheckCircle },
   CONVERTING: { label: 'Faturando…', bg: 'bg-indigo-50', text: 'text-indigo-700', icon: Clock },
   PARTIALLY_CONVERTED: { label: 'Parcialmente faturado', bg: 'bg-teal-50', text: 'text-teal-700', icon: ArrowRightCircle },
   CONVERTED: { label: 'Faturado', bg: 'bg-emerald-50', text: 'text-emerald-700', icon: ArrowRightCircle },
+  TO_DELIVER: { label: 'Venda a entregar', bg: 'bg-orange-50', text: 'text-orange-700', icon: ArrowRightCircle },
+  DELIVERED: { label: 'Venda entregue', bg: 'bg-lime-50', text: 'text-lime-700', icon: CheckCircle },
+  COMPLETED: { label: 'Venda concluída', bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
   CANCELLED: { label: 'Cancelado', bg: 'bg-red-50', text: 'text-red-600', icon: XCircle },
 };
 
@@ -69,12 +74,27 @@ export function SalesOrdersPage() {
   const { data: documentSettings } = useDefaultDocumentSettings();
   const { hasActionPermission } = usePagePermissions();
   const canEdit = hasActionPermission(AppPage.SALES, 'edit' as any);
-  const userRole = useAuth((state) => state.user?.role);
-  // ADMIN não existe no enum UserRole hoje; tratamos OWNER/DIRECTOR/MANAGER como aprovadores.
-  const canApprove = !!userRole && (['OWNER', 'ADMIN', 'DIRECTOR', 'MANAGER'] as string[]).includes(userRole);
 
   // Modal de aprovação compartilhado entre as linhas
   const [approveTarget, setApproveTarget] = useState<{ id: string; number: string } | null>(null);
+  const [separatingId, setSeparatingId] = useState<string | null>(null);
+  const [deliveringOrder, setDeliveringOrder] = useState<{ id: string; number: string } | null>(null);
+  const receiveOrder = useReceiveSalesOrder();
+  const toDeliverOrder = useToDeliverSalesOrder();
+  const completeOrder = useCompleteSalesOrder();
+
+  // Próxima etapa do workflow conforme o status (Demanda 9)
+  const nextStep = (order: any): { label: string; color: string; run: () => void } | null => {
+    const s = order.status;
+    if (s === 'PENDING') return { label: 'Receber', color: 'bg-sky-600 hover:bg-sky-700', run: async () => { try { await receiveOrder.mutateAsync({ id: order.id }); toast.success('Pedido recebido!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
+    if (s === 'RECEIVED') return { label: 'Separar', color: 'bg-violet-600 hover:bg-violet-700', run: () => setSeparatingId(order.id) };
+    if (s === 'SEPARATED') return { label: 'Autorizar', color: 'bg-blue-600 hover:bg-blue-700', run: () => setApproveTarget({ id: order.id, number: order.orderNumber }) };
+    if (s === 'APPROVED') return { label: 'Faturar', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
+    if (s === 'CONVERTED' || s === 'PARTIALLY_CONVERTED') return { label: 'A entregar', color: 'bg-orange-600 hover:bg-orange-700', run: async () => { try { await toDeliverOrder.mutateAsync({ id: order.id }); toast.success('Venda em entrega!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
+    if (s === 'TO_DELIVER') return { label: 'Entregue', color: 'bg-lime-600 hover:bg-lime-700', run: () => setDeliveringOrder({ id: order.id, number: order.orderNumber }) };
+    if (s === 'DELIVERED') return { label: 'Concluir', color: 'bg-green-600 hover:bg-green-700', run: async () => { try { await completeOrder.mutateAsync({ id: order.id }); toast.success('Venda concluída!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
+    return null;
+  };
 
   const handleCancel = async (id: string, number: string) => {
     const reason = window.prompt(`Motivo do cancelamento do pedido ${number}:`);
@@ -308,24 +328,18 @@ export function SalesOrdersPage() {
                               <Pencil className="w-4 h-4" />
                             </button>
                           )}
-                          {canApprove && order.status === 'PENDING' && (
-                            <button
-                              onClick={() => setApproveTarget({ id: order.id, number: order.orderNumber })}
-                              className="p-1.5 text-emerald-600 hover:text-white hover:bg-emerald-600 rounded-lg transition-colors border border-emerald-200"
-                              title="Aprovar pedido"
-                            >
-                              <ThumbsUp className="w-4 h-4" />
-                            </button>
-                          )}
-                          {(order.status === 'PENDING' || order.status === 'APPROVED' || order.status === 'PARTIALLY_CONVERTED') && (
-                            <button
-                              onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
-                              className="p-1.5 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Faturar (converter em venda)"
-                            >
-                              <ArrowRightCircle className="w-4 h-4" />
-                            </button>
-                          )}
+                          {(() => {
+                            const step = nextStep(order);
+                            return step ? (
+                              <button
+                                onClick={step.run}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors ${step.color}`}
+                                title={`Próxima etapa: ${step.label}`}
+                              >
+                                {step.label} →
+                              </button>
+                            ) : null;
+                          })()}
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => handleCancel(order.id, order.orderNumber)}
@@ -395,24 +409,14 @@ export function SalesOrdersPage() {
                           Editar
                         </button>
                       )}
-                      {canApprove && order.status === 'PENDING' && (
-                        <button
-                          onClick={() => setApproveTarget({ id: order.id, number: order.orderNumber })}
-                          className="px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 border border-emerald-600 rounded-lg hover:bg-emerald-700 flex items-center gap-1"
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          Aprovar
-                        </button>
-                      )}
-                      {(order.status === 'PENDING' || order.status === 'APPROVED' || order.status === 'PARTIALLY_CONVERTED') && (
-                        <button
-                          onClick={() => navigate(`/sales-orders/${order.id}/convert`)}
-                          className="px-3 py-1.5 text-xs font-medium text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 flex items-center gap-1"
-                        >
-                          <ArrowRightCircle className="w-3.5 h-3.5" />
-                          Faturar
-                        </button>
-                      )}
+                      {(() => {
+                        const step = nextStep(order);
+                        return step ? (
+                          <button onClick={step.run} className={`px-3 py-1.5 text-xs font-semibold text-white rounded-lg flex items-center gap-1 ${step.color}`}>
+                            {step.label} →
+                          </button>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                   {order.sale && (
@@ -457,6 +461,13 @@ export function SalesOrdersPage() {
         orderNumber={approveTarget?.number || null}
         onClose={() => setApproveTarget(null)}
       />
+
+      {separatingId && (
+        <SeparationModal orderId={separatingId} onClose={() => setSeparatingId(null)} onDone={() => setSeparatingId(null)} />
+      )}
+      {deliveringOrder && (
+        <DeliveryModal orderId={deliveringOrder.id} orderNumber={deliveringOrder.number} onClose={() => setDeliveringOrder(null)} onDone={() => setDeliveringOrder(null)} />
+      )}
     </div>
   );
 }

@@ -187,10 +187,45 @@ export class SalesOrdersController {
         req.user!.id,
         req.user!.role
       );
-      res.json({ success: true, data: order, message: 'Pedido aprovado' });
+      res.json({ success: true, data: order, message: 'Venda autorizada' });
     } catch (error) {
       next(error);
     }
+  };
+
+  receive = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.receive(req.params.id, req.user!.id);
+      res.json({ success: true, data: order, message: 'Pedido recebido' });
+    } catch (error) { next(error); }
+  };
+
+  separate = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.separate(req.params.id, req.user!.id, req.body?.items || []);
+      res.json({ success: true, data: order, message: 'Pedido separado' });
+    } catch (error) { next(error); }
+  };
+
+  toDeliver = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.toDeliver(req.params.id);
+      res.json({ success: true, data: order, message: 'Venda em entrega' });
+    } catch (error) { next(error); }
+  };
+
+  markDelivered = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.markDelivered(req.params.id, req.user!.id, req.body || {});
+      res.json({ success: true, data: order, message: 'Venda entregue' });
+    } catch (error) { next(error); }
+  };
+
+  complete = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.complete(req.params.id);
+      res.json({ success: true, data: order, message: 'Venda concluída' });
+    } catch (error) { next(error); }
   };
 
   /**
