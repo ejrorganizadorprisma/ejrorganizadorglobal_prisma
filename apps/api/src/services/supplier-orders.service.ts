@@ -8,6 +8,10 @@ import { ProductSuppliersRepository } from '../repositories/product-suppliers.re
 import { SuppliersRepository } from '../repositories/suppliers.repository';
 import { AppError } from '../utils/errors';
 import { db } from '../config/database';
+import { supabase } from '../config/supabase';
+import { env } from '../config/env';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class SupplierOrdersService {
   private repository: SupplierOrdersRepository;
@@ -325,5 +329,41 @@ export class SupplierOrdersService {
         'INVALID_STATUS_TRANSITION'
       );
     }
+  }
+
+  // Anexa o arquivo da Nota Fiscal (PDF ou imagem) ao pedido.
+  async uploadInvoiceFile(orderId: string, file: Express.Multer.File) {
+    const order = await this.repository.findById(orderId);
+    if (!order) throw new AppError('Pedido não encontrado', 404, 'NOT_FOUND');
+
+    const buf = file.buffer;
+    const isPdf = buf.length > 4 && buf.toString('ascii', 0, 4) === '%PDF';
+    const isJpg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const isPng = buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+    let ext = '';
+    let contentType = '';
+    if (isPdf) { ext = 'pdf'; contentType = 'application/pdf'; }
+    else if (isJpg) { ext = 'jpg'; contentType = 'image/jpeg'; }
+    else if (isPng) { ext = 'png'; contentType = 'image/png'; }
+    else throw new AppError('Arquivo inválido. Envie PDF, JPG ou PNG.', 400, 'INVALID_FILE_TYPE');
+
+    const filename = `nf-${orderId}-${Date.now()}.${ext}`;
+    let url: string;
+
+    if (supabase && env.SUPABASE_URL) {
+      const { error } = await supabase.storage
+        .from('product-images')
+        .upload(filename, buf, { contentType, upsert: true });
+      if (error) throw new AppError(`Erro ao enviar arquivo: ${error.message}`, 500, 'STORAGE_UPLOAD_ERROR');
+      url = `${env.SUPABASE_URL}/storage/v1/object/public/product-images/${filename}`;
+    } else {
+      const dir = path.join(process.cwd(), 'uploads', 'nf');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, filename), buf);
+      url = `/uploads/nf/${filename}`;
+    }
+
+    await this.repository.updateInvoiceFile(orderId, url, file.originalname || filename);
+    return this.repository.findById(orderId);
   }
 }

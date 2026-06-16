@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSupplierOrder } from '../hooks/useSupplierOrders';
 import { useCreateGoodsReceipt, useApproveGoodsReceipt } from '../hooks/useGoodsReceipts';
+import { api } from '../lib/api';
 import { toast } from 'sonner';
-import { X, PackageCheck, Check, AlertTriangle, Ban } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { X, PackageCheck, Check, AlertTriangle, Ban, Receipt, CalendarDays, Plus, Trash2 } from 'lucide-react';
 
 type ConfStatus = 'CONFORME' | 'DIVERGENCIA' | 'REJEITADO';
 
@@ -19,21 +21,33 @@ interface ConfItem {
   notes: string;
 }
 
+interface Boleto { amount: string; dueDate: string; notes: string; }
+
 interface ReceiveOrderModalProps {
   orderId: string;
   onClose: () => void;
   onDone: () => void;
 }
 
+const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100);
+
 export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModalProps) {
   const { data: order, isLoading } = useSupplierOrder(orderId);
   const createReceipt = useCreateGoodsReceipt();
   const approveReceipt = useApproveGoodsReceipt();
+  const queryClient = useQueryClient();
 
   const [items, setItems] = useState<ConfItem[]>([]);
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [generalNotes, setGeneralNotes] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // ---- NF ----
+  const [showNf, setShowNf] = useState(true);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [finalAmount, setFinalAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('BOLETO');
+  const [splitCount, setSplitCount] = useState('1');
+  const [intervalDays, setIntervalDays] = useState('30');
+  const [boletos, setBoletos] = useState<Boleto[]>([]);
 
   useEffect(() => {
     if (order?.items) {
@@ -43,219 +57,259 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
           .map((it: any) => {
             const pending = it.quantityPending ?? it.quantity;
             return {
-              supplierOrderItemId: it.id,
-              productId: it.productId,
-              productName: it.product?.name || '-',
-              productCode: it.product?.code,
-              quantityOrdered: it.quantity,
-              quantityPending: pending,
-              quantityReceived: pending,
-              unitPrice: it.unitPrice,
-              status: 'CONFORME' as ConfStatus,
-              notes: '',
+              supplierOrderItemId: it.id, productId: it.productId,
+              productName: it.product?.name || '-', productCode: it.product?.code,
+              quantityOrdered: it.quantity, quantityPending: pending, quantityReceived: pending,
+              unitPrice: it.unitPrice, status: 'CONFORME' as ConfStatus, notes: '',
             };
           })
       );
+      if ((order as any).totalAmount && !finalAmount) setFinalAmount(((order as any).totalAmount / 100).toFixed(2));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
 
-  const summary = useMemo(() => {
-    const conformes = items.filter((i) => i.status === 'CONFORME').length;
-    const divergentes = items.filter((i) => i.status === 'DIVERGENCIA').length;
-    const rejeitados = items.filter((i) => i.status === 'REJEITADO').length;
-    return { conformes, divergentes, rejeitados };
-  }, [items]);
+  const summary = useMemo(() => ({
+    conformes: items.filter((i) => i.status === 'CONFORME').length,
+    divergentes: items.filter((i) => i.status === 'DIVERGENCIA').length,
+    rejeitados: items.filter((i) => i.status === 'REJEITADO').length,
+  }), [items]);
+
+  const totalCents = Math.round((parseFloat(finalAmount) || 0) * 100);
+  const boletosTotalCents = boletos.reduce((s, b) => s + Math.round((parseFloat(b.amount) || 0) * 100), 0);
 
   const updateItem = (idx: number, field: keyof ConfItem, value: any) => {
     setItems((prev) => {
-      const updated = [...prev];
-      const item = { ...updated[idx], [field]: value };
+      const u = [...prev];
+      const item = { ...u[idx], [field]: value };
       if (field === 'quantityReceived') {
         const qty = parseInt(value, 10) || 0;
         item.quantityReceived = qty;
-        if (qty === 0) item.status = 'REJEITADO';
-        else if (qty !== item.quantityPending) item.status = 'DIVERGENCIA';
-        else item.status = 'CONFORME';
+        item.status = qty === 0 ? 'REJEITADO' : qty !== item.quantityPending ? 'DIVERGENCIA' : 'CONFORME';
       }
-      updated[idx] = item;
-      return updated;
+      u[idx] = item;
+      return u;
     });
   };
 
+  const autoSplit = () => {
+    const n = parseInt(splitCount, 10); const days = parseInt(intervalDays, 10) || 30;
+    if (!n || n < 1) { toast.error('Informe a quantidade de boletos.'); return; }
+    if (totalCents <= 0) { toast.error('Informe o valor total da NF.'); return; }
+    const base = Math.floor(totalCents / n); const rest = totalCents - base * n;
+    const today = new Date(); const list: Boleto[] = [];
+    for (let i = 0; i < n; i++) {
+      const d = new Date(today); d.setDate(d.getDate() + days * (i + 1));
+      const cents = base + (i < rest ? 1 : 0);
+      list.push({ amount: (cents / 100).toFixed(2), dueDate: d.toISOString().split('T')[0], notes: `Boleto ${i + 1}/${n}` });
+    }
+    setBoletos(list);
+  };
+  const addBoleto = () => setBoletos((p) => [...p, { amount: '', dueDate: '', notes: '' }]);
+  const removeBoleto = (i: number) => setBoletos((p) => p.filter((_, idx) => idx !== i));
+  const updateBoleto = (i: number, f: keyof Boleto, v: string) => setBoletos((p) => p.map((b, idx) => (idx === i ? { ...b, [f]: v } : b)));
+
   const handleConfirm = async () => {
     if (!order) return;
-    const hasReceived = items.some((i) => i.quantityReceived > 0 && i.status !== 'REJEITADO');
-    if (!hasReceived) {
-      toast.error('Informe a quantidade recebida de pelo menos um item.');
-      return;
+    if (!items.some((i) => i.quantityReceived > 0 && i.status !== 'REJEITADO')) {
+      toast.error('Informe a quantidade recebida de pelo menos um item.'); return;
     }
-    const semMotivo = items.filter((i) => i.status !== 'CONFORME' && !i.notes.trim());
-    if (semMotivo.length > 0) {
-      toast.error('Preencha o motivo dos itens com divergência ou recusados.');
-      return;
+    if (items.some((i) => i.status !== 'CONFORME' && !i.notes.trim())) {
+      toast.error('Preencha o motivo dos itens com divergência ou recusados.'); return;
+    }
+    if (boletos.length > 0) {
+      if (boletos.some((b) => !b.dueDate || !b.amount || parseFloat(b.amount) <= 0)) {
+        toast.error('Preencha valor e vencimento de todos os boletos.'); return;
+      }
     }
 
     setSaving(true);
     try {
-      const payload: any = {
-        supplierOrderId: order.id,
-        supplierId: order.supplierId,
+      const receipt = await createReceipt.mutateAsync({
+        supplierOrderId: order.id, supplierId: order.supplierId,
         receiptDate: new Date().toISOString().split('T')[0],
         invoiceNumber: invoiceNumber || undefined,
-        notes: generalNotes || undefined,
         items: items.map((item) => ({
-          supplierOrderItemId: item.supplierOrderItemId,
-          productId: item.productId,
+          supplierOrderItemId: item.supplierOrderItemId, productId: item.productId,
           quantityOrdered: item.quantityOrdered,
           quantityReceived: item.status === 'REJEITADO' ? 0 : item.quantityReceived,
           quantityAccepted: item.status === 'REJEITADO' ? 0 : item.quantityReceived,
           quantityRejected: item.status === 'REJEITADO' ? item.quantityOrdered : 0,
           unitPrice: item.unitPrice,
-          qualityStatus:
-            item.status === 'CONFORME' ? 'APPROVED' : item.status === 'REJEITADO' ? 'REJECTED' : 'PENDING',
+          qualityStatus: (item.status === 'CONFORME' ? 'APPROVED' : item.status === 'REJEITADO' ? 'REJECTED' : 'PENDING') as any,
           notes: item.notes || undefined,
         })),
-      };
-      const receipt = await createReceipt.mutateAsync(payload);
+      } as any);
       await approveReceipt.mutateAsync(receipt.id);
-      toast.success('Recebimento confirmado! Estoque atualizado.');
+
+      // Registra NF + boletos em Contas a Pagar (se informados)
+      if (boletos.length > 0 && (order as any).budget?.id) {
+        await api.post(`/purchase-budgets/${(order as any).budget.id}/register-invoice`, {
+          invoiceNumber: invoiceNumber || undefined,
+          finalAmount: totalCents || undefined,
+          paymentMethod,
+          installments: boletos.map((b, i) => ({
+            installmentNumber: i + 1,
+            amount: Math.round((parseFloat(b.amount) || 0) * 100),
+            dueDate: b.dueDate, notes: b.notes || undefined,
+          })),
+        });
+        queryClient.invalidateQueries({ queryKey: ['payables'] });
+        queryClient.invalidateQueries({ queryKey: ['financial'] });
+      }
+      toast.success(boletos.length > 0 ? 'Recebimento confirmado! Estoque atualizado e boletos em Contas a Pagar.' : 'Recebimento confirmado! Estoque atualizado.');
       onDone();
     } catch (error: any) {
-      toast.error(error.response?.data?.error?.message || error.response?.data?.error || 'Erro ao confirmar recebimento.');
+      toast.error(error.response?.data?.error?.message || 'Erro ao confirmar recebimento.');
     } finally {
       setSaving(false);
     }
   };
 
-  const statusBadge = (s: ConfStatus) =>
-    s === 'CONFORME'
-      ? { cls: 'bg-green-100 text-green-700', icon: Check, label: 'Conforme' }
-      : s === 'DIVERGENCIA'
-      ? { cls: 'bg-amber-100 text-amber-700', icon: AlertTriangle, label: 'Divergência' }
-      : { cls: 'bg-red-100 text-red-700', icon: Ban, label: 'Recusado' };
+  const badge = (s: ConfStatus) =>
+    s === 'CONFORME' ? { cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200', icon: Check, label: 'Conforme' }
+    : s === 'DIVERGENCIA' ? { cls: 'bg-amber-50 text-amber-700 ring-amber-200', icon: AlertTriangle, label: 'Divergência' }
+    : { cls: 'bg-red-50 text-red-700 ring-red-200', icon: Ban, label: 'Recusado' };
+
+  const Stat = ({ label, value, tone }: { label: string; value: React.ReactNode; tone: string }) => (
+    <div className={`flex-1 rounded-lg px-2 py-1.5 text-center ${tone}`}>
+      <div className="text-[9px] uppercase tracking-wide opacity-70 font-semibold">{label}</div>
+      <div className="text-lg font-bold leading-tight">{value}</div>
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b">
-          <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
-            <PackageCheck className="w-5 h-5 text-emerald-600" />
+        <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white">
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+            <PackageCheck className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-semibold text-gray-900 truncate">
-              Conferência de Recebimento
-            </h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-lg font-semibold truncate">Recebimento do Pedido</h3>
+            <p className="text-xs text-emerald-50/90 truncate">
               {(order as any)?.budget?.title ? `${(order as any).budget.title} · ` : ''}Pedido {order?.orderNumber || ''}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="w-5 h-5" />
-          </button>
+          <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-auto p-5">
+        <div className="flex-1 overflow-auto p-6 space-y-5 bg-slate-50">
           {isLoading ? (
             <div className="text-center py-10 text-sm text-gray-400">Carregando itens…</div>
           ) : items.length === 0 ? (
             <div className="text-center py-10 text-sm text-gray-400">Nenhum item pendente de recebimento.</div>
           ) : (
             <>
-              <div className="flex items-center gap-3 mb-3 text-xs">
-                <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700">{summary.conformes} conformes</span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{summary.divergentes} divergências</span>
-                <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700">{summary.rejeitados} recusados</span>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{summary.conformes} conformes</span>
+                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{summary.divergentes} divergências</span>
+                <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-medium">{summary.rejeitados} recusados</span>
               </div>
 
-              <div className="space-y-2">
+              {/* Itens */}
+              <div className="space-y-2.5">
                 {items.map((item, idx) => {
-                  const badge = statusBadge(item.status);
-                  const BadgeIcon = badge.icon;
+                  const b = badge(item.status); const BIcon = b.icon;
                   return (
-                    <div key={item.supplierOrderItemId} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center justify-between gap-3">
+                    <div key={item.supplierOrderItemId} className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3 mb-2.5">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{item.productName}</p>
-                          {item.productCode && <p className="text-[10px] text-gray-400">{item.productCode}</p>}
+                          <p className="text-sm font-semibold text-slate-800 truncate">{item.productName}</p>
+                          {item.productCode && <p className="text-[10px] text-slate-400">{item.productCode}</p>}
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium flex items-center gap-1 shrink-0 ${badge.cls}`}>
-                          <BadgeIcon className="w-3 h-3" /> {badge.label}
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 shrink-0 ring-1 ${b.cls}`}>
+                          <BIcon className="w-3 h-3" /> {b.label}
                         </span>
                       </div>
-                      <div className="flex items-end gap-4 mt-2">
-                        <div className="text-xs text-gray-500">
-                          Pedido: <strong className="text-gray-700">{item.quantityPending}</strong>
-                        </div>
-                        <div>
-                          <label className="block text-[10px] uppercase text-gray-400">Recebido</label>
+                      <div className="flex items-center gap-2">
+                        <Stat label="Pedido" value={item.quantityPending} tone="bg-slate-100 text-slate-700" />
+                        <div className="flex-1 rounded-lg px-2 py-1 text-center bg-blue-50">
+                          <div className="text-[9px] uppercase tracking-wide text-blue-600/70 font-semibold">Recebido</div>
                           <input
-                            type="number"
-                            min={0}
-                            max={item.quantityPending}
-                            value={item.quantityReceived}
+                            type="number" min={0} max={item.quantityPending} value={item.quantityReceived}
                             onChange={(e) => updateItem(idx, 'quantityReceived', e.target.value)}
-                            className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right focus:ring-emerald-500 focus:border-emerald-500"
+                            className="w-full bg-transparent text-lg font-bold text-blue-700 text-center focus:outline-none"
                           />
                         </div>
-                        {item.status !== 'CONFORME' && (
-                          <div className="flex-1">
-                            <label className="block text-[10px] uppercase text-amber-600">
-                              {item.status === 'REJEITADO' ? 'Motivo da recusa *' : item.quantityReceived < item.quantityPending ? 'Motivo (chegou menos) *' : 'Motivo da divergência *'}
-                            </label>
-                            <input
-                              type="text"
-                              value={item.notes}
-                              onChange={(e) => updateItem(idx, 'notes', e.target.value)}
-                              placeholder="Descreva o motivo…"
-                              className={`w-full px-2 py-1 border rounded text-sm ${!item.notes ? 'border-amber-300' : 'border-gray-300'}`}
-                            />
-                          </div>
-                        )}
+                        <Stat label="Pendente"
+                          value={<span className={item.quantityPending - item.quantityReceived > 0 ? 'text-amber-600' : 'text-emerald-600'}>{Math.max(0, item.quantityPending - item.quantityReceived)}</span>}
+                          tone="bg-slate-100" />
                       </div>
+                      {item.status !== 'CONFORME' && (
+                        <input
+                          type="text" value={item.notes} onChange={(e) => updateItem(idx, 'notes', e.target.value)}
+                          placeholder={item.status === 'REJEITADO' ? 'Motivo da recusa…' : item.quantityReceived < item.quantityPending ? 'Motivo (chegou menos)…' : 'Motivo da divergência…'}
+                          className={`mt-2.5 w-full px-3 py-1.5 border rounded-lg text-sm ${!item.notes ? 'border-amber-300 bg-amber-50/40' : 'border-slate-300'}`}
+                        />
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              {/* Dados gerais */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-500 mb-0.5">Nº Nota Fiscal (opcional)</label>
-                  <input
-                    type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-500 mb-0.5">Observações (opcional)</label>
-                  <input
-                    type="text"
-                    value={generalNotes}
-                    onChange={(e) => setGeneralNotes(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-                  />
-                </div>
+              {/* NF + boletos */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                <button onClick={() => setShowNf((v) => !v)} className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50">
+                  <Receipt className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-semibold text-slate-800">Nota Fiscal e boletos</span>
+                  <span className="text-[11px] text-slate-400">(Contas a Pagar)</span>
+                  <span className="ml-auto text-slate-400 text-xs">{showNf ? '▲' : '▼'}</span>
+                </button>
+                {showNf && (
+                  <div className="px-4 pb-4 space-y-3 border-t border-slate-100">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Nº Nota Fiscal</label>
+                        <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm" placeholder="123456" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Valor total NF (R$)</label>
+                        <input type="number" step="0.01" value={finalAmount} onChange={(e) => setFinalAmount(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-right" placeholder="0,00" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Forma de pagamento</label>
+                        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white">
+                          <option value="BOLETO">Boleto</option><option value="PIX">PIX</option>
+                          <option value="TRANSFER">Transferência</option><option value="CHEQUE">Cheque</option><option value="CASH">Dinheiro</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex items-end gap-2 flex-wrap bg-slate-50 rounded-lg p-2.5">
+                      <div><label className="block text-[10px] text-slate-500">Nº boletos</label><input type="number" min={1} value={splitCount} onChange={(e) => setSplitCount(e.target.value)} className="w-16 px-2 py-1 border border-slate-300 rounded text-sm text-center" /></div>
+                      <div><label className="block text-[10px] text-slate-500">Intervalo (dias)</label><input type="number" min={1} value={intervalDays} onChange={(e) => setIntervalDays(e.target.value)} className="w-20 px-2 py-1 border border-slate-300 rounded text-sm text-center" /></div>
+                      <button onClick={autoSplit} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700 flex items-center gap-1"><CalendarDays className="w-3.5 h-3.5" /> Gerar</button>
+                      <button onClick={addBoleto} className="px-2 py-1.5 text-blue-600 text-xs flex items-center gap-1 hover:bg-blue-50 rounded"><Plus className="w-3.5 h-3.5" /> Adicionar</button>
+                    </div>
+                    {boletos.length > 0 && (
+                      <div className="space-y-1.5">
+                        {boletos.map((b, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 w-4">{i + 1}.</span>
+                            <input type="number" step="0.01" value={b.amount} onChange={(e) => updateBoleto(i, 'amount', e.target.value)} placeholder="R$" className="w-24 px-2 py-1 border border-slate-300 rounded text-sm text-right" />
+                            <input type="date" value={b.dueDate} onChange={(e) => updateBoleto(i, 'dueDate', e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
+                            <input type="text" value={b.notes} onChange={(e) => updateBoleto(i, 'notes', e.target.value)} placeholder="Obs." className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm" />
+                            <button onClick={() => removeBoleto(i)} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+                          </div>
+                        ))}
+                        <p className={`text-xs text-right ${Math.abs(boletosTotalCents - totalCents) > 1 ? 'text-amber-600' : 'text-slate-500'}`}>
+                          Boletos: <strong>{brl(boletosTotalCents)}</strong> / NF: <strong>{brl(totalCents)}</strong>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-2 px-5 py-4 border-t">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={saving || isLoading || items.length === 0}
-            className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
-          >
-            <PackageCheck className="w-4 h-4" />
-            {saving ? 'Salvando…' : 'Confirmar recebimento'}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t bg-white">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={handleConfirm} disabled={saving || isLoading || items.length === 0}
+            className="px-5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 shadow-sm">
+            <PackageCheck className="w-4 h-4" /> {saving ? 'Salvando…' : 'Confirmar recebimento'}
           </button>
         </div>
       </div>

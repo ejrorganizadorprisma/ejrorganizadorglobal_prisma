@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { SupplierOrdersController } from '../controllers/supplier-orders.controller';
 import { authenticate } from '../middleware/auth';
 import { authorize } from '../middleware/authorize';
@@ -7,8 +8,14 @@ import { asyncHandler } from '../utils/asyncHandler';
 const router = Router();
 const controller = new SupplierOrdersController();
 
+// Upload de NF (PDF/imagem) — memória, até 10MB
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
 // Todas as rotas requerem autenticação
 router.use(authenticate);
+
+// Anexar Nota Fiscal ao pedido (PDF ou imagem)
+router.post('/:id/invoice-file', upload.single('file'), asyncHandler(controller.uploadInvoiceFile));
 
 // Listagem e busca
 router.get('/', asyncHandler(controller.findMany));

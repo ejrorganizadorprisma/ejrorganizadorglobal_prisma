@@ -156,4 +156,13 @@ export class SupplierOrdersController {
     const items = await this.service.getItems(id);
     res.json({ success: true, data: items });
   };
+
+  uploadInvoiceFile = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!(req as any).file) {
+      return res.status(400).json({ success: false, error: { code: 'NO_FILE', message: 'Nenhum arquivo enviado' } });
+    }
+    const order = await this.service.uploadInvoiceFile(id, (req as any).file);
+    res.json({ success: true, data: order, message: 'Nota fiscal anexada' });
+  };
 }

@@ -12,7 +12,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2 } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
-import { RegisterInvoiceModal } from '../components/RegisterInvoiceModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
 // Converte o valor do pedido (centavos BRL) para a moeda do orçamento de origem
@@ -133,7 +132,23 @@ export function SupplierOrdersPage() {
   const { defaultCurrency } = useFormatPrice();
   const queryClient = useQueryClient();
   const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
-  const [invoiceOrder, setInvoiceOrder] = useState<any | null>(null);
+  const [uploadingNf, setUploadingNf] = useState<string | null>(null);
+
+  const handleUploadNf = async (orderId: string, file?: File | null) => {
+    if (!file) return;
+    setUploadingNf(orderId);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      await api.post(`/supplier-orders/${orderId}/invoice-file`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success('Nota fiscal anexada ao pedido.');
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao anexar nota fiscal.');
+    } finally {
+      setUploadingNf(null);
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
@@ -298,14 +313,31 @@ export function SupplierOrdersPage() {
                               </button>
                             )}
 
-                            {order.budget?.id && order.status !== 'CANCELLED' && (
-                              <button
-                                onClick={() => setInvoiceOrder(order)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold"
-                                title="Registrar Nota Fiscal e vencimentos (Contas a Pagar)"
-                              >
-                                <Receipt className="w-3.5 h-3.5" /> NF
-                              </button>
+                            {order.status !== 'CANCELLED' && (
+                              order.invoiceFileUrl ? (
+                                <a
+                                  href={order.invoiceFileUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-xs font-semibold"
+                                  title="Ver Nota Fiscal anexada"
+                                >
+                                  <Receipt className="w-3.5 h-3.5" /> NF ✓
+                                </a>
+                              ) : (
+                                <label
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold cursor-pointer"
+                                  title="Anexar Nota Fiscal (PDF ou foto)"
+                                >
+                                  <Receipt className="w-3.5 h-3.5" /> {uploadingNf === order.id ? '…' : 'NF'}
+                                  <input
+                                    type="file"
+                                    accept="application/pdf,image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleUploadNf(order.id, e.target.files?.[0])}
+                                  />
+                                </label>
+                              )
                             )}
 
                             <button
@@ -404,16 +436,6 @@ export function SupplierOrdersPage() {
             setReceivingOrderId(null);
             queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
           }}
-        />
-      )}
-
-      {invoiceOrder && (
-        <RegisterInvoiceModal
-          budgetId={invoiceOrder.budget.id}
-          suggestedTotalCents={invoiceOrder.totalAmount || 0}
-          orderLabel={`${invoiceOrder.budget?.title || ''} · Pedido ${invoiceOrder.orderNumber}`}
-          onClose={() => setInvoiceOrder(null)}
-          onDone={() => setInvoiceOrder(null)}
         />
       )}
     </div>

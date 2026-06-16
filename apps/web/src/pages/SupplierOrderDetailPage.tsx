@@ -476,10 +476,14 @@ export function SupplierOrderDetailPage() {
                         {item.notes && <p className="text-[11px] text-amber-600 mt-0.5">{item.notes}</p>}
                       </div>
                     </div>
-                    <div className="col-span-1 text-center text-sm font-medium">{item.quantity}</div>
-                    <div className="col-span-1 text-center text-sm text-gray-700">{item.quantityReceived}</div>
-                    <div className="col-span-1 text-center text-sm">
-                      <span className={item.quantityPending > 0 ? 'text-orange-600 font-medium' : 'text-green-600'}>
+                    <div className="col-span-1 flex justify-center">
+                      <span className="inline-flex items-center justify-center min-w-[2rem] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-sm font-bold">{item.quantity}</span>
+                    </div>
+                    <div className="col-span-1 flex justify-center">
+                      <span className="inline-flex items-center justify-center min-w-[2rem] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-sm font-bold">{item.quantityReceived}</span>
+                    </div>
+                    <div className="col-span-1 flex justify-center">
+                      <span className={`inline-flex items-center justify-center min-w-[2rem] px-1.5 py-0.5 rounded-md text-sm font-bold ${item.quantityPending > 0 ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
                         {item.quantityPending}
                       </span>
                     </div>

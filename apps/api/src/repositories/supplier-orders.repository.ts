@@ -20,6 +20,8 @@ export interface SupplierOrder {
   paymentTerms?: string;
   notes?: string;
   internalNotes?: string;
+  invoiceFileUrl?: string | null;
+  invoiceFileName?: string | null;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +69,7 @@ export interface SupplierOrderItem {
     id: string;
     code: string;
     name: string;
+    factoryCode?: string;
   };
 }
 
@@ -562,6 +565,13 @@ export class SupplierOrdersRepository {
     return result.rows.map(this.mapItemToDTO);
   }
 
+  async updateInvoiceFile(id: string, url: string, name: string): Promise<void> {
+    await db.query(
+      'UPDATE supplier_orders SET invoice_file_url = $2, invoice_file_name = $3, updated_at = NOW() WHERE id = $1',
+      [id, url, name]
+    );
+  }
+
   async updateItemReceived(itemId: string, quantityReceived: number): Promise<SupplierOrderItem> {
     const query = `
       UPDATE supplier_order_items
@@ -596,6 +606,8 @@ export class SupplierOrdersRepository {
       paymentTerms: data.payment_terms,
       notes: data.notes,
       internalNotes: data.internal_notes,
+      invoiceFileUrl: data.invoice_file_url ?? null,
+      invoiceFileName: data.invoice_file_name ?? null,
       createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
