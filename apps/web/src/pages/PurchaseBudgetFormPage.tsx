@@ -1941,33 +1941,37 @@ export function PurchaseBudgetFormPage() {
                     )}
                   </div>
                   <div className="text-right">
+                    {/* Subtotal (sem custos adicionais) — em negrito, mesmo tamanho do total */}
+                    <div className="text-lg font-bold text-gray-700">
+                      <span className="text-xs font-normal text-gray-400 mr-1">Subtotal</span>
+                      {fmtAmount(totals.displaySubtotal, currency)}
+                      {currency !== 'PYG' && totals.pygSubtotal > 0 && (
+                        <span className="text-sm font-bold text-gray-600 ml-2">· {fmtPYG(totals.pygSubtotal)}</span>
+                      )}
+                    </div>
+                    {totals.displaySubtotal > 0 && secondaryFromPrimary(totals.displaySubtotal) && (
+                      <p className="text-xs text-gray-400">{secondaryFromPrimary(totals.displaySubtotal)}</p>
+                    )}
+
                     {totalAdditionalPercentage > 0 && (
                       <>
-                        <div className="text-xs text-gray-400">
-                          Subtotal: {fmtAmount(totals.displaySubtotal, currency)}
-                          {currency !== 'PYG' && totals.pygSubtotal > 0 && (
-                            <span className="ml-1 text-[10px]">({fmtPYG(totals.pygSubtotal)})</span>
-                          )}
-                          {secondaryFromPrimary(totals.displaySubtotal) && (
-                            <span className="ml-1 text-[10px]">({secondaryFromPrimary(totals.displaySubtotal)})</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-amber-600">
+                        <div className="text-xs text-amber-600 mt-1">
                           Custos Adic. (+{totalAdditionalPercentage.toFixed(1)}%): +{fmtAmount(totals.displayTotalWithCosts - totals.displaySubtotal, currency)}
                           {currency !== 'PYG' && totals.pygTotalWithCosts > 0 && (
                             <span className="ml-1">(+{fmtPYG(totals.pygTotalWithCosts - totals.pygSubtotal)})</span>
                           )}
                         </div>
+                        <div className="text-lg font-bold text-gray-900">
+                          <span className="text-xs font-normal text-gray-400 mr-1">Total</span>
+                          {fmtAmount(totals.displayTotalWithCosts, currency)}
+                          {currency !== 'PYG' && totals.pygTotalWithCosts > 0 && (
+                            <span className="text-sm font-bold text-gray-700 ml-2">· {fmtPYG(totals.pygTotalWithCosts)}</span>
+                          )}
+                        </div>
+                        {totals.displayTotalWithCosts > 0 && secondaryFromPrimary(totals.displayTotalWithCosts) && (
+                          <p className="text-xs text-gray-500">{secondaryFromPrimary(totals.displayTotalWithCosts)}</p>
+                        )}
                       </>
-                    )}
-                    <div className="text-lg font-bold text-gray-900">
-                      {fmtAmount(totals.displayTotalWithCosts, currency)}
-                      {currency !== 'PYG' && totals.pygTotalWithCosts > 0 && (
-                        <span className="text-sm font-bold text-gray-700 ml-2">· {fmtPYG(totals.pygTotalWithCosts)}</span>
-                      )}
-                    </div>
-                    {totals.displayTotalWithCosts > 0 && secondaryFromPrimary(totals.displayTotalWithCosts) && (
-                      <p className="text-xs text-gray-500">{secondaryFromPrimary(totals.displayTotalWithCosts)}</p>
                     )}
                   </div>
                 </div>
