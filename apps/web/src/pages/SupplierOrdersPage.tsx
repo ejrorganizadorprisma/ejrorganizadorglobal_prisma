@@ -30,6 +30,26 @@ function formatOrderValue(order: any): string {
   if (r1 <= 0) return formatPriceValue(cents, 'BRL');
   return formatPriceValue(Math.round(brl * r1), 'PYG');
 }
+
+// Valor do pedido nas DUAS outras moedas (diferentes da moeda do orçamento)
+function orderAmountIn(order: any, cur: 'BRL' | 'USD' | 'PYG'): string | null {
+  const cents = order.totalAmount || 0;
+  const brl = cents / 100;
+  if (cur === 'BRL') return formatPriceValue(cents, 'BRL');
+  if (cur === 'USD') {
+    const r3 = order.budget?.exchangeRate3 || 0; // 1 USD = r3 BRL
+    return r3 > 0 ? formatPriceValue(Math.round((brl / r3) * 100), 'USD') : null;
+  }
+  const r1 = order.budget?.exchangeRate1 || 0; // 1 BRL = r1 PYG
+  return r1 > 0 ? formatPriceValue(Math.round(brl * r1), 'PYG') : null;
+}
+
+function formatOrderSecondaries(order: any): string | null {
+  const primary = (order.budget?.currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
+  const others = (['BRL', 'USD', 'PYG'] as const).filter((c) => c !== primary);
+  const vals = others.map((c) => orderAmountIn(order, c)).filter(Boolean);
+  return vals.length ? vals.join(' · ') : null;
+}
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
@@ -291,6 +311,9 @@ export function SupplierOrdersPage() {
                           <div className="text-sm font-medium text-gray-900">
                             {formatOrderValue(order)}
                           </div>
+                          {formatOrderSecondaries(order) && (
+                            <div className="text-[10px] text-gray-400">{formatOrderSecondaries(order)}</div>
+                          )}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           <span
