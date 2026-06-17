@@ -568,11 +568,11 @@ export function ProductFormPage() {
             />
           </div>
 
-          {/* Preço de Venda Atacado + Margem */}
+          {/* Atacado + Margem */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <CurrencyInput
-                label="Preço de Venda Atacado"
+                label="Atacado"
                 value={formData.wholesalePrice}
                 currency={formData.wholesalePriceCurrency}
                 onChange={(value, currency) => setFormData({
@@ -634,11 +634,11 @@ export function ProductFormPage() {
             </div>
           </div>
 
-          {/* Preço de Venda + Margem */}
+          {/* Varejo + Margem */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <CurrencyInput
-                label="Preço de Venda"
+                label="Varejo"
                 value={formData.salePrice}
                 currency={formData.salePriceCurrency}
                 onChange={(value, currency) => setFormData({

@@ -578,8 +578,8 @@ export class GoodsReceiptsRepository {
       // Registrar movimentação de estoque via função centralizada (só o aceito)
       if (accepted > 0) {
         await db.query(
-          `SELECT update_product_stock($1, $2, $3, $4, $5, $6, $7)`,
-          [item.productId, accepted, null, 'PURCHASE',
+          `SELECT update_product_stock($1, $2::INTEGER, $3, $4, $5, $6, $7)`,
+          [item.productId, accepted, approvedBy || null, 'PURCHASE',
            'Recebimento aprovado - GR ' + receiptId, receiptId, 'GOODS_RECEIPT']
         );
       }

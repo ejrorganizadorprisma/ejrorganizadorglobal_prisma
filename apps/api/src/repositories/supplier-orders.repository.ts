@@ -70,6 +70,10 @@ export interface SupplierOrderItem {
     code: string;
     name: string;
     factoryCode?: string;
+    salePrice?: number;
+    salePriceCurrency?: string;
+    wholesalePrice?: number;
+    wholesalePriceCurrency?: string;
   };
 }
 
@@ -244,7 +248,9 @@ export class SupplierOrdersRepository {
         const itemQuery = `
           SELECT
             soi.*,
-            p.id as product_id, p.code as product_code, p.name as product_name, p.factory_code as product_factory_code
+            p.id as product_id, p.code as product_code, p.name as product_name, p.factory_code as product_factory_code,
+            p.sale_price as product_sale_price, p.sale_price_currency as product_sale_price_currency,
+            p.wholesale_price as product_wholesale_price, p.wholesale_price_currency as product_wholesale_price_currency
           FROM supplier_order_items soi
           LEFT JOIN products p ON p.id = soi.product_id
           WHERE soi.supplier_order_id = $1
@@ -668,6 +674,10 @@ export class SupplierOrdersRepository {
         code: data.product_code,
         name: data.product_name,
         factoryCode: data.product_factory_code || undefined,
+        salePrice: data.product_sale_price ?? undefined,
+        salePriceCurrency: data.product_sale_price_currency ?? undefined,
+        wholesalePrice: data.product_wholesale_price ?? undefined,
+        wholesalePriceCurrency: data.product_wholesale_price_currency ?? undefined,
       } : undefined,
     };
   }
