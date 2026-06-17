@@ -203,7 +203,9 @@ export function SupplierOrderDetailPage() {
   const costMult = 1 + totalAdditionalPct / 100; // custos embutidos em todos os valores
   const subtotalCents = order.subtotal || 0;
   const totalWithCostsCents = Math.round(subtotalCents * costMult);
-  // Preço unitário SEM custos adicionais: Guaraní (destaque) + R$/US$ abaixo
+  const withCosts = (cents: number) => Math.round((cents || 0) * costMult);
+
+  // Valor (BRL cents) na moeda Guaraní (destaque) + R$/US$ abaixo
   const pygOf = (centsBRL: number): string => fmtCur(convertDirect(centsBRL / 100, 'BRL', 'PYG'), 'PYG');
   const brlUsdOf = (centsBRL: number): string | null => {
     if (!hasRates) return null;
@@ -467,7 +469,7 @@ export function SupplierOrderDetailPage() {
                 <div className="col-span-1 text-center">Receb.</div>
                 <div className="col-span-1 text-center">Pend.</div>
                 <div className="col-span-2 text-center">Preço Unit. {currencySymbol}</div>
-                <div className="col-span-2 text-center" title="Preço unitário sem custos adicionais, em Guaraní">Preço Unit. ₲</div>
+                <div className="col-span-2 text-center" title="Preço unitário + custos adicionais, em Guaraní (com R$/US$ e o valor acrescido)">Unit. c/ custos ₲</div>
                 <div className="col-span-2 text-right">Subtotal</div>
               </div>
               {/* Itens */}
@@ -500,11 +502,16 @@ export function SupplierOrderDetailPage() {
                     <div className="col-span-2 text-center">
                       <span className="text-sm font-medium text-gray-900">{showPrice(item.unitPrice)}</span>
                     </div>
-                    {/* Mesmo preço unitário em Guaraní (destaque) + R$/US$ abaixo */}
+                    {/* Preço unitário COM custos adicionais: Guaraní (destaque) + R$/US$ abaixo + valor add em R$ */}
                     <div className="col-span-2 text-center">
-                      <span className="text-sm font-bold text-emerald-700">{pygOf(item.unitPrice)}</span>
-                      {brlUsdOf(item.unitPrice) && (
-                        <p className="text-[10px] text-gray-400">{brlUsdOf(item.unitPrice)}</p>
+                      <span className="text-sm font-bold text-emerald-700">{pygOf(withCosts(item.unitPrice))}</span>
+                      {brlUsdOf(withCosts(item.unitPrice)) && (
+                        <p className="text-[10px] text-gray-400">{brlUsdOf(withCosts(item.unitPrice))}</p>
+                      )}
+                      {totalAdditionalPct > 0 && (
+                        <p className="text-[9px] text-amber-600 leading-tight">
+                          +{fmtCur((withCosts(item.unitPrice) - item.unitPrice) / 100, 'BRL')} (+{totalAdditionalPct.toFixed(1)}%)
+                        </p>
                       )}
                     </div>
                     {/* Subtotal da linha SEM custos (qtd × preço unitário) */}
