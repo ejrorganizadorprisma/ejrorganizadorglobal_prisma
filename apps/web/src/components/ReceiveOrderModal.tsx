@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, PackageCheck, Check, AlertTriangle, Ban, Receipt, CalendarDays, Plus, Trash2 } from 'lucide-react';
+import { formatPriceValue } from '../hooks/useFormatPrice';
 
 type ConfStatus = 'CONFORME' | 'DIVERGENCIA' | 'REJEITADO';
 
@@ -55,6 +56,35 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
   const [intervalDays, setIntervalDays] = useState('30');
   const [boletos, setBoletos] = useState<Boleto[]>([]);
 
+  // === Conversão para Guaraní (mesmas taxas do orçamento) ===
+  // Os preços do pedido ficam em centavos de BRL; aqui custo/venda são exibidos
+  // em Guaraní (com R$/US$ abaixo) quando o orçamento tem câmbio cadastrado.
+  const budgetData: any = (order as any)?.budget;
+  const cr1 = budgetData?.exchangeRate1 || 0; // 1 BRL = X PYG
+  const cr2 = budgetData?.exchangeRate2 || 0; // 1 USD = X PYG
+  const cr3 = budgetData?.exchangeRate3 || 0; // 1 USD = X BRL
+  const hasRates = cr1 > 0 && cr2 > 0 && cr3 > 0;
+  const cRates: Record<string, number> | null = hasRates
+    ? { BRL_PYG: cr1, PYG_BRL: 1 / cr1, USD_PYG: cr2, PYG_USD: 1 / cr2, USD_BRL: cr3, BRL_USD: 1 / cr3 }
+    : null;
+  const conv = (amt: number, from: string, to: string) => (from === to || !cRates) ? amt : amt * (cRates[`${from}_${to}`] ?? 1);
+  const priceCur: 'PYG' | 'BRL' = hasRates ? 'PYG' : 'BRL';
+  const priceSym = priceCur === 'PYG' ? '₲' : 'R$'; // ₲
+  const priceStep = priceCur === 'PYG' ? '1' : '0.01';
+  const fmtBRL = (amt: number) => formatPriceValue(Math.round(amt * 100), 'BRL');
+  const fmtUSD = (amt: number) => formatPriceValue(Math.round(amt * 100), 'USD');
+  // 2 moedas secundárias (R$ · US$) de um valor digitado na moeda de preço (PYG)
+  const secOf = (val: string): string => {
+    const n = parseFloat(val);
+    if (!hasRates || !n) return '';
+    return `${fmtBRL(conv(n, priceCur, 'BRL'))} · ${fmtUSD(conv(n, priceCur, 'USD'))}`;
+  };
+  // Valor digitado (na moeda de preço) → centavos de BRL para gravar no produto
+  const toBrlCents = (val: string): number => {
+    const n = parseFloat(val) || 0;
+    return priceCur === 'BRL' ? Math.round(n * 100) : Math.round(conv(n, 'PYG', 'BRL') * 100);
+  };
+
   useEffect(() => {
     if (order?.items) {
       // Custos adicionais (impostos etc.) embutidos no custo do produto
@@ -65,13 +95,18 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
           .filter((it: any) => (it.quantityPending ?? it.quantity) > 0)
           .map((it: any) => {
             const pending = it.quantityPending ?? it.quantity;
-            const costCents = Math.round(it.unitPrice * mult);
+            // Custo = preço unit. + custos adicionais, na moeda de preço (Guaraní quando há câmbio).
+            // Converte a partir do valor exato (sem arredondar centavos antes) p/ o câmbio fechar.
+            const withCostsBrl = it.unitPrice * mult; // centavos de BRL (fracionário)
+            const costStr = priceCur === 'PYG'
+              ? String(Math.round(conv(withCostsBrl / 100, 'BRL', 'PYG')))
+              : (Math.round(withCostsBrl) / 100).toFixed(2);
             return {
               supplierOrderItemId: it.id, productId: it.productId,
               productName: it.product?.name || '-', productCode: it.product?.code,
               quantityOrdered: it.quantity, quantityPending: pending, quantityReceived: pending,
               unitPrice: it.unitPrice, status: 'CONFORME' as ConfStatus, notes: '',
-              costPrice: (costCents / 100).toFixed(2), margin: '', salePrice: '',
+              costPrice: costStr, margin: '', salePrice: '',
             };
           })
       );
@@ -79,6 +114,9 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
+
+  // Formata um valor na moeda de preço: Guaraní sem decimais, R$ com 2 casas
+  const fmtPriceStr = (n: number) => (priceCur === 'PYG' ? String(Math.round(n)) : n.toFixed(2));
 
   // Cálculo automático custo ↔ margem% ↔ venda
   const updatePricing = (idx: number, field: 'costPrice' | 'margin' | 'salePrice', value: string) => {
@@ -88,7 +126,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
       const cost = parseFloat(field === 'costPrice' ? value : it.costPrice) || 0;
       if (field === 'margin') {
         const m = parseFloat(value) || 0;
-        it.salePrice = cost > 0 ? (cost * (1 + m / 100)).toFixed(2) : it.salePrice;
+        it.salePrice = cost > 0 ? fmtPriceStr(cost * (1 + m / 100)) : it.salePrice;
       } else if (field === 'salePrice') {
         const sale = parseFloat(value) || 0;
         it.margin = cost > 0 && sale > 0 ? (((sale - cost) / cost) * 100).toFixed(1) : '';
@@ -96,7 +134,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
         // mudou o custo: se tem margem, recalcula venda; senão recalcula margem pela venda
         const m = parseFloat(it.margin);
         const sale = parseFloat(it.salePrice) || 0;
-        if (!isNaN(m)) it.salePrice = cost > 0 ? (cost * (1 + m / 100)).toFixed(2) : it.salePrice;
+        if (!isNaN(m)) it.salePrice = cost > 0 ? fmtPriceStr(cost * (1 + m / 100)) : it.salePrice;
         else if (sale > 0 && cost > 0) it.margin = (((sale - cost) / cost) * 100).toFixed(1);
       }
       u[idx] = it;
@@ -180,8 +218,8 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
       // Atualiza o preço de custo e de venda dos produtos
       let pricedAny = false;
       for (const item of items) {
-        const costCents = Math.round((parseFloat(item.costPrice) || 0) * 100);
-        const saleCents = Math.round((parseFloat(item.salePrice) || 0) * 100);
+        const costCents = toBrlCents(item.costPrice);
+        const saleCents = toBrlCents(item.salePrice);
         if (item.productId && (costCents > 0 || saleCents > 0)) {
           try {
             await api.patch(`/products/${item.productId}`, {
@@ -289,25 +327,30 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                           value={<span className={item.quantityPending - item.quantityReceived > 0 ? 'text-amber-600' : 'text-emerald-600'}>{Math.max(0, item.quantityPending - item.quantityReceived)}</span>}
                           tone="bg-slate-100" />
                       </div>
-                      {/* Precificação: Custo ↔ Margem% ↔ Venda */}
-                      <div className="mt-2.5 flex items-end gap-2">
+                      {/* Precificação: Custo ↔ Margem% ↔ Venda (em Guaraní, com R$/US$ abaixo) */}
+                      <div className="mt-2.5 flex items-start gap-2">
                         <div className="flex-1">
-                          <label className="block text-[9px] uppercase tracking-wide text-slate-400 font-semibold">Preço de Custo (R$)</label>
-                          <input type="number" step="0.01" value={item.costPrice}
+                          <label className="block text-[9px] uppercase tracking-wide text-slate-400 font-semibold">Preço de Custo ({priceSym})</label>
+                          <input type="number" step={priceStep} value={item.costPrice}
                             onChange={(e) => updatePricing(idx, 'costPrice', e.target.value)}
-                            className="w-full px-2 py-1 border border-slate-300 rounded-lg text-sm text-right" />
+                            className="w-full px-2 py-1 border border-slate-300 rounded-lg text-sm text-right font-semibold" />
+                          {secOf(item.costPrice) && <p className="text-[9px] text-slate-400 text-right mt-0.5">{secOf(item.costPrice)}</p>}
                         </div>
-                        <div className="w-20">
-                          <label className="block text-[9px] uppercase tracking-wide text-blue-500 font-semibold text-center">Margem %</label>
-                          <input type="number" step="0.1" value={item.margin}
-                            onChange={(e) => updatePricing(idx, 'margin', e.target.value)}
-                            placeholder="%" className="w-full px-2 py-1 border border-blue-300 bg-blue-50/40 rounded-lg text-sm text-center font-semibold text-blue-700" />
+                        <div className="w-[4.5rem]">
+                          <label className="block text-[9px] uppercase tracking-wide text-blue-500 font-semibold text-center">Margem</label>
+                          <div className="relative">
+                            <input type="number" step="0.1" value={item.margin}
+                              onChange={(e) => updatePricing(idx, 'margin', e.target.value)}
+                              placeholder="0" className="w-full pl-1 pr-4 py-1 border border-blue-300 bg-blue-50/40 rounded-lg text-sm text-right font-semibold text-blue-700" />
+                            <span className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-blue-500">%</span>
+                          </div>
                         </div>
                         <div className="flex-1">
-                          <label className="block text-[9px] uppercase tracking-wide text-emerald-600 font-semibold">Valor de Venda (R$)</label>
-                          <input type="number" step="0.01" value={item.salePrice}
+                          <label className="block text-[9px] uppercase tracking-wide text-emerald-600 font-semibold">Valor de Venda ({priceSym})</label>
+                          <input type="number" step={priceStep} value={item.salePrice}
                             onChange={(e) => updatePricing(idx, 'salePrice', e.target.value)}
                             className="w-full px-2 py-1 border border-emerald-300 rounded-lg text-sm text-right font-semibold text-emerald-700" />
+                          {secOf(item.salePrice) && <p className="text-[9px] text-emerald-500 text-right mt-0.5">{secOf(item.salePrice)}</p>}
                         </div>
                       </div>
                       {item.status !== 'CONFORME' && (
