@@ -353,15 +353,21 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                           <span className={`font-bold ${pend > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{pend}</span>
                         </div>
                       </div>
-                      {/* Linha 2: preços em ₲ (R$/US$ no tooltip) — Custo · Margem · Varejo · Atacado */}
-                      <div className="mt-1 grid grid-cols-[1fr_2.8rem_1fr_1fr] gap-1.5 items-end">
-                        <div>
+                      {/* Linha 2: preços em ₲ (R$/US$ no tooltip) — Custo · Atacado · Margem → Varejo */}
+                      <div className="mt-1 flex items-end gap-2 flex-wrap">
+                        <div className="w-[5.5rem]">
                           <label className="block text-[8px] uppercase tracking-wide text-slate-400 font-semibold leading-none mb-0.5">Custo {priceSym}</label>
                           <input type="text" inputMode="numeric" value={grp(item.costPrice)} title={secOf(item.costPrice) || undefined}
                             onChange={(e) => updatePricing(idx, 'costPrice', parseGrp(e.target.value))}
                             className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs text-right font-semibold" />
                         </div>
-                        <div>
+                        <div className="w-[5.5rem]">
+                          <label className="block text-[8px] uppercase tracking-wide text-amber-600 font-semibold leading-none mb-0.5">Atac {priceSym}</label>
+                          <input type="text" inputMode="numeric" value={grp(item.wholesalePrice)} title={secOf(item.wholesalePrice) || undefined}
+                            onChange={(e) => updatePricing(idx, 'wholesalePrice', parseGrp(e.target.value))}
+                            className="w-full px-1.5 py-0.5 border border-amber-300 rounded text-xs text-right font-semibold text-amber-700" />
+                        </div>
+                        <div className="w-12">
                           <label className="block text-[8px] uppercase tracking-wide text-blue-500 font-semibold leading-none mb-0.5 text-center">Marg</label>
                           <div className="relative">
                             <input type="number" step="0.1" value={item.margin}
@@ -370,13 +376,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                             <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-blue-500">%</span>
                           </div>
                         </div>
-                        <div>
-                          <label className="block text-[8px] uppercase tracking-wide text-amber-600 font-semibold leading-none mb-0.5">Atac {priceSym}</label>
-                          <input type="text" inputMode="numeric" value={grp(item.wholesalePrice)} title={secOf(item.wholesalePrice) || undefined}
-                            onChange={(e) => updatePricing(idx, 'wholesalePrice', parseGrp(e.target.value))}
-                            className="w-full px-1.5 py-0.5 border border-amber-300 rounded text-xs text-right font-semibold text-amber-700" />
-                        </div>
-                        <div>
+                        <div className="w-[5.5rem]">
                           <label className="block text-[8px] uppercase tracking-wide text-emerald-600 font-semibold leading-none mb-0.5">Varejo {priceSym}</label>
                           <input type="text" inputMode="numeric" value={grp(item.salePrice)} title={secOf(item.salePrice) || undefined}
                             onChange={(e) => updatePricing(idx, 'salePrice', parseGrp(e.target.value))}
