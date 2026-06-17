@@ -201,7 +201,8 @@ export function SupplierOrderDetailPage() {
   const additionalCosts = (budget?.additionalCosts || []) as any[];
   const totalAdditionalPct = additionalCosts.reduce((s, c) => s + (c?.percentage || 0), 0);
   const costMult = 1 + totalAdditionalPct / 100; // custos embutidos em todos os valores
-  const subtotalCents = order.subtotal || 0;
+  // Soma exata dos subtotais de linha exibidos (cru) — garante que o Total feche com as linhas
+  const subtotalCents = (order.items || []).reduce((s: number, it: any) => s + (it?.totalPrice || 0), 0) || order.subtotal || 0;
   const totalWithCostsCents = Math.round(subtotalCents * costMult);
   // Valor (BRL cents) na moeda Guaraní (destaque) + R$/US$ abaixo
   const pygOf = (centsBRL: number): string => fmtCur(convertDirect(centsBRL / 100, 'BRL', 'PYG'), 'PYG');
@@ -533,13 +534,17 @@ export function SupplierOrderDetailPage() {
                   {order.items?.length || 0} {(order.items?.length || 0) === 1 ? 'item' : 'itens'}
                 </span>
                 <div className="text-right">
+                  {/* Total = soma dos subtotais (cru, sem custos) — fecha com as linhas */}
                   <div className="text-xl font-bold text-gray-900">
                     <span className="text-xs font-normal text-gray-400 mr-1">Total</span>
-                    {showPrice(totalWithCostsCents)}
+                    {showPrice(subtotalCents)}
                   </div>
-                  {secondary(totalWithCostsCents) && <p className="text-xs text-gray-500">{secondary(totalWithCostsCents)}</p>}
+                  {secondary(subtotalCents) && <p className="text-xs text-gray-500">{secondary(subtotalCents)}</p>}
                   {totalAdditionalPct > 0 && (
-                    <p className="text-[11px] text-amber-600 mt-0.5">Valores já incluem +{totalAdditionalPct.toFixed(1)}% de custos adicionais</p>
+                    <p className="text-[11px] text-amber-600 mt-1">
+                      c/ custos adicionais (+{totalAdditionalPct.toFixed(1)}%): <span className="font-semibold">{showPrice(totalWithCostsCents)}</span>
+                      {secondary(totalWithCostsCents) && <span className="text-gray-400"> · {secondary(totalWithCostsCents)}</span>}
+                    </p>
                   )}
                 </div>
               </div>
