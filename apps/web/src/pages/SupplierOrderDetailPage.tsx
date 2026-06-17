@@ -203,7 +203,13 @@ export function SupplierOrderDetailPage() {
   const costMult = 1 + totalAdditionalPct / 100; // custos embutidos em todos os valores
   const subtotalCents = order.subtotal || 0;
   const totalWithCostsCents = Math.round(subtotalCents * costMult);
-  const withCosts = (cents: number) => Math.round((cents || 0) * costMult);
+  // Preço unitário SEM custos adicionais: Guaraní (destaque) + R$/US$ abaixo
+  const pygOf = (centsBRL: number): string => fmtCur(convertDirect(centsBRL / 100, 'BRL', 'PYG'), 'PYG');
+  const brlUsdOf = (centsBRL: number): string | null => {
+    if (!hasRates) return null;
+    const brl = centsBRL / 100;
+    return `${fmtCur(brl, 'BRL')} · ${fmtCur(convertDirect(brl, 'BRL', 'USD'), 'USD')}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -453,21 +459,22 @@ export function SupplierOrderDetailPage() {
               <span className="text-xs text-gray-400">Valores em {currencySymbol} {currency}</span>
             </div>
             <div className="overflow-x-auto">
-            <div className="min-w-[680px]">
+            <div className="min-w-[820px]">
               {/* Cabeçalho */}
               <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b">
-                <div className="col-span-4">Produto</div>
+                <div className="col-span-3">Produto</div>
                 <div className="col-span-1 text-center">Qtd</div>
                 <div className="col-span-1 text-center">Receb.</div>
                 <div className="col-span-1 text-center">Pend.</div>
                 <div className="col-span-2 text-center">Preço Unit. {currencySymbol}</div>
-                <div className="col-span-3 text-right">Subtotal</div>
+                <div className="col-span-2 text-center" title="Preço unitário sem custos adicionais, em Guaraní">Preço Unit. ₲</div>
+                <div className="col-span-2 text-right">Subtotal</div>
               </div>
               {/* Itens */}
               <div className="divide-y divide-gray-100">
                 {order.items?.map((item: any, idx: number) => (
                   <div key={item.id} className="grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-gray-50">
-                    <div className="col-span-4 flex items-center gap-2 min-w-0">
+                    <div className="col-span-3 flex items-center gap-2 min-w-0">
                       <span className="text-xs text-gray-400 w-5 shrink-0">{idx + 1}.</span>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">{item.product?.name || '-'}</p>
@@ -489,16 +496,22 @@ export function SupplierOrderDetailPage() {
                         {item.quantityPending}
                       </span>
                     </div>
+                    {/* Preço unitário SEM custos (igual ao "Preço Atual" do orçamento) */}
                     <div className="col-span-2 text-center">
-                      <span className="text-sm text-gray-900">{showPrice(withCosts(item.unitPrice))}</span>
-                      {secondary(withCosts(item.unitPrice)) && (
-                        <p className="text-[10px] text-gray-400">{secondary(withCosts(item.unitPrice))}</p>
+                      <span className="text-sm font-medium text-gray-900">{showPrice(item.unitPrice)}</span>
+                    </div>
+                    {/* Mesmo preço unitário em Guaraní (destaque) + R$/US$ abaixo */}
+                    <div className="col-span-2 text-center">
+                      <span className="text-sm font-bold text-emerald-700">{pygOf(item.unitPrice)}</span>
+                      {brlUsdOf(item.unitPrice) && (
+                        <p className="text-[10px] text-gray-400">{brlUsdOf(item.unitPrice)}</p>
                       )}
                     </div>
-                    <div className="col-span-3 text-right">
-                      <span className="text-sm font-semibold text-gray-900">{showPrice(withCosts(item.totalPrice))}</span>
-                      {secondary(withCosts(item.totalPrice)) && (
-                        <p className="text-[10px] text-gray-400">{secondary(withCosts(item.totalPrice))}</p>
+                    {/* Subtotal da linha SEM custos (qtd × preço unitário) */}
+                    <div className="col-span-2 text-right">
+                      <span className="text-sm font-semibold text-gray-900">{showPrice(item.totalPrice)}</span>
+                      {secondary(item.totalPrice) && (
+                        <p className="text-[10px] text-gray-400">{secondary(item.totalPrice)}</p>
                       )}
                     </div>
                   </div>
