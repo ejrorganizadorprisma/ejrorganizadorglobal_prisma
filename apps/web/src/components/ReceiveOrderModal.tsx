@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSupplierOrder } from '../hooks/useSupplierOrders';
 import { useCreateGoodsReceipt, useApproveGoodsReceipt } from '../hooks/useGoodsReceipts';
 import { api } from '../lib/api';
@@ -48,6 +48,28 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
 
   const [items, setItems] = useState<ConfItem[]>([]);
   const [saving, setSaving] = useState(false);
+  // Navegação por Enter: percorre os campos na ordem do DOM e termina no botão Confirmar
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const handleEnterNav = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    const target = e.target as HTMLElement;
+    if (target.tagName !== 'INPUT') return;
+    e.preventDefault();
+    const root = scrollRef.current;
+    if (!root) return;
+    const list = Array.from(
+      root.querySelectorAll<HTMLInputElement>('input:not([type=hidden]):not([disabled]):not([readonly])')
+    ).filter((el) => el.offsetParent !== null); // só visíveis
+    const i = list.indexOf(target as HTMLInputElement);
+    if (i >= 0 && i < list.length - 1) {
+      const next = list[i + 1];
+      next.focus();
+      try { next.select(); } catch { /* date/number podem não suportar */ }
+    } else {
+      confirmRef.current?.focus(); // último campo → vai para Confirmar (Enter confirma)
+    }
+  };
 
   // ---- NF ----
   const [showNf, setShowNf] = useState(true);
@@ -326,7 +348,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
           <button onClick={onClose} className="text-white/80 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="flex-1 overflow-auto p-6 space-y-5 bg-slate-50">
+        <div ref={scrollRef} onKeyDown={handleEnterNav} className="flex-1 overflow-auto p-6 space-y-5 bg-slate-50">
           {isLoading ? (
             <div className="text-center py-10 text-sm text-gray-400">Carregando itens…</div>
           ) : items.length === 0 ? (
@@ -358,6 +380,8 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                           <span className="text-slate-400">Ped</span><span className="font-bold text-slate-700">{item.quantityPending}</span>
                           <span className="text-slate-400 ml-1">Rec</span>
                           <input type="number" min={0} max={item.quantityPending} value={item.quantityReceived}
+                            autoFocus={idx === 0}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => updateItem(idx, 'quantityReceived', e.target.value)}
                             className="w-11 px-1 py-0.5 border border-blue-300 rounded text-center font-bold text-blue-700 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           <span className="text-slate-400 ml-1">Pen</span>
@@ -473,7 +497,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
 
         <div className="flex justify-end gap-2 px-6 py-4 border-t bg-white">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
-          <button onClick={handleConfirm} disabled={saving || isLoading || items.length === 0}
+          <button ref={confirmRef} onClick={handleConfirm} disabled={saving || isLoading || items.length === 0}
             className="px-5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 shadow-sm">
             <PackageCheck className="w-4 h-4" /> {saving ? 'Salvando…' : 'Confirmar recebimento'}
           </button>
