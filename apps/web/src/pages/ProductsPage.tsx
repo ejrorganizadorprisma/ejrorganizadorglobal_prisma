@@ -440,10 +440,10 @@ export function ProductsPage() {
                 Fabricante
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
-                Varejo
+                Atacado
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
-                Atacado
+                Varejo
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
                 Estoque
@@ -493,10 +493,10 @@ export function ProductsPage() {
                   {product.manufacturer || '-'}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap">
-                  {renderMultiCurrencyPrice(product.salePrice, product.salePriceCurrency)}
+                  {renderMultiCurrencyPrice(product.wholesalePrice || 0, product.wholesalePriceCurrency)}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap">
-                  {renderMultiCurrencyPrice(product.wholesalePrice || 0, product.wholesalePriceCurrency)}
+                  {renderMultiCurrencyPrice(product.salePrice, product.salePriceCurrency)}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm">
                   <span
