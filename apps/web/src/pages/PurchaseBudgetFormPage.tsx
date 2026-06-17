@@ -1787,25 +1787,28 @@ export function PurchaseBudgetFormPage() {
                             const num = parseFloat(val);
                             const tone = !val ? 'text-gray-400' : num > 0 ? 'text-red-600' : num < 0 ? 'text-emerald-600' : 'text-gray-500';
                             return (
-                              <input
-                                type="number"
-                                step="0.1"
-                                value={val}
-                                disabled={prevCents <= 0}
-                                placeholder="%"
-                                title="% de diferença vs. anterior — digite para ajustar o Preço Atual"
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  setPctEditing((prev) => ({ ...prev, [item.id]: raw }));
-                                  const pct = parseFloat(raw);
-                                  if (!isNaN(pct) && prevCents > 0) {
-                                    const newCents = Math.round(prevCents * (1 + pct / 100));
-                                    setInlinePrice((prev) => ({ ...prev, [item.id]: brlCentsToInputVal(newCents) }));
-                                  }
-                                }}
-                                onBlur={() => setPctEditing((prev) => { const n = { ...prev }; delete n[item.id]; return n; })}
-                                className={`w-full px-1 py-1 border border-gray-200 rounded text-sm text-center font-semibold ${tone} focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:opacity-40`}
-                              />
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  value={val}
+                                  disabled={prevCents <= 0}
+                                  placeholder="0"
+                                  title="% de diferença vs. anterior — digite para ajustar o Preço Atual"
+                                  onChange={(e) => {
+                                    const raw = e.target.value;
+                                    setPctEditing((prev) => ({ ...prev, [item.id]: raw }));
+                                    const pct = parseFloat(raw);
+                                    if (!isNaN(pct) && prevCents > 0) {
+                                      const newCents = Math.round(prevCents * (1 + pct / 100));
+                                      setInlinePrice((prev) => ({ ...prev, [item.id]: brlCentsToInputVal(newCents) }));
+                                    }
+                                  }}
+                                  onBlur={() => setPctEditing((prev) => { const n = { ...prev }; delete n[item.id]; return n; })}
+                                  className={`w-full pl-1 pr-4 py-1 border border-gray-200 rounded text-sm text-right font-semibold ${tone} focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50 disabled:opacity-40`}
+                                />
+                                <span className={`pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-xs font-semibold ${prevCents <= 0 ? 'text-gray-300' : tone}`}>%</span>
+                              </div>
                             );
                           })()}
                         </div>
