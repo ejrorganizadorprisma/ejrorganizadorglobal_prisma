@@ -27,11 +27,6 @@ const hexToRgb = (hex: string): [number, number, number] => {
     : [11, 92, 154];
 };
 
-const UNIT_LABELS: Record<string, string> = {
-  UNIT: 'Un', METER: 'm', KG: 'kg', LITER: 'L',
-  BOX: 'Cx', PACK: 'Pct', ROLL: 'Rolo', PAIR: 'Par', SET: 'Jogo',
-};
-
 // ===== Helper: desenhar header (mesmo estilo do PDF Cotação) =====
 function drawHeader(
   doc: jsPDF, pageWidth: number, title: string, orderNumber: string,
@@ -144,7 +139,50 @@ function drawFooter(
 }
 
 export function generateSupplierOrderPdf(order: SupplierOrder, settings?: DocumentSettingsForPdf, currency: Currency = 'BRL', printMode = false) {
-  const formatPrice = (value: number) => formatPriceValue(value, currency);
+  // ===== Conversão de moeda — mesmas regras da página do pedido =====
+  // Valores ficam armazenados em centavos de BRL; convertemos via câmbio do orçamento.
+  const budget: any = (order as any).budget;
+  const primary = (budget?.currency || currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
+  const r1 = budget?.exchangeRate1 || 0; // 1 BRL = X PYG
+  const r2 = budget?.exchangeRate2 || 0; // 1 USD = X PYG
+  const r3 = budget?.exchangeRate3 || 0; // 1 USD = X BRL
+  const hasRates = r1 > 0 && r2 > 0 && r3 > 0;
+  const directRates: Record<string, number> | null = hasRates
+    ? { BRL_PYG: r1, PYG_BRL: 1 / r1, USD_PYG: r2, PYG_USD: 1 / r2, USD_BRL: r3, BRL_USD: 1 / r3 }
+    : null;
+  const convertDirect = (amount: number, from: string, to: string): number => {
+    if (from === to || !directRates) return amount;
+    return amount * (directRates[`${from}_${to}`] ?? 1);
+  };
+  const fmtCur = (amount: number, cur: string) => {
+    if (cur === 'PYG') return formatPriceValue(Math.round(amount), 'PYG');
+    if (cur === 'USD') return formatPriceValue(Math.round(amount * 100), 'USD');
+    return formatPriceValue(Math.round(amount * 100), 'BRL');
+  };
+  const toPrimary = (centsBRL: number): number => {
+    const amt = convertDirect((centsBRL || 0) / 100, 'BRL', primary);
+    return primary === 'PYG' ? Math.round(amt) : Math.round(amt * 100) / 100;
+  };
+  const showPrice = (centsBRL: number) => fmtCur(toPrimary(centsBRL), primary);
+  const otherCurrencies = (['BRL', 'USD', 'PYG'] as const).filter((c) => c !== primary);
+  const secondary = (centsBRL: number): string => {
+    if (!hasRates) return '';
+    const p = toPrimary(centsBRL);
+    return otherCurrencies.map((c) => fmtCur(convertDirect(p, primary, c), c)).join(' / ');
+  };
+  // Custos adicionais (igual ao orçamento) e preço unitário em Guaraní com custos
+  const totalAdditionalPct = ((budget?.additionalCosts || []) as any[]).reduce((s, c) => s + (c?.percentage || 0), 0);
+  const costMult = 1 + totalAdditionalPct / 100;
+  const pygOf = (centsBRL: number): string => fmtCur(convertDirect((centsBRL || 0) / 100, 'BRL', 'PYG'), 'PYG');
+  const brlUsdOf = (centsBRL: number): string => {
+    if (!hasRates) return '';
+    const brl = (centsBRL || 0) / 100;
+    return `${fmtCur(brl, 'BRL')} / ${fmtCur(convertDirect(brl, 'BRL', 'USD'), 'USD')}`;
+  };
+  // Subtotal = soma exata dos subtotais de linha (cru); Total geral fecha com as linhas
+  const subtotalRaw = ((order.items || []) as any[]).reduce((s, it) => s + (it?.totalPrice || 0), 0) || order.subtotal || 0;
+  const totalWithCosts = Math.round(subtotalRaw * costMult);
+
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -204,35 +242,43 @@ export function generateSupplierOrderPdf(order: SupplierOrder, settings?: Docume
   doc.setTextColor(...textColor);
 
   const items = order.items || [];
-  const tableData = items.map((item, index) => [
-    (index + 1).toString(),
-    item.product?.factoryCode || '-',
-    item.product?.name || '-',
-    item.quantity.toString(),
-    UNIT_LABELS['UNIT'],
-    formatPrice(item.unitPrice ?? 0),
-    (item.discountPercentage ?? 0) > 0 ? `${item.discountPercentage}%` : '-',
-    formatPrice(item.totalPrice ?? 0),
-  ]);
+  const unitGsHeader = `Unit. c/ custos ${String.fromCharCode(0x20B2)}`; // ₲
+  const tableData = items.map((item, index) => {
+    const unitCents = item.unitPrice ?? 0;
+    const totCents = item.totalPrice ?? 0;
+    const sec = secondary(unitCents);
+    const secTot = secondary(totCents);
+    const gs = pygOf(unitCents * costMult);
+    const gsSec = brlUsdOf(unitCents * costMult);
+    const addPctLine = totalAdditionalPct > 0 ? `\n+${totalAdditionalPct.toFixed(1)}%` : '';
+    return [
+      (index + 1).toString(),
+      item.product?.factoryCode || '-',
+      item.product?.name || '-',
+      item.quantity.toString(),
+      showPrice(unitCents) + (sec ? `\n${sec}` : ''),
+      gs + (gsSec ? `\n${gsSec}` : '') + addPctLine,
+      showPrice(totCents) + (secTot ? `\n${secTot}` : ''),
+    ];
+  });
 
   autoTable(doc, {
     startY: yPos,
-    head: [['#', 'Cod. Fab.', 'Produto', 'Qtd', 'Un', 'Preco Unit.', 'Desc.', 'Total']],
+    head: [['#', 'Cod. Fab.', 'Produto', 'Qtd', 'Preco Unit.', unitGsHeader, 'Total']],
     body: tableData,
     theme: print ? 'grid' : 'striped',
     headStyles: print
-      ? { fillColor: [255, 255, 255], textColor: primaryColor, fontStyle: 'bold', fontSize: 9, lineWidth: 0.5, lineColor: [200, 200, 200] }
-      : { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-    bodyStyles: { fontSize: 9, textColor: textColor },
+      ? { fillColor: [255, 255, 255], textColor: primaryColor, fontStyle: 'bold', fontSize: 8.5, lineWidth: 0.5, lineColor: [200, 200, 200] }
+      : { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+    bodyStyles: { fontSize: 8, textColor: textColor },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 24 },
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 20 },
       2: { cellWidth: 'auto' },
-      3: { cellWidth: 14, halign: 'center' },
-      4: { cellWidth: 14, halign: 'center' },
-      5: { cellWidth: 25, halign: 'right' },
-      6: { cellWidth: 16, halign: 'center' },
-      7: { cellWidth: 25, halign: 'right' },
+      3: { cellWidth: 12, halign: 'center' },
+      4: { cellWidth: 28, halign: 'right' },
+      5: { cellWidth: 40, halign: 'right' },
+      6: { cellWidth: 28, halign: 'right' },
     },
     margin: { left: 14, right: 14 },
     didDrawPage: () => {
@@ -244,30 +290,16 @@ export function generateSupplierOrderPdf(order: SupplierOrder, settings?: Docume
 
   let finalY = (doc as any).lastAutoTable.finalY + 10;
 
-  // ===== TOTAIS =====
-  const totalsX = pageWidth - 80;
+  // ===== TOTAIS (mesmas regras da página: Total = soma dos subtotais) =====
+  const totalsX = pageWidth - 90;
 
   doc.setFontSize(10);
   doc.setTextColor(...textColor);
 
   doc.setFont('helvetica', 'normal');
   doc.text('Subtotal:', totalsX, finalY);
-  doc.text(formatPrice(order.subtotal), pageWidth - 14, finalY, { align: 'right' });
+  doc.text(showPrice(subtotalRaw), pageWidth - 14, finalY, { align: 'right' });
   finalY += 7;
-
-  if (order.discountAmount > 0) {
-    doc.text('Desconto:', totalsX, finalY);
-    doc.setTextColor(200, 0, 0);
-    doc.text(`-${formatPrice(order.discountAmount)}`, pageWidth - 14, finalY, { align: 'right' });
-    doc.setTextColor(...textColor);
-    finalY += 7;
-  }
-
-  if (order.shippingCost > 0) {
-    doc.text('Frete:', totalsX, finalY);
-    doc.text(formatPrice(order.shippingCost), pageWidth - 14, finalY, { align: 'right' });
-    finalY += 7;
-  }
 
   doc.setDrawColor(...secondaryColor);
   doc.line(totalsX - 5, finalY, pageWidth - 14, finalY);
@@ -277,8 +309,38 @@ export function generateSupplierOrderPdf(order: SupplierOrder, settings?: Docume
   doc.setFontSize(12);
   doc.text('TOTAL:', totalsX, finalY);
   if (!print) doc.setTextColor(...primaryColor);
-  doc.text(formatPrice(order.totalAmount), pageWidth - 14, finalY, { align: 'right' });
-  finalY += 10;
+  doc.text(showPrice(subtotalRaw), pageWidth - 14, finalY, { align: 'right' });
+  doc.setTextColor(...textColor);
+  finalY += 6;
+
+  // Outras moedas do total
+  const secTotal = secondary(subtotalRaw);
+  if (secTotal) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(120, 120, 120);
+    doc.text(secTotal, pageWidth - 14, finalY, { align: 'right' });
+    doc.setTextColor(...textColor);
+    finalY += 6;
+  }
+
+  // Referência: valor com custos adicionais (+X%)
+  if (totalAdditionalPct > 0) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(190, 120, 20);
+    const ref = `c/ custos adicionais (+${totalAdditionalPct.toFixed(1)}%): ${showPrice(totalWithCosts)}`;
+    doc.text(ref, pageWidth - 14, finalY, { align: 'right' });
+    finalY += 5;
+    const secRef = secondary(totalWithCosts);
+    if (secRef) {
+      doc.setFontSize(7.5);
+      doc.text(secRef, pageWidth - 14, finalY, { align: 'right' });
+      finalY += 5;
+    }
+    doc.setTextColor(...textColor);
+  }
+  finalY += 6;
 
   // ===== TOTAL DE ITENS =====
   doc.setFontSize(10);
