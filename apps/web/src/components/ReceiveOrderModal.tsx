@@ -20,11 +20,12 @@ interface ConfItem {
   unitPrice: number;
   status: ConfStatus;
   notes: string;
-  // Precificação (Guaraní): custo ↔ margem% ↔ varejo, + atacado
+  // Precificação (Guaraní): custo + 2 margens sobre o custo → atacado e varejo
   costPrice: string;
-  margin: string;
-  salePrice: string;      // Varejo
-  wholesalePrice: string; // Atacado
+  marginWholesale: string; // margem custo → atacado
+  wholesalePrice: string;  // Atacado
+  margin: string;          // margem custo → varejo
+  salePrice: string;       // Varejo
 }
 
 interface Boleto { amount: string; dueDate: string; notes: string; }
@@ -134,12 +135,14 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
             const varejoStr = varejo > 0 ? (priceCur === 'PYG' ? String(varejo) : varejo.toFixed(2)) : '';
             const atacadoStr = atacado > 0 ? (priceCur === 'PYG' ? String(atacado) : atacado.toFixed(2)) : '';
             const marginStr = cost > 0 && varejo > 0 ? (((varejo - cost) / cost) * 100).toFixed(1) : '';
+            const marginWholesaleStr = cost > 0 && atacado > 0 ? (((atacado - cost) / cost) * 100).toFixed(1) : '';
             return {
               supplierOrderItemId: it.id, productId: it.productId,
               productName: it.product?.name || '-', productCode: it.product?.code,
               quantityOrdered: it.quantity, quantityPending: pending, quantityReceived: pending,
               unitPrice: it.unitPrice, status: 'CONFORME' as ConfStatus, notes: '',
-              costPrice: costStr, margin: marginStr, salePrice: varejoStr, wholesalePrice: atacadoStr,
+              costPrice: costStr, marginWholesale: marginWholesaleStr, wholesalePrice: atacadoStr,
+              margin: marginStr, salePrice: varejoStr,
             };
           })
       );
@@ -151,26 +154,34 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
   // Formata um valor na moeda de preço: Guaraní sem decimais, R$ com 2 casas
   const fmtPriceStr = (n: number) => (priceCur === 'PYG' ? String(Math.round(n)) : n.toFixed(2));
 
-  // Cálculo automático custo ↔ margem% ↔ varejo (atacado é independente)
-  const updatePricing = (idx: number, field: 'costPrice' | 'margin' | 'salePrice' | 'wholesalePrice', value: string) => {
+  // Cálculo automático: custo + margem(atacado) → atacado; custo + margem(varejo) → varejo
+  const updatePricing = (idx: number, field: 'costPrice' | 'margin' | 'salePrice' | 'marginWholesale' | 'wholesalePrice', value: string) => {
     setItems((prev) => {
       const u = [...prev];
       const it = { ...u[idx], [field]: value };
       const cost = parseFloat(field === 'costPrice' ? value : it.costPrice) || 0;
-      if (field === 'wholesalePrice') {
-        // Atacado é editável de forma independente; não recalcula margem/varejo
-      } else if (field === 'margin') {
+      if (field === 'margin') {
         const m = parseFloat(value) || 0;
         it.salePrice = cost > 0 ? fmtPriceStr(cost * (1 + m / 100)) : it.salePrice;
       } else if (field === 'salePrice') {
         const sale = parseFloat(value) || 0;
         it.margin = cost > 0 && sale > 0 ? (((sale - cost) / cost) * 100).toFixed(1) : '';
+      } else if (field === 'marginWholesale') {
+        const mw = parseFloat(value) || 0;
+        it.wholesalePrice = cost > 0 ? fmtPriceStr(cost * (1 + mw / 100)) : it.wholesalePrice;
+      } else if (field === 'wholesalePrice') {
+        const whole = parseFloat(value) || 0;
+        it.marginWholesale = cost > 0 && whole > 0 ? (((whole - cost) / cost) * 100).toFixed(1) : '';
       } else {
-        // mudou o custo: se tem margem, recalcula varejo; senão recalcula margem pelo varejo
+        // mudou o custo: recalcula cada preço pela sua margem; se não tem margem, recalcula a margem pelo preço
         const m = parseFloat(it.margin);
         const sale = parseFloat(it.salePrice) || 0;
         if (!isNaN(m)) it.salePrice = cost > 0 ? fmtPriceStr(cost * (1 + m / 100)) : it.salePrice;
         else if (sale > 0 && cost > 0) it.margin = (((sale - cost) / cost) * 100).toFixed(1);
+        const mw = parseFloat(it.marginWholesale);
+        const whole = parseFloat(it.wholesalePrice) || 0;
+        if (!isNaN(mw)) it.wholesalePrice = cost > 0 ? fmtPriceStr(cost * (1 + mw / 100)) : it.wholesalePrice;
+        else if (whole > 0 && cost > 0) it.marginWholesale = (((whole - cost) / cost) * 100).toFixed(1);
       }
       u[idx] = it;
       return u;
@@ -353,13 +364,22 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                           <span className={`font-bold ${pend > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>{pend}</span>
                         </div>
                       </div>
-                      {/* Linha 2: preços em ₲ (R$/US$ no tooltip) — Custo · Atacado · Margem → Varejo */}
-                      <div className="mt-1 flex items-end gap-2 flex-wrap">
+                      {/* Linha 2: preços em ₲ (R$/US$ no tooltip) — Custo · M%→Atacado · M%→Varejo */}
+                      <div className="mt-1 flex items-end gap-1.5 flex-wrap">
                         <div className="w-[5.5rem]">
                           <label className="block text-[8px] uppercase tracking-wide text-slate-400 font-semibold leading-none mb-0.5">Custo {priceSym}</label>
                           <input type="text" inputMode="numeric" value={grp(item.costPrice)} title={secOf(item.costPrice) || undefined}
                             onChange={(e) => updatePricing(idx, 'costPrice', parseGrp(e.target.value))}
                             className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs text-right font-semibold" />
+                        </div>
+                        <div className="w-11">
+                          <label className="block text-[8px] uppercase tracking-wide text-amber-600 font-semibold leading-none mb-0.5 text-center">Marg</label>
+                          <div className="relative">
+                            <input type="number" step="0.1" value={item.marginWholesale}
+                              onChange={(e) => updatePricing(idx, 'marginWholesale', e.target.value)}
+                              placeholder="0" className="w-full pl-1 pr-3.5 py-0.5 border border-amber-300 bg-amber-50/40 rounded text-xs text-right font-semibold text-amber-700" />
+                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-amber-600">%</span>
+                          </div>
                         </div>
                         <div className="w-[5.5rem]">
                           <label className="block text-[8px] uppercase tracking-wide text-amber-600 font-semibold leading-none mb-0.5">Atac {priceSym}</label>
@@ -367,13 +387,13 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                             onChange={(e) => updatePricing(idx, 'wholesalePrice', parseGrp(e.target.value))}
                             className="w-full px-1.5 py-0.5 border border-amber-300 rounded text-xs text-right font-semibold text-amber-700" />
                         </div>
-                        <div className="w-12">
-                          <label className="block text-[8px] uppercase tracking-wide text-blue-500 font-semibold leading-none mb-0.5 text-center">Marg</label>
+                        <div className="w-11">
+                          <label className="block text-[8px] uppercase tracking-wide text-emerald-600 font-semibold leading-none mb-0.5 text-center">Marg</label>
                           <div className="relative">
                             <input type="number" step="0.1" value={item.margin}
                               onChange={(e) => updatePricing(idx, 'margin', e.target.value)}
-                              placeholder="0" className="w-full pl-1 pr-3.5 py-0.5 border border-blue-300 bg-blue-50/40 rounded text-xs text-right font-semibold text-blue-700" />
-                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-blue-500">%</span>
+                              placeholder="0" className="w-full pl-1 pr-3.5 py-0.5 border border-emerald-300 bg-emerald-50/40 rounded text-xs text-right font-semibold text-emerald-700" />
+                            <span className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-emerald-600">%</span>
                           </div>
                         </div>
                         <div className="w-[5.5rem]">
