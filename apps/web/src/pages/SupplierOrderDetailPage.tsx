@@ -203,8 +203,6 @@ export function SupplierOrderDetailPage() {
   const costMult = 1 + totalAdditionalPct / 100; // custos embutidos em todos os valores
   const subtotalCents = order.subtotal || 0;
   const totalWithCostsCents = Math.round(subtotalCents * costMult);
-  const withCosts = (cents: number) => Math.round((cents || 0) * costMult);
-
   // Valor (BRL cents) na moeda Guaraní (destaque) + R$/US$ abaixo
   const pygOf = (centsBRL: number): string => fmtCur(convertDirect(centsBRL / 100, 'BRL', 'PYG'), 'PYG');
   const brlUsdOf = (centsBRL: number): string | null => {
@@ -502,15 +500,16 @@ export function SupplierOrderDetailPage() {
                     <div className="col-span-2 text-center">
                       <span className="text-sm font-medium text-gray-900">{showPrice(item.unitPrice)}</span>
                     </div>
-                    {/* Preço unitário COM custos adicionais: Guaraní (destaque) + R$/US$ abaixo + valor add em R$ */}
+                    {/* Preço unitário COM custos adicionais: Guaraní (destaque) + R$/US$ abaixo + acréscimo em ₲.
+                        Converte a partir do valor exato (sem arredondar centavos antes) p/ o câmbio fechar. */}
                     <div className="col-span-2 text-center">
-                      <span className="text-sm font-bold text-emerald-700">{pygOf(withCosts(item.unitPrice))}</span>
-                      {brlUsdOf(withCosts(item.unitPrice)) && (
-                        <p className="text-[10px] text-gray-400">{brlUsdOf(withCosts(item.unitPrice))}</p>
+                      <span className="text-sm font-bold text-emerald-700">{pygOf(item.unitPrice * costMult)}</span>
+                      {brlUsdOf(item.unitPrice * costMult) && (
+                        <p className="text-[10px] text-gray-400">{brlUsdOf(item.unitPrice * costMult)}</p>
                       )}
                       {totalAdditionalPct > 0 && (
                         <p className="text-[9px] text-amber-600 leading-tight">
-                          +{fmtCur((withCosts(item.unitPrice) - item.unitPrice) / 100, 'BRL')} (+{totalAdditionalPct.toFixed(1)}%)
+                          +{pygOf(item.unitPrice * (costMult - 1))} (+{totalAdditionalPct.toFixed(1)}%)
                         </p>
                       )}
                     </div>
