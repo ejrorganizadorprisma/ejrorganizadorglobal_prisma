@@ -18,7 +18,6 @@ export function PurchaseRequestFormPage() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    department: '',
     priority: 'NORMAL' as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT',
     justification: '',
     items: [] as Array<{
@@ -33,7 +32,6 @@ export function PurchaseRequestFormPage() {
       setFormData({
         title: purchaseRequest.title,
         description: purchaseRequest.description || '',
-        department: purchaseRequest.department || '',
         priority: purchaseRequest.priority,
         justification: purchaseRequest.justification || '',
         items: purchaseRequest.items?.map((item: any) => ({
@@ -100,7 +98,6 @@ export function PurchaseRequestFormPage() {
       const payload = {
         title: formData.title,
         description: formData.description || undefined,
-        department: formData.department || undefined,
         priority: formData.priority,
         justification: formData.justification || undefined,
         items: formData.items.map(item => ({
@@ -143,17 +140,6 @@ export function PurchaseRequestFormPage() {
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               required
               placeholder="Ex: Materiais para manutenção"
-              className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1">Departamento</label>
-            <input
-              type="text"
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              placeholder="Ex: Produção, Manutenção..."
               className="w-full px-3 py-2 border rounded focus:ring-blue-500 focus:border-blue-500"
             />
           </div>

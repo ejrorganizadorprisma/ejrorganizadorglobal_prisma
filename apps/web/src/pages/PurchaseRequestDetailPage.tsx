@@ -209,10 +209,6 @@ export function PurchaseRequestDetailPage() {
             <p className="text-sm text-gray-500">{request.requestedByUser?.email || ''}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-600">Departamento</label>
-            <p className="text-lg">{request.department || '-'}</p>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-600">Data da Requisição</label>
             <p className="text-lg">{formatDate(request.requestedDate)}</p>
           </div>

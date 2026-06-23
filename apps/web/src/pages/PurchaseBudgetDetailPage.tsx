@@ -751,7 +751,6 @@ export function PurchaseBudgetDetailPage() {
         <h2 className="text-lg font-semibold mb-4">Informações</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div><span className="text-gray-500 block">Prioridade</span><span className="font-medium">{PRIORITY_LABELS[lang]?.[budget.priority] || budget.priority}</span></div>
-          <div><span className="text-gray-500 block">Departamento</span><span className="font-medium">{budget.department || '-'}</span></div>
           <div><span className="text-gray-500 block">Fornecedor</span><span className="font-medium">{budget.supplierName || '-'}</span></div>
           <div><span className="text-gray-500 block">Total</span><span className="font-bold text-lg">{formatCurrency(budget.totalAmount)}</span></div>
           <div><span className="text-gray-500 block">Cond. Pagamento</span><span className="font-medium">{budget.paymentTerms || '-'}</span></div>

@@ -176,9 +176,6 @@ export function PurchaseRequestsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm text-gray-900">{request.title}</div>
-                          {request.department && (
-                            <div className="text-xs text-gray-500">{request.department}</div>
-                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">

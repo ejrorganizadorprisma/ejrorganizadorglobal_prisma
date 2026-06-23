@@ -175,7 +175,6 @@ export function generatePurchaseBudgetPdf(budget: PurchaseBudget, settings?: Doc
 
   const infoLines: string[] = [];
   infoLines.push(`Titulo: ${budget.title}`);
-  if (budget.department) infoLines.push(`Departamento: ${budget.department}`);
   if (budget.manufacturers && budget.manufacturers.length > 0) {
     infoLines.push(`Fabricante(s): ${budget.manufacturers.join(', ')}`);
   }
@@ -315,7 +314,6 @@ export function generatePurchaseBudgetFullPdf(budget: PurchaseBudget, settings?:
   const fields: Array<{ label: string; value: string }> = [];
   fields.push({ label: 'Título', value: budget.title });
   fields.push({ label: 'Prioridade', value: PRIORITY_LABELS[budget.priority] || budget.priority });
-  if (budget.department) fields.push({ label: 'Departamento', value: budget.department });
   if (budget.supplierName) fields.push({ label: 'Fornecedor', value: budget.supplierName });
   if (budget.manufacturers && budget.manufacturers.length > 0) {
     fields.push({ label: 'Fabricante(s)', value: budget.manufacturers.join(', ') });

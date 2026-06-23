@@ -88,7 +88,6 @@ export function PurchaseBudgetFormPage() {
   const [description, setDescription] = useState('');
   const [justification, setJustification] = useState('');
   const [priority, setPriority] = useState('NORMAL');
-  const [department, setDepartment] = useState('');
   const [selectedManufacturers, setSelectedManufacturers] = useState<string[]>([]);
   const [paymentTerms, setPaymentTerms] = useState('');
   const [leadTimeDays, setLeadTimeDays] = useState('');
@@ -396,7 +395,6 @@ export function PurchaseBudgetFormPage() {
       setDescription(budget.description || '');
       setJustification(budget.justification || '');
       setPriority(budget.priority);
-      setDepartment(budget.department || '');
       setSupplierId(budget.supplierId || '');
       setSelectedManufacturers(budget.manufacturers || []);
       if (budget.manufacturers?.length) setManufacturerFilter(budget.manufacturers[0]);
@@ -710,7 +708,7 @@ export function PurchaseBudgetFormPage() {
       if (isEditing) {
         await updateBudget.mutateAsync({
           id: id!,
-          data: { title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, minimumOrderValue: minimumOrderValue ? Math.round(parseFloat(minimumOrderValue) * 100) : 0, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts },
+          data: { title, description, justification, priority: priority as any, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, minimumOrderValue: minimumOrderValue ? Math.round(parseFloat(minimumOrderValue) * 100) : 0, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts },
         });
         // Persiste também os preços atuais digitados que não foram confirmados
         const savedPrices = await flushPendingPrices();
@@ -719,7 +717,7 @@ export function PurchaseBudgetFormPage() {
         if (items.length > 0) setShowConvertModal(true);
       } else {
         const created = await createBudget.mutateAsync({
-          title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, minimumOrderValue: minimumOrderValue ? Math.round(parseFloat(minimumOrderValue) * 100) : 0, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts,
+          title, description, justification, priority: priority as any, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, minimumOrderValue: minimumOrderValue ? Math.round(parseFloat(minimumOrderValue) * 100) : 0, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts,
         });
         toast.success('Orçamento de compra criado!');
         navigate(`/purchase-budgets/${created.id}/edit`);
@@ -1047,15 +1045,6 @@ export function PurchaseBudgetFormPage() {
                     </button>
                   ))}
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Departamento</label>
-                <input
-                  type="text"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Fornecedor</label>
