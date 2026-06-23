@@ -1486,7 +1486,10 @@ export function PurchaseBudgetFormPage() {
             )}
             <select
               value={supplierId}
-              onChange={(e) => applySupplierDefaults(e.target.value)}
+              // Este é o FILTRO da lista de produtos: apenas filtra, NÃO sobrescreve
+              // os termos comerciais (Prazo/Pedido Mínimo/Cond. Pagamento) que o
+              // usuário pode ter editado em "Dados Gerais".
+              onChange={(e) => setSupplierId(e.target.value)}
               className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[36px] cursor-pointer"
             >
               <option value="">Todos os fornecedores</option>

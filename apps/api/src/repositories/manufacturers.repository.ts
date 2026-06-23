@@ -135,16 +135,29 @@ export class ManufacturersRepository {
     const existing = await exec.query('SELECT id FROM manufacturers WHERE lower(name) = lower($1) LIMIT 1', [trimmed]);
     if (existing.rows.length > 0) return existing.rows[0].id;
 
-    const id = randomUUID();
-    const code = await this.generateCode(client);
-    const inserted = await exec.query(
-      `INSERT INTO manufacturers (id, code, name, status)
-       VALUES ($1, $2, $3, 'ACTIVE')
-       ON CONFLICT (lower(name)) DO UPDATE SET updated_at = NOW()
-       RETURNING id`,
-      [id, code, trimmed]
-    );
-    return inserted.rows[0].id;
+    // Insere com retry: o ON CONFLICT cobre colisão de NOME; já a colisão de
+    // CODE (dois nomes novos gerando o mesmo IND-XXXX sob concorrência) não é
+    // coberta e estoura 23505 — nesse caso geramos novo código e tentamos de novo.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const id = randomUUID();
+      const code = await this.generateCode(client);
+      try {
+        const inserted = await exec.query(
+          `INSERT INTO manufacturers (id, code, name, status)
+           VALUES ($1, $2, $3, 'ACTIVE')
+           ON CONFLICT (lower(name)) DO UPDATE SET updated_at = NOW()
+           RETURNING id`,
+          [id, code, trimmed]
+        );
+        return inserted.rows[0].id;
+      } catch (e: any) {
+        if (e?.code === '23505') continue; // colisão de code → novo código e retry
+        throw e;
+      }
+    }
+    // Fallback: provavelmente outra requisição criou com o mesmo nome
+    const fallback = await exec.query('SELECT id FROM manufacturers WHERE lower(name) = lower($1) LIMIT 1', [trimmed]);
+    return fallback.rows[0]?.id ?? null;
   }
 
   async update(id: string, data: UpdateManufacturerDTO): Promise<Manufacturer> {

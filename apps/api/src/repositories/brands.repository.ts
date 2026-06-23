@@ -140,16 +140,27 @@ export class BrandsRepository {
     const existing = await exec.query('SELECT id FROM brands WHERE lower(name) = lower($1) LIMIT 1', [trimmed]);
     if (existing.rows.length > 0) return existing.rows[0].id;
 
-    const id = randomUUID();
-    const code = await this.generateCode(client);
-    const inserted = await exec.query(
-      `INSERT INTO brands (id, code, name, status)
-       VALUES ($1, $2, $3, 'ACTIVE')
-       ON CONFLICT (lower(name)) DO UPDATE SET updated_at = NOW()
-       RETURNING id`,
-      [id, code, trimmed]
-    );
-    return inserted.rows[0].id;
+    // Insere com retry: ON CONFLICT cobre colisão de NOME; colisão de CODE
+    // (concorrência gerando o mesmo BRC-XXXX) estoura 23505 → novo código e retry.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const id = randomUUID();
+      const code = await this.generateCode(client);
+      try {
+        const inserted = await exec.query(
+          `INSERT INTO brands (id, code, name, status)
+           VALUES ($1, $2, $3, 'ACTIVE')
+           ON CONFLICT (lower(name)) DO UPDATE SET updated_at = NOW()
+           RETURNING id`,
+          [id, code, trimmed]
+        );
+        return inserted.rows[0].id;
+      } catch (e: any) {
+        if (e?.code === '23505') continue;
+        throw e;
+      }
+    }
+    const fallback = await exec.query('SELECT id FROM brands WHERE lower(name) = lower($1) LIMIT 1', [trimmed]);
+    return fallback.rows[0]?.id ?? null;
   }
 
   async update(id: string, data: UpdateBrandDTO): Promise<Brand> {
