@@ -382,13 +382,13 @@ export function ProductsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fabricante
+              Indústria
             </label>
             <input
               type="text"
               value={manufacturerInput}
               onChange={(e) => setManufacturerInput(e.target.value)}
-              placeholder="Filtrar por fabricante..."
+              placeholder="Filtrar por indústria..."
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -437,7 +437,7 @@ export function ProductsPage() {
                 Nome
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fabricante
+                Indústria
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
                 Atacado

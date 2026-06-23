@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { useManufacturers } from '../hooks/useSuppliers';
+import { useCreateManufacturer } from '../hooks/useManufacturers';
 
 interface ManufacturerAutocompleteProps {
   value: string;
@@ -12,7 +14,7 @@ interface ManufacturerAutocompleteProps {
 export function ManufacturerAutocomplete({
   value,
   onChange,
-  placeholder = 'Selecione ou digite o fabricante...',
+  placeholder = 'Selecione ou cadastre a indústria...',
   className = '',
 }: ManufacturerAutocompleteProps) {
   const [search, setSearch] = useState(value || '');
@@ -22,6 +24,26 @@ export function ManufacturerAutocomplete({
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   const { data: allManufacturers = [], isLoading } = useManufacturers();
+  const createManufacturer = useCreateManufacturer();
+
+  // Cria a indústria de fato no cadastro central e a seleciona
+  const handleCreateManufacturer = async (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    // Se já existe (case-insensitive), apenas seleciona
+    const match = allManufacturers.find((m) => m.toLowerCase() === trimmed.toLowerCase());
+    if (match) {
+      handleSelectManufacturer(match);
+      return;
+    }
+    try {
+      const created = await createManufacturer.mutateAsync({ name: trimmed });
+      handleSelectManufacturer(created.name);
+      toast.success(`Indústria "${created.name}" cadastrada`);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao cadastrar indústria');
+    }
+  };
 
   // Filtrar client-side: mostra todos ao focar, filtra conforme digita
   const filtered = useMemo(() => {
@@ -91,8 +113,8 @@ export function ManufacturerAutocomplete({
         if (selectedIndex >= 0 && filtered[selectedIndex]) {
           handleSelectManufacturer(filtered[selectedIndex]);
         } else if (search.trim()) {
-          setShowDropdown(false);
-          setIsTyping(false);
+          // Enter sem item selecionado: cria/seleciona a indústria digitada
+          handleCreateManufacturer(search.trim());
         }
         break;
       case 'Escape':
@@ -157,7 +179,7 @@ export function ManufacturerAutocomplete({
               ))}
               {isNewValue && (
                 <div className="px-4 py-2 text-sm text-emerald-600 border-t border-gray-200 cursor-pointer hover:bg-emerald-50"
-                  onClick={() => handleSelectManufacturer(search.trim())}
+                  onClick={() => handleCreateManufacturer(search.trim())}
                 >
                   + Criar "{search.trim()}"
                 </div>
@@ -165,13 +187,13 @@ export function ManufacturerAutocomplete({
             </>
           ) : isNewValue ? (
             <div className="px-4 py-2 text-sm text-emerald-600 cursor-pointer hover:bg-emerald-50"
-              onClick={() => handleSelectManufacturer(search.trim())}
+              onClick={() => handleCreateManufacturer(search.trim())}
             >
               + Criar "{search.trim()}"
             </div>
           ) : (
             <div className="px-4 py-3 text-sm text-gray-500">
-              Nenhum fabricante cadastrado.
+              Nenhuma indústria cadastrada.
             </div>
           )}
         </div>

@@ -51,6 +51,7 @@ export interface PurchaseBudget {
   paymentInstallments?: PaymentInstallment[];
   paymentTerms?: string;
   leadTimeDays?: number;
+  minimumOrderValue?: number;
   currency?: string;
   exchangeRate1?: number;
   exchangeRate2?: number;
@@ -118,6 +119,7 @@ export interface CreatePurchaseBudgetDTO {
   supplierId?: string;
   paymentTerms?: string;
   leadTimeDays?: number;
+  minimumOrderValue?: number;
   currency?: string;
   exchangeRate1?: number;
   exchangeRate2?: number;
@@ -142,6 +144,7 @@ export interface UpdatePurchaseBudgetDTO {
   supplierId?: string;
   paymentTerms?: string;
   leadTimeDays?: number;
+  minimumOrderValue?: number;
   currency?: string;
   exchangeRate1?: number;
   exchangeRate2?: number;

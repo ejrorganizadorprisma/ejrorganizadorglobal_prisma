@@ -123,6 +123,7 @@ const menuSections: MenuSection[] = [
         submenu: [
           { name: 'Lista de Fornecedores', path: '/suppliers', icon: Users, page: 'suppliers' as AppPage },
           { name: 'Novo Fornecedor', path: '/suppliers/new', icon: Plus, page: 'suppliers' as AppPage },
+          { name: 'Indústrias', path: '/manufacturers', icon: Factory, page: 'suppliers' as AppPage },
         ],
       },
     ],

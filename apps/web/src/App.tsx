@@ -19,6 +19,7 @@ import { QuoteCatalogPage } from './pages/QuoteCatalogPage';
 import { CatalogPrismaPage } from './pages/CatalogPrismaPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { SupplierFormPage } from './pages/SupplierFormPage';
+import { ManufacturersPage } from './pages/ManufacturersPage';
 import { ReportsHubPage } from './pages/ReportsHubPage';
 import { ReportSuppliersPage } from './pages/reports/ReportSuppliersPage';
 import { ReportProductsPage } from './pages/reports/ReportProductsPage';
@@ -129,6 +130,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       { path: '/sellers', page: 'sellers' as AppPage },
       { path: '/service-orders', page: AppPage.SERVICE_ORDERS },
       { path: '/suppliers', page: AppPage.SUPPLIERS },
+      { path: '/manufacturers', page: AppPage.SUPPLIERS },
       { path: '/purchase-budgets', page: AppPage.PURCHASE_BUDGETS },
       { path: '/supplier-orders', page: AppPage.SUPPLIER_ORDERS },
       { path: '/goods-receipts', page: AppPage.GOODS_RECEIPTS },
@@ -541,6 +543,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <SupplierFormPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/manufacturers"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <ManufacturersPage />
             </MainLayout>
           </ProtectedRoute>
         }

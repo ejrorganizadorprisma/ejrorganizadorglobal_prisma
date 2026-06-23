@@ -1,5 +1,8 @@
 import { db } from '../config/database';
 import { randomUUID } from 'node:crypto';
+import { ManufacturersRepository } from './manufacturers.repository';
+
+const manufacturersRepo = new ManufacturersRepository();
 
 // Interface Supplier com todos os campos da tabela
 export interface Supplier {
@@ -290,12 +293,17 @@ export class SuppliersRepository {
     // Use taxId for document field, or code as fallback if taxId is not provided
     const document = supplierData.taxId || code;
 
+    // Resolve a indústria (cria se não existir) e vincula via manufacturer_id
+    const manufacturerId = supplierData.manufacturer
+      ? await manufacturersRepo.findOrCreateByName(supplierData.manufacturer)
+      : null;
+
     const sql = `
       INSERT INTO suppliers (
         id, code, document, name, legal_name, tax_id, ci, ruc, manufacturer, email, phone, website,
-        payment_terms, lead_time_days, minimum_order_value, status, rating, notes
+        payment_terms, lead_time_days, minimum_order_value, status, rating, notes, manufacturer_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
       RETURNING *
     `;
 
@@ -318,6 +326,7 @@ export class SuppliersRepository {
       supplierData.status || 'ACTIVE',
       supplierData.rating,
       supplierData.notes,
+      manufacturerId,
     ]);
 
     return this.mapSupplier(result.rows[0]);
@@ -357,6 +366,13 @@ export class SuppliersRepository {
     if (supplierData.manufacturer !== undefined) {
       updateFields.push(`manufacturer = $${paramIndex}`);
       queryParams.push(supplierData.manufacturer);
+      paramIndex++;
+      // Mantém manufacturer_id sincronizado com o texto (cria a indústria se necessário)
+      const manufacturerId = supplierData.manufacturer
+        ? await manufacturersRepo.findOrCreateByName(supplierData.manufacturer)
+        : null;
+      updateFields.push(`manufacturer_id = $${paramIndex}`);
+      queryParams.push(manufacturerId);
       paramIndex++;
     }
     if (supplierData.email !== undefined) {
@@ -693,24 +709,9 @@ export class SuppliersRepository {
     return result.rows.map(this.mapProductSupplier);
   }
 
-  // Método para buscar fabricantes únicos
+  // Busca indústrias do cadastro central (manufacturers). Mantém o nome do
+  // método/endpoint por retrocompatibilidade com o frontend.
   async getUniqueManufacturers(search?: string): Promise<string[]> {
-    let sql = `
-      SELECT DISTINCT manufacturer
-      FROM suppliers
-      WHERE manufacturer IS NOT NULL
-        AND manufacturer != ''
-    `;
-    const params: any[] = [];
-
-    if (search && search.trim() !== '') {
-      sql += ` AND manufacturer ILIKE $1`;
-      params.push(`%${search.trim()}%`);
-    }
-
-    sql += ` ORDER BY manufacturer ASC`;
-
-    const result = await db.query(sql, params);
-    return result.rows.map(row => row.manufacturer);
+    return manufacturersRepo.listNames(search);
   }
 }

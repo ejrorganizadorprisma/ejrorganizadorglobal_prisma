@@ -92,6 +92,8 @@ export function PurchaseBudgetFormPage() {
   const [selectedManufacturers, setSelectedManufacturers] = useState<string[]>([]);
   const [paymentTerms, setPaymentTerms] = useState('');
   const [leadTimeDays, setLeadTimeDays] = useState('');
+  // Pedido Mínimo (R$) — em reais no input; auto-preenchido do fornecedor, editável
+  const [minimumOrderValue, setMinimumOrderValue] = useState('');
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [showGeneralData, setShowGeneralData] = useState(!isEditing);
 
@@ -400,6 +402,7 @@ export function PurchaseBudgetFormPage() {
       if (budget.manufacturers?.length) setManufacturerFilter(budget.manufacturers[0]);
       setPaymentTerms(budget.paymentTerms || '');
       setLeadTimeDays(budget.leadTimeDays ? String(budget.leadTimeDays) : '');
+      setMinimumOrderValue(budget.minimumOrderValue ? (budget.minimumOrderValue / 100).toFixed(2) : '');
       const budgetCurrency = (budget.currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
       setCurrency(budgetCurrency);
       // Carregar taxas salvas no próprio orçamento
@@ -533,6 +536,18 @@ export function PurchaseBudgetFormPage() {
   }, [items, totalAdditionalPercentage, directRates, currency, inlinePrice, prevPrice]);
 
   // --- Handlers ---
+
+  // Seleciona o fornecedor do orçamento e auto-preenche os 3 dados comerciais
+  // do cadastro dele (Prazo, Pedido Mínimo, Cond. Pagamento). Campos editáveis.
+  const applySupplierDefaults = (sid: string) => {
+    setSupplierId(sid);
+    if (!sid) return;
+    const sup = suppliers.find((s: any) => s.id === sid);
+    if (!sup) return;
+    setPaymentTerms(sup.paymentTerms || '');
+    setLeadTimeDays(sup.leadTimeDays ? String(sup.leadTimeDays) : '');
+    setMinimumOrderValue(sup.minimumOrderValue ? (sup.minimumOrderValue / 100).toFixed(2) : '');
+  };
 
   const handleProductSelect = (product: any) => {
     setNewItemProductId(product.id);
@@ -695,7 +710,7 @@ export function PurchaseBudgetFormPage() {
       if (isEditing) {
         await updateBudget.mutateAsync({
           id: id!,
-          data: { title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts },
+          data: { title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, minimumOrderValue: minimumOrderValue ? Math.round(parseFloat(minimumOrderValue) * 100) : 0, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts },
         });
         // Persiste também os preços atuais digitados que não foram confirmados
         const savedPrices = await flushPendingPrices();
@@ -704,7 +719,7 @@ export function PurchaseBudgetFormPage() {
         if (items.length > 0) setShowConvertModal(true);
       } else {
         const created = await createBudget.mutateAsync({
-          title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts,
+          title, description, justification, priority: priority as any, department, supplierId: supplierId || undefined, manufacturers: selectedManufacturers, paymentTerms: paymentTerms || undefined, leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : undefined, minimumOrderValue: minimumOrderValue ? Math.round(parseFloat(minimumOrderValue) * 100) : 0, currency, exchangeRate1: rate1, exchangeRate2: rate2, exchangeRate3: rate3, additionalCosts,
         });
         toast.success('Orçamento de compra criado!');
         navigate(`/purchase-budgets/${created.id}/edit`);
@@ -1046,7 +1061,7 @@ export function PurchaseBudgetFormPage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">Fornecedor</label>
                 <select
                   value={supplierId}
-                  onChange={(e) => setSupplierId(e.target.value)}
+                  onChange={(e) => applySupplierDefaults(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
                   <option value="">Selecione após comparar cotações...</option>
@@ -1056,7 +1071,7 @@ export function PurchaseBudgetFormPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Fabricante(s)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Indústria(s)</label>
                 <div className="relative">
                   <select
                     value=""
@@ -1070,7 +1085,7 @@ export function PurchaseBudgetFormPage() {
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   >
-                    <option value="">Adicionar fabricante...</option>
+                    <option value="">Adicionar indústria...</option>
                     {(manufacturersList || []).filter((m: string) => !selectedManufacturers.includes(m)).map((m: string) => (
                       <option key={m} value={m}>{m}</option>
                     ))}
@@ -1116,6 +1131,23 @@ export function PurchaseBudgetFormPage() {
                   min={0}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Pedido Mínimo (R$)</label>
+                <input
+                  type="number"
+                  value={minimumOrderValue}
+                  onChange={(e) => setMinimumOrderValue(e.target.value)}
+                  placeholder="Ex: 1500.00"
+                  min={0}
+                  step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                />
+                {minimumOrderValue && parseFloat(minimumOrderValue) > 0 && totals.totalWithCosts > 0 && totals.totalWithCosts < Math.round(parseFloat(minimumOrderValue) * 100) && (
+                  <p className="mt-1 text-[11px] text-orange-600">
+                    Total do orçamento abaixo do pedido mínimo do fornecedor.
+                  </p>
+                )}
               </div>
               <div className="md:col-span-3">
                 <label className="block text-xs font-medium text-gray-500 mb-1">Justificativa</label>
@@ -1457,7 +1489,7 @@ export function PurchaseBudgetFormPage() {
                 onChange={(e) => setManufacturerFilter(e.target.value)}
                 className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[36px] cursor-pointer"
               >
-                <option value="">Todos os fabricantes</option>
+                <option value="">Todas as indústrias</option>
                 {manufacturersList.map((m: string) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
@@ -1465,7 +1497,7 @@ export function PurchaseBudgetFormPage() {
             )}
             <select
               value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
+              onChange={(e) => applySupplierDefaults(e.target.value)}
               className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[36px] cursor-pointer"
             >
               <option value="">Todos os fornecedores</option>
@@ -1645,7 +1677,7 @@ export function PurchaseBudgetFormPage() {
                 <ProductSupplierOptionsPanel
                   productId={analysisProductId}
                   currentSupplierId={supplierId}
-                  onPick={(sid) => setSupplierId(sid)}
+                  onPick={(sid) => applySupplierDefaults(sid)}
                 />
               </div>
             )}

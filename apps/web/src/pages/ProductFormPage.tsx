@@ -11,6 +11,7 @@ import { SuppliersManager } from '../components/product/SuppliersManager';
 import { ProductStatus, ProductUnit, type Currency, CURRENCY_CONFIG } from '@ejr/shared-types';
 import { api } from '../lib/api';
 import { CurrencyInput } from '../components/CurrencyInput';
+import { ManufacturerAutocomplete } from '../components/ManufacturerAutocomplete';
 
 // Função auxiliar para converter preço entre moedas
 function convertPrice(
@@ -401,7 +402,7 @@ export function ProductFormPage() {
               value={formData.factoryCode}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Código do fabricante"
+              placeholder="Código de fábrica"
             />
           </div>
 
@@ -421,18 +422,16 @@ export function ProductFormPage() {
             />
           </div>
 
-          {/* Fabricante */}
+          {/* Indústria */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fabricante
+              Indústria
             </label>
-            <input
-              type="text"
-              name="manufacturer"
-              value={formData.manufacturer}
-              onChange={handleChange}
+            <ManufacturerAutocomplete
+              value={formData.manufacturer || ''}
+              onChange={(value) => setFormData((prev) => ({ ...prev, manufacturer: value }))}
+              placeholder="Selecione ou cadastre a indústria..."
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nome do fabricante"
             />
           </div>
 

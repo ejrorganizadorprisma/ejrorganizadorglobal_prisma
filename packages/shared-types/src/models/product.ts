@@ -21,6 +21,7 @@ export interface Product {
   category: string;
   family?: string;
   manufacturer?: string;
+  manufacturerId?: string;
   // Preços com suas respectivas moedas
   costPrice: number; // valor numérico (centavos para BRL/USD, unidades para PYG)
   costPriceCurrency: Currency; // moeda do preço de custo
@@ -63,6 +64,7 @@ export const CreateProductSchema = z.object({
   category: z.string().min(1, 'Categoria é obrigatória'),
   family: z.string().optional().nullable(),
   manufacturer: z.string().optional().nullable(),
+  manufacturerId: z.string().optional().nullable(),
   costPrice: z.number().int().min(0, 'Preço de custo não pode ser negativo'),
   costPriceCurrency: z.enum(['BRL', 'USD', 'PYG']).default('BRL'),
   salePrice: z.number().int().min(0, 'Preço de venda não pode ser negativo'),
@@ -95,6 +97,7 @@ export const UpdateProductSchema = z.object({
   category: z.string().min(1).optional(),
   family: z.string().optional().nullable(),
   manufacturer: z.string().optional().nullable(),
+  manufacturerId: z.string().optional().nullable(),
   costPrice: z.number().int().min(0).optional(),
   costPriceCurrency: z.enum(['BRL', 'USD', 'PYG']).optional(),
   salePrice: z.number().int().min(0).optional(),

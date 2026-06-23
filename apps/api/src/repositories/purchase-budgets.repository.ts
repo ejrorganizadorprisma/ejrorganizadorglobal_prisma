@@ -141,6 +141,7 @@ export class PurchaseBudgetsRepository {
     supplierId?: string;
     paymentTerms?: string;
     leadTimeDays?: number;
+    minimumOrderValue?: number;
     currency?: string;
     exchangeRate1?: number;
     exchangeRate2?: number;
@@ -165,9 +166,9 @@ export class PurchaseBudgetsRepository {
       `INSERT INTO purchase_budgets (
         id, budget_number, title, description, justification,
         priority, department, status, created_by, supplier_id,
-        payment_terms, lead_time_days,
+        payment_terms, lead_time_days, minimum_order_value,
         currency, exchange_rate_1, exchange_rate_2, exchange_rate_3, additional_costs, manufacturers
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'DRAFT', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
       [
         id,
         budgetNumber,
@@ -180,6 +181,7 @@ export class PurchaseBudgetsRepository {
         data.supplierId || null,
         data.paymentTerms || null,
         data.leadTimeDays || null,
+        data.minimumOrderValue || 0,
         data.currency || 'BRL',
         data.exchangeRate1 || 0,
         data.exchangeRate2 || 0,
@@ -208,6 +210,7 @@ export class PurchaseBudgetsRepository {
     supplierId?: string;
     paymentTerms?: string;
     leadTimeDays?: number;
+    minimumOrderValue?: number;
     currency?: string;
     exchangeRate1?: number;
     exchangeRate2?: number;
@@ -250,6 +253,10 @@ export class PurchaseBudgetsRepository {
     if (data.leadTimeDays !== undefined) {
       setClauses.push(`lead_time_days = $${paramIndex++}`);
       queryParams.push(data.leadTimeDays || null);
+    }
+    if (data.minimumOrderValue !== undefined) {
+      setClauses.push(`minimum_order_value = $${paramIndex++}`);
+      queryParams.push(data.minimumOrderValue || 0);
     }
     if (data.currency !== undefined) {
       setClauses.push(`currency = $${paramIndex++}`);
@@ -747,6 +754,7 @@ export class PurchaseBudgetsRepository {
       paymentInstallments: data.payment_installments || [],
       paymentTerms: data.payment_terms || undefined,
       leadTimeDays: data.lead_time_days ? parseInt(data.lead_time_days) : undefined,
+      minimumOrderValue: data.minimum_order_value != null ? parseInt(data.minimum_order_value) : undefined,
       currency: data.currency || 'BRL',
       exchangeRate1: parseFloat(data.exchange_rate_1) || 0,
       exchangeRate2: parseFloat(data.exchange_rate_2) || 0,

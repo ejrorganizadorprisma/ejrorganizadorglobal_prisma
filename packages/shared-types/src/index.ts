@@ -10,6 +10,9 @@ export * from './models/product-category';
 export * from './models/product-family';
 export * from './models/storage-location';
 
+// Manufacturer (Indústria)
+export * from './models/manufacturer';
+
 // Customer
 export * from './models/customer';
 

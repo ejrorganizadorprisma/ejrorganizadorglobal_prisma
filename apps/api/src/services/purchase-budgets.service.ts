@@ -83,6 +83,7 @@ export class PurchaseBudgetsService {
       supplierId: (budget as any).supplierId,
       paymentTerms: (budget as any).paymentTerms,
       leadTimeDays: (budget as any).leadTimeDays,
+      minimumOrderValue: (budget as any).minimumOrderValue,
       priority: (budget as any).priority,
       department: (budget as any).department,
     };

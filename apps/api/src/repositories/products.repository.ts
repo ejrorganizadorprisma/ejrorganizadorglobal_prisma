@@ -1,5 +1,8 @@
 import { db } from '../config/database';
 import type { Product, ProductStatus, CreateProductDTO, UpdateProductDTO, Currency } from '@ejr/shared-types';
+import { ManufacturersRepository } from './manufacturers.repository';
+
+const manufacturersRepo = new ManufacturersRepository();
 
 interface ProductFilterParams {
   search?: string;
@@ -369,6 +372,11 @@ export class ProductsRepository {
     // Auto-generate code
     const code = await this.generateProductCode();
 
+    // Resolve a indústria (cria se não existir) e vincula via manufacturer_id
+    const manufacturerId = productData.manufacturer
+      ? await manufacturersRepo.findOrCreateByName(productData.manufacturer)
+      : ((productData as any).manufacturerId || null);
+
     const query = `
       INSERT INTO products (
         id, code, name, category, family, manufacturer, status, product_type,
@@ -377,9 +385,9 @@ export class ProductsRepository {
         wholesale_price, wholesale_price_currency, image_urls,
         is_assembly, is_part, assembly_cost, unit,
         factory_code, warranty_expiration_date, observations, quantity_per_box,
-        space_id, shelf_id, section_id
+        space_id, shelf_id, section_id, manufacturer_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
       RETURNING *
     `;
 
@@ -415,6 +423,7 @@ export class ProductsRepository {
       (productData as any).spaceId || null,
       (productData as any).shelfId || null,
       (productData as any).sectionId || null,
+      manufacturerId,
     ];
 
     try {
@@ -521,6 +530,12 @@ export class ProductsRepository {
     if ((productData as any).manufacturer !== undefined) {
       setClauses.push(`manufacturer = $${paramIndex++}`);
       values.push((productData as any).manufacturer);
+      // Mantém manufacturer_id sincronizado com o texto (cria a indústria se necessário)
+      const manufacturerId = (productData as any).manufacturer
+        ? await manufacturersRepo.findOrCreateByName((productData as any).manufacturer)
+        : null;
+      setClauses.push(`manufacturer_id = $${paramIndex++}`);
+      values.push(manufacturerId);
     }
     if ((productData as any).warrantyMonths !== undefined) {
       setClauses.push(`warranty_months = $${paramIndex++}`);
@@ -702,15 +717,9 @@ export class ProductsRepository {
   }
 
   async getManufacturers() {
-    const query = `
-      SELECT DISTINCT manufacturer
-      FROM products
-      WHERE manufacturer IS NOT NULL AND manufacturer <> ''
-      ORDER BY manufacturer ASC
-    `;
-
-    const result = await db.query(query);
-    return result.rows.map(row => row.manufacturer);
+    // Lê do cadastro central de Indústrias (manufacturers). Mantém o nome do
+    // método/endpoint por retrocompatibilidade com o frontend.
+    return manufacturersRepo.listNames();
   }
 
   async getLowStock() {
