@@ -13,6 +13,9 @@ export * from './models/storage-location';
 // Manufacturer (Indústria)
 export * from './models/manufacturer';
 
+// Brand (Marca)
+export * from './models/brand';
+
 // Customer
 export * from './models/customer';
 

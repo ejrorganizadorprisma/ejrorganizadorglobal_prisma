@@ -12,6 +12,7 @@ import { ProductStatus, ProductUnit, type Currency, CURRENCY_CONFIG } from '@ejr
 import { api } from '../lib/api';
 import { CurrencyInput } from '../components/CurrencyInput';
 import { ManufacturerAutocomplete } from '../components/ManufacturerAutocomplete';
+import { BrandAutocomplete } from '../components/BrandAutocomplete';
 
 // Função auxiliar para converter preço entre moedas
 function convertPrice(
@@ -80,6 +81,7 @@ export function ProductFormPage() {
     category: '',
     family: '',
     manufacturer: '',
+    brand: '',
     costPrice: 0,
     salePrice: 0,
     wholesalePrice: 0,
@@ -128,6 +130,7 @@ export function ProductFormPage() {
         category: product.category,
         family: product.family || '',
         manufacturer: product.manufacturer || '',
+        brand: product.brand || '',
         costPrice: product.costPrice,
         salePrice: product.salePrice,
         wholesalePrice: product.wholesalePrice || 0,
@@ -419,6 +422,25 @@ export function ProductFormPage() {
               required
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Nome do produto"
+            />
+          </div>
+
+          {/* Marca */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Marca
+            </label>
+            <BrandAutocomplete
+              value={formData.brand || ''}
+              onChange={(value) => setFormData((prev) => ({ ...prev, brand: value }))}
+              onSelectBrand={(brand) => {
+                // Sugere a indústria da marca (editável) — só preenche se a marca tiver uma
+                if (brand?.manufacturerName) {
+                  setFormData((prev) => ({ ...prev, manufacturer: brand.manufacturerName! }));
+                }
+              }}
+              placeholder="Selecione ou cadastre a marca..."
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 

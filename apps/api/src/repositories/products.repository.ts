@@ -1,8 +1,10 @@
 import { db } from '../config/database';
 import type { Product, ProductStatus, CreateProductDTO, UpdateProductDTO, Currency } from '@ejr/shared-types';
 import { ManufacturersRepository } from './manufacturers.repository';
+import { BrandsRepository } from './brands.repository';
 
 const manufacturersRepo = new ManufacturersRepository();
+const brandsRepo = new BrandsRepository();
 
 interface ProductFilterParams {
   search?: string;
@@ -166,7 +168,7 @@ export class ProductsRepository {
       family: product.family,
       description: product.description,
       status: product.status,
-      manufacturer: product.manufacturer,
+      manufacturer: product.manufacturer, brand: product.brand,
       productType: product.product_type,
       version: product.version,
       warehouseLocation: product.warehouse_location,
@@ -243,7 +245,7 @@ export class ProductsRepository {
       family: data.family,
       description: data.description,
       status: data.status,
-      manufacturer: data.manufacturer,
+      manufacturer: data.manufacturer, brand: data.brand,
       productType: data.product_type,
       version: data.version,
       warehouseLocation: data.warehouse_location,
@@ -296,7 +298,7 @@ export class ProductsRepository {
       family: data.family,
       description: data.description,
       status: data.status,
-      manufacturer: data.manufacturer,
+      manufacturer: data.manufacturer, brand: data.brand,
       productType: data.product_type,
       version: data.version,
       warehouseLocation: data.warehouse_location,
@@ -377,6 +379,11 @@ export class ProductsRepository {
       ? await manufacturersRepo.findOrCreateByName(productData.manufacturer)
       : ((productData as any).manufacturerId || null);
 
+    // Resolve a marca (cria se não existir) e vincula via brand_id
+    const brandId = (productData as any).brand
+      ? await brandsRepo.findOrCreateByName((productData as any).brand)
+      : ((productData as any).brandId || null);
+
     const query = `
       INSERT INTO products (
         id, code, name, category, family, manufacturer, status, product_type,
@@ -385,9 +392,9 @@ export class ProductsRepository {
         wholesale_price, wholesale_price_currency, image_urls,
         is_assembly, is_part, assembly_cost, unit,
         factory_code, warranty_expiration_date, observations, quantity_per_box,
-        space_id, shelf_id, section_id, manufacturer_id
+        space_id, shelf_id, section_id, manufacturer_id, brand, brand_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
       RETURNING *
     `;
 
@@ -424,6 +431,8 @@ export class ProductsRepository {
       (productData as any).shelfId || null,
       (productData as any).sectionId || null,
       manufacturerId,
+      (productData as any).brand || null,
+      brandId,
     ];
 
     try {
@@ -439,7 +448,7 @@ export class ProductsRepository {
         family: data.family,
         description: data.description,
         status: data.status,
-        manufacturer: data.manufacturer,
+        manufacturer: data.manufacturer, brand: data.brand,
         productType: data.product_type,
         version: data.version,
         warehouseLocation: data.warehouse_location,
@@ -536,6 +545,16 @@ export class ProductsRepository {
         : null;
       setClauses.push(`manufacturer_id = $${paramIndex++}`);
       values.push(manufacturerId);
+    }
+    if ((productData as any).brand !== undefined) {
+      setClauses.push(`brand = $${paramIndex++}`);
+      values.push((productData as any).brand);
+      // Mantém brand_id sincronizado com o texto (cria a marca se necessário)
+      const brandId = (productData as any).brand
+        ? await brandsRepo.findOrCreateByName((productData as any).brand)
+        : null;
+      setClauses.push(`brand_id = $${paramIndex++}`);
+      values.push(brandId);
     }
     if ((productData as any).warrantyMonths !== undefined) {
       setClauses.push(`warranty_months = $${paramIndex++}`);
@@ -646,7 +665,7 @@ export class ProductsRepository {
       family: data.family,
       description: data.description,
       status: data.status,
-      manufacturer: data.manufacturer,
+      manufacturer: data.manufacturer, brand: data.brand,
       productType: data.product_type,
       version: data.version,
       warehouseLocation: data.warehouse_location,
@@ -741,7 +760,7 @@ export class ProductsRepository {
       family: product.family,
       description: product.description,
       status: product.status,
-      manufacturer: product.manufacturer,
+      manufacturer: product.manufacturer, brand: product.brand,
       productType: product.product_type,
       version: product.version,
       warehouseLocation: product.warehouse_location,
@@ -795,7 +814,7 @@ export class ProductsRepository {
       family: product.family,
       description: product.description,
       status: product.status,
-      manufacturer: product.manufacturer,
+      manufacturer: product.manufacturer, brand: product.brand,
       productType: product.product_type,
       version: product.version,
       warehouseLocation: product.warehouse_location,

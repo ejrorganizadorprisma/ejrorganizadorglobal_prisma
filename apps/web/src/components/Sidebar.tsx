@@ -90,6 +90,7 @@ const menuSections: MenuSection[] = [
         submenu: [
           { name: 'Lista de Produtos', path: '/products', icon: Package, page: 'products' as AppPage },
           { name: 'Novo Produto', path: '/products/new', icon: Plus, page: 'products' as AppPage },
+          { name: 'Marcas', path: '/brands', icon: Tag, page: 'products' as AppPage },
         ],
       },
       {

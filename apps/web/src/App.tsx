@@ -20,6 +20,7 @@ import { CatalogPrismaPage } from './pages/CatalogPrismaPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { SupplierFormPage } from './pages/SupplierFormPage';
 import { ManufacturersPage } from './pages/ManufacturersPage';
+import { BrandsPage } from './pages/BrandsPage';
 import { ReportsHubPage } from './pages/ReportsHubPage';
 import { ReportSuppliersPage } from './pages/reports/ReportSuppliersPage';
 import { ReportProductsPage } from './pages/reports/ReportProductsPage';
@@ -131,6 +132,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       { path: '/service-orders', page: AppPage.SERVICE_ORDERS },
       { path: '/suppliers', page: AppPage.SUPPLIERS },
       { path: '/manufacturers', page: AppPage.SUPPLIERS },
+      { path: '/brands', page: AppPage.PRODUCTS },
       { path: '/purchase-budgets', page: AppPage.PURCHASE_BUDGETS },
       { path: '/supplier-orders', page: AppPage.SUPPLIER_ORDERS },
       { path: '/goods-receipts', page: AppPage.GOODS_RECEIPTS },
@@ -553,6 +555,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <ManufacturersPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/brands"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <BrandsPage />
             </MainLayout>
           </ProtectedRoute>
         }
