@@ -264,7 +264,7 @@ export function generateSupplierOrderPdf(order: SupplierOrder, settings?: Docume
 
   autoTable(doc, {
     startY: yPos,
-    head: [['#', 'Cod. Fab.', 'Produto', 'Qtd', 'Preco Unit.', unitGsHeader, 'Total']],
+    head: [['#', 'Cod. Forn.', 'Produto', 'Qtd', 'Preco Unit.', unitGsHeader, 'Total']],
     body: tableData,
     theme: print ? 'grid' : 'striped',
     headStyles: print

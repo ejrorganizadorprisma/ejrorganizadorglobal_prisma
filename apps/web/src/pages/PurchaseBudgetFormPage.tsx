@@ -1538,7 +1538,7 @@ export function PurchaseBudgetFormPage() {
                       setShowProductDropdown(true);
                     }}
                     onKeyDown={handleProductSearchKeyDown}
-                    placeholder="Buscar por nome, código, cód. fábrica, cód. barras, categoria..."
+                    placeholder="Buscar por nome, código, cód. fornecedor, cód. barras, categoria..."
                     className="w-full pl-9 pr-20 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
                     autoComplete="off"
                   />

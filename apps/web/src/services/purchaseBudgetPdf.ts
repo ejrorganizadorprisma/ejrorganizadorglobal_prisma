@@ -219,7 +219,7 @@ export function generatePurchaseBudgetPdf(budget: PurchaseBudget, settings?: Doc
 
   autoTable(doc, {
     startY: yPos,
-    head: [['#', 'Cód. Fáb.', 'Produto', 'Qtd', 'Unidade', 'Observações']],
+    head: [['#', 'Cód. Forn.', 'Produto', 'Qtd', 'Unidade', 'Observações']],
     body: tableData,
     theme: print ? 'grid' : 'striped',
     headStyles: print
@@ -387,7 +387,7 @@ export function generatePurchaseBudgetFullPdf(budget: PurchaseBudget, settings?:
 
   autoTable(doc, {
     startY: yPos,
-    head: [['#', 'Cód. Fáb.', 'Produto', 'Qtd', 'Un', 'Fornecedor Cotação', 'Preço Unit.', 'Total']],
+    head: [['#', 'Cód. Forn.', 'Produto', 'Qtd', 'Un', 'Fornecedor Cotação', 'Preço Unit.', 'Total']],
     body: tableData,
     theme: print ? 'grid' : 'striped',
     headStyles: print

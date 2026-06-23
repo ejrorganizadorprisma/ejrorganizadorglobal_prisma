@@ -330,8 +330,8 @@ export const SECTION_CONTENT = {
   produtos: {
     heading: { pt: 'Cadastro de Produtos', es: 'Registro de Productos' },
     body: {
-      pt: 'O módulo de produtos permite cadastrar e gerenciar todos os itens da sua empresa, incluindo produtos para venda, componentes e peças para montagem. Cada produto tem código único, código de fábrica opcional, categoria, preços de custo e venda, controle de estoque mínimo e atual.',
-      es: 'El módulo de productos permite registrar y gestionar todos los artículos de su empresa, incluyendo productos para venta, componentes y piezas para montaje. Cada producto tiene código único, código de fábrica opcional, categoría, precios de costo y venta, control de stock mínimo y actual.',
+      pt: 'O módulo de produtos permite cadastrar e gerenciar todos os itens da sua empresa, incluindo produtos para venda, componentes e peças para montagem. Cada produto tem código único, código do fornecedor opcional, categoria, preços de custo e venda, controle de estoque mínimo e atual.',
+      es: 'El módulo de productos permite registrar y gestionar todos los artículos de su empresa, incluyendo productos para venta, componentes y piezas para montaje. Cada producto tiene código único, código del proveedor opcional, categoría, precios de costo y venta, control de stock mínimo y actual.',
     },
     importantText: {
       pt: 'O código do produto deve ser único e não pode ser alterado após o cadastro. Use uma estrutura clara desde o início (ex: PRD-001, CMP-001 para componentes).',

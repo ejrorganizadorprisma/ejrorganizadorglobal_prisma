@@ -354,7 +354,7 @@ export function GoodsReceiptFormPage() {
         <div className="overflow-x-auto">
           {/* Header da tabela */}
           <div className={`grid gap-2 px-4 py-2.5 text-xs font-medium text-gray-500 uppercase bg-gray-50 border-b min-w-[800px] ${hasPartialReceipt ? 'grid-cols-13' : 'grid-cols-12'}`} style={{ gridTemplateColumns: hasPartialReceipt ? 'minmax(80px,1fr) 3fr 1fr 1fr 1fr 2fr 1fr 1fr 40px' : 'minmax(80px,1fr) 3fr 1fr 1fr 2fr 1fr 1fr 40px' }}>
-            <div>Cód. Fáb.</div>
+            <div>Cód. Forn.</div>
             <div>Produto</div>
             <div className="text-center">Pedido</div>
             {hasPartialReceipt && <div className="text-center">Recebido</div>}
@@ -374,7 +374,7 @@ export function GoodsReceiptFormPage() {
               return (
                 <div key={item.supplierOrderItemId}>
                   <div className={`grid gap-2 px-4 py-3 items-center ${rowBg}`} style={{ gridTemplateColumns: hasPartialReceipt ? 'minmax(80px,1fr) 3fr 1fr 1fr 1fr 2fr 1fr 1fr 40px' : 'minmax(80px,1fr) 3fr 1fr 1fr 2fr 1fr 1fr 40px' }}>
-                    {/* Cód. Fáb. */}
+                    {/* Cód. Forn. */}
                     <div>
                       <span className="text-xs text-gray-500 font-mono">{item.factoryCode || '-'}</span>
                     </div>

@@ -547,7 +547,7 @@ export function SalesOrderFormPage() {
                   placeholder={
                     isCustomerInactive
                       ? 'Cliente inativo — busca bloqueada'
-                      : 'Buscar por nome, código, marca ou cód. fábrica...'
+                      : 'Buscar por nome, código, marca ou cód. fornecedor...'
                   }
                   className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed ${
                     pendingProduct ? 'border-green-400 bg-green-50' : ''

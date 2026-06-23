@@ -10,7 +10,7 @@ import { ArrowLeft, ChevronDown, Printer } from 'lucide-react';
 
 /**
  * Catálogo / Apresentação imersiva do orçamento.
- * Conteúdo integral do PDF: nº, data, cliente, itens (cod, cod. fáb.,
+ * Conteúdo integral do PDF: nº, data, cliente, itens (cod, cod. forn.,
  * produto, qtd, unit., total), subtotal, desconto, total, validade,
  * assinatura e rodapé com contatos.
  *
@@ -458,7 +458,7 @@ export function QuoteCatalogPage() {
             <thead>
               <tr className="text-left text-[11px] tracking-[0.18em] uppercase text-[#c9b89a] bg-white/[0.03]">
                 <th className="px-4 py-3 font-medium">Cód.</th>
-                <th className="px-4 py-3 font-medium">Cód. Fáb.</th>
+                <th className="px-4 py-3 font-medium">Cód. Forn.</th>
                 <th className="px-4 py-3 font-medium">Produto</th>
                 <th className="px-4 py-3 font-medium text-right">Qtd</th>
                 <th className="px-4 py-3 font-medium text-right">Valor unit.</th>

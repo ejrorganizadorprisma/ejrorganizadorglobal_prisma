@@ -351,7 +351,7 @@ export function ProductsPage() {
                 type="text"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Nome, código ou cód. fábrica..."
+                placeholder="Nome, código ou cód. fornecedor..."
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {searchInput !== search && (
@@ -427,8 +427,8 @@ export function ProductsPage() {
               <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                 Cód
               </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Código Fábrica">
-                Cód. Fáb.
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Código Fornecedor">
+                Cód. Forn.
               </th>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Imagem

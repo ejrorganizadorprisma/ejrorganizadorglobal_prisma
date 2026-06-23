@@ -260,7 +260,7 @@ export const generateQuotePDF = (
   // Generate table
   autoTable(doc, {
     startY: yPos,
-    head: [['Cod.', 'Cod. Fab.', 'Produto', 'Qtd', 'Valor Unit.', 'Total']],
+    head: [['Cod.', 'Cod. Forn.', 'Produto', 'Qtd', 'Valor Unit.', 'Total']],
     body: tableData,
     theme: isPrint ? 'grid' : 'striped',
     headStyles: isPrint

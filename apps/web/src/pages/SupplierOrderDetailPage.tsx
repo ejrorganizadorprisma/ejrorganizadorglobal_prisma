@@ -481,7 +481,7 @@ export function SupplierOrderDetailPage() {
                         <p className="text-sm font-medium text-gray-900 truncate">{item.product?.name || '-'}</p>
                         <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
                           {item.product?.code && <span>{item.product.code}</span>}
-                          {item.product?.factoryCode && <span>· cód. fáb. {item.product.factoryCode}</span>}
+                          {item.product?.factoryCode && <span>· cód. forn. {item.product.factoryCode}</span>}
                         </div>
                         {item.notes && <p className="text-[11px] text-amber-600 mt-0.5">{item.notes}</p>}
                       </div>
