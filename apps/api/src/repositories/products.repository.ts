@@ -76,7 +76,8 @@ export class ProductsRepository {
     //    ligação produto↔fornecedor ainda é feita pelo texto "manufacturer").
     if (supplierId) {
       conditions.push(
-        `(EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_id = $${paramIndex}) ` +
+        `(products.supplier_id = $${paramIndex} ` +
+        `OR EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = products.id AND ps.supplier_id = $${paramIndex}) ` +
         `OR EXISTS (SELECT 1 FROM suppliers s WHERE s.id = $${paramIndex} ` +
         `AND products.manufacturer IS NOT NULL AND products.manufacturer <> '' AND s.name <> '' ` +
         `AND (products.manufacturer ILIKE s.name OR products.manufacturer ILIKE s.name || '%' OR s.name ILIKE products.manufacturer || '%')))`
@@ -168,7 +169,7 @@ export class ProductsRepository {
       family: product.family,
       description: product.description,
       status: product.status,
-      manufacturer: product.manufacturer, brand: product.brand,
+      manufacturer: product.manufacturer, brand: product.brand, supplierId: product.supplier_id,
       productType: product.product_type,
       version: product.version,
       warehouseLocation: product.warehouse_location,
@@ -245,7 +246,7 @@ export class ProductsRepository {
       family: data.family,
       description: data.description,
       status: data.status,
-      manufacturer: data.manufacturer, brand: data.brand,
+      manufacturer: data.manufacturer, brand: data.brand, supplierId: data.supplier_id,
       productType: data.product_type,
       version: data.version,
       warehouseLocation: data.warehouse_location,
@@ -298,7 +299,7 @@ export class ProductsRepository {
       family: data.family,
       description: data.description,
       status: data.status,
-      manufacturer: data.manufacturer, brand: data.brand,
+      manufacturer: data.manufacturer, brand: data.brand, supplierId: data.supplier_id,
       productType: data.product_type,
       version: data.version,
       warehouseLocation: data.warehouse_location,
@@ -392,9 +393,9 @@ export class ProductsRepository {
         wholesale_price, wholesale_price_currency, image_urls,
         is_assembly, is_part, assembly_cost, unit,
         factory_code, warranty_expiration_date, observations, quantity_per_box,
-        space_id, shelf_id, section_id, manufacturer_id, brand, brand_id
+        space_id, shelf_id, section_id, manufacturer_id, brand, brand_id, supplier_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
       RETURNING *
     `;
 
@@ -433,6 +434,7 @@ export class ProductsRepository {
       manufacturerId,
       (productData as any).brand || null,
       brandId,
+      (productData as any).supplierId || null,
     ];
 
     try {
@@ -448,7 +450,7 @@ export class ProductsRepository {
         family: data.family,
         description: data.description,
         status: data.status,
-        manufacturer: data.manufacturer, brand: data.brand,
+        manufacturer: data.manufacturer, brand: data.brand, supplierId: data.supplier_id,
         productType: data.product_type,
         version: data.version,
         warehouseLocation: data.warehouse_location,
@@ -555,6 +557,10 @@ export class ProductsRepository {
         : null;
       setClauses.push(`brand_id = $${paramIndex++}`);
       values.push(brandId);
+    }
+    if ((productData as any).supplierId !== undefined) {
+      setClauses.push(`supplier_id = $${paramIndex++}`);
+      values.push((productData as any).supplierId || null);
     }
     if ((productData as any).warrantyMonths !== undefined) {
       setClauses.push(`warranty_months = $${paramIndex++}`);
@@ -665,7 +671,7 @@ export class ProductsRepository {
       family: data.family,
       description: data.description,
       status: data.status,
-      manufacturer: data.manufacturer, brand: data.brand,
+      manufacturer: data.manufacturer, brand: data.brand, supplierId: data.supplier_id,
       productType: data.product_type,
       version: data.version,
       warehouseLocation: data.warehouse_location,
@@ -760,7 +766,7 @@ export class ProductsRepository {
       family: product.family,
       description: product.description,
       status: product.status,
-      manufacturer: product.manufacturer, brand: product.brand,
+      manufacturer: product.manufacturer, brand: product.brand, supplierId: product.supplier_id,
       productType: product.product_type,
       version: product.version,
       warehouseLocation: product.warehouse_location,
@@ -814,7 +820,7 @@ export class ProductsRepository {
       family: product.family,
       description: product.description,
       status: product.status,
-      manufacturer: product.manufacturer, brand: product.brand,
+      manufacturer: product.manufacturer, brand: product.brand, supplierId: product.supplier_id,
       productType: product.product_type,
       version: product.version,
       warehouseLocation: product.warehouse_location,

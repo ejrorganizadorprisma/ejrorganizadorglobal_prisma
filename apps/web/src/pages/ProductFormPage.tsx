@@ -4,6 +4,7 @@ import { useProduct, useCreateProduct, useUpdateProduct } from '../hooks/useProd
 import { useStorageSpaces, useStorageShelves, useStorageSections } from '../hooks/useStorageLocations';
 import { useActiveProductCategories } from '../hooks/useProductCategories';
 import { useActiveProductFamilies } from '../hooks/useProductFamilies';
+import { useSuppliers } from '../hooks/useSuppliers';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { toast } from 'sonner';
 import { BOMManager } from '../components/product/BOMManager';
@@ -71,6 +72,8 @@ export function ProductFormPage() {
   const { data: product, isLoading: loadingProduct } = useProduct(id);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
+  const { data: suppliersData } = useSuppliers({ page: 1, limit: 1000 });
+  const suppliers = suppliersData?.data || [];
   const { data: systemSettings } = useSystemSettings();
 
   const defaultCurrency = (systemSettings?.defaultCurrency || 'BRL') as Currency;
@@ -82,6 +85,7 @@ export function ProductFormPage() {
     family: '',
     manufacturer: '',
     brand: '',
+    supplierId: '',
     costPrice: 0,
     salePrice: 0,
     wholesalePrice: 0,
@@ -131,6 +135,7 @@ export function ProductFormPage() {
         family: product.family || '',
         manufacturer: product.manufacturer || '',
         brand: product.brand || '',
+        supplierId: (product as any).supplierId || '',
         costPrice: product.costPrice,
         salePrice: product.salePrice,
         wholesalePrice: product.wholesalePrice || 0,
@@ -394,7 +399,25 @@ export function ProductFormPage() {
             )}
           </div>
 
-          {/* Código Fornecedor */}
+          {/* Fornecedor */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Fornecedor
+            </label>
+            <select
+              name="supplierId"
+              value={formData.supplierId}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Selecione o fornecedor...</option>
+              {suppliers.map((s: any) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Código Fornecedor (código deste produto no catálogo do fornecedor) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Código Fornecedor
@@ -405,7 +428,7 @@ export function ProductFormPage() {
               value={formData.factoryCode}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Código do fornecedor"
+              placeholder="Código do produto no fornecedor"
             />
           </div>
 
@@ -564,7 +587,7 @@ export function ProductFormPage() {
           {/* Garantia - Data de Vencimento */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Garantia Vencimento
+              Data de Vencimento
             </label>
             <input
               type="date"
