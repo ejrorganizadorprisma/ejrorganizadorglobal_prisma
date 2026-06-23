@@ -379,24 +379,20 @@ export function ProductFormPage() {
         {activeTab === 'info' ? (
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-4 lg:p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Código */}
+          {/* Nome */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Código {isEditing && <span className="text-xs text-gray-500">(gerado automaticamente)</span>}
+              Nome <span className="text-red-500">*</span>
             </label>
-            {isEditing ? (
-              <input
-                type="text"
-                value={formData.code}
-                disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-100 text-gray-600 cursor-not-allowed"
-                placeholder="PROD-0001"
-              />
-            ) : (
-              <div className="w-full px-3 py-2 border border-gray-300 rounded bg-gray-50 text-gray-500 italic">
-                Será gerado automaticamente (ex: PROD-0001)
-              </div>
-            )}
+            <input
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Nome do produto"
+            />
           </div>
 
           {/* Fornecedor */}
@@ -417,10 +413,10 @@ export function ProductFormPage() {
             </select>
           </div>
 
-          {/* Código Fornecedor (código deste produto no catálogo do fornecedor) */}
+          {/* Código Produto do Fornecedor (código deste produto no catálogo do fornecedor) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Código Fornecedor
+              Código Produto do Fornecedor
             </label>
             <input
               type="text"
@@ -429,22 +425,6 @@ export function ProductFormPage() {
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Código do produto no fornecedor"
-            />
-          </div>
-
-          {/* Nome */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nome do produto"
             />
           </div>
 
