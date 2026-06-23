@@ -171,6 +171,35 @@ export function useDeletePurchaseOrder() {
   });
 }
 
+// Edição de item individual (preço/quantidade) — preserva a identidade do item
+// e o quantity_received (não usa o replace em massa, que é destrutivo).
+export function useUpdatePurchaseOrderItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId, data }: { itemId: string; orderId?: string; data: Record<string, any> }) => {
+      const response = await api.patch(`/purchase-orders/items/${itemId}`, data);
+      return response.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
+export function useDeletePurchaseOrderItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId }: { itemId: string; orderId?: string }) => {
+      await api.delete(`/purchase-orders/items/${itemId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
 export function useSendPurchaseOrder() {
   const queryClient = useQueryClient();
 

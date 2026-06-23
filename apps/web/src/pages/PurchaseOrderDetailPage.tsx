@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { usePurchaseOrder, useSendPurchaseOrder, useConfirmPurchaseOrder, useCancelPurchaseOrder } from '../hooks/usePurchaseOrders';
+import { usePurchaseOrder, useSendPurchaseOrder, useConfirmPurchaseOrder, useCancelPurchaseOrder, useUpdatePurchaseOrderItem, useDeletePurchaseOrderItem } from '../hooks/usePurchaseOrders';
 import { useGenerateSupplierOrders, useSupplierOrdersByPurchaseOrder } from '../hooks/useSupplierOrders';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { toast } from 'sonner';
+
+// Status em que os itens do pedido ainda podem ser ajustados (espelha o backend)
+const EDITABLE_STATUSES = ['DRAFT', 'SENT', 'CONFIRMED', 'PARTIAL'];
 
 const STATUS_LABELS = {
   DRAFT: 'Rascunho',
@@ -32,6 +36,57 @@ export function PurchaseOrderDetailPage() {
   const confirmPO = useConfirmPurchaseOrder();
   const cancelPO = useCancelPurchaseOrder();
   const generateSupplierOrders = useGenerateSupplierOrders();
+  const updateItem = useUpdatePurchaseOrderItem();
+  const deleteItem = useDeletePurchaseOrderItem();
+
+  // Edição inline de item (preço/quantidade)
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+
+  const canEditItems = !!order && EDITABLE_STATUSES.includes(order.status);
+
+  const startEditItem = (item: any) => {
+    setEditingItemId(item.id);
+    setEditQty(String(item.quantity));
+    setEditPrice((item.unitPrice / 100).toFixed(2));
+  };
+
+  const cancelEditItem = () => {
+    setEditingItemId(null);
+    setEditQty('');
+    setEditPrice('');
+  };
+
+  const saveEditItem = async (item: any) => {
+    const qty = parseInt(editQty);
+    const priceCents = Math.round(parseFloat(editPrice) * 100);
+    if (!qty || qty <= 0) { toast.error('Quantidade deve ser maior que zero'); return; }
+    if (isNaN(priceCents) || priceCents < 0) { toast.error('Preço inválido'); return; }
+    const received = item.quantityReceived || 0;
+    if (qty < received) { toast.error(`Quantidade não pode ser menor que o já recebido (${received})`); return; }
+    try {
+      await updateItem.mutateAsync({ itemId: item.id, orderId: id, data: { quantity: qty, unitPrice: priceCents } });
+      toast.success('Item atualizado!');
+      cancelEditItem();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error?.message || e.response?.data?.error || 'Erro ao atualizar item');
+    }
+  };
+
+  const handleRemoveItem = async (item: any) => {
+    if ((item.quantityReceived || 0) > 0) {
+      toast.error('Não é possível remover um item que já teve recebimento.');
+      return;
+    }
+    if (!window.confirm(`Remover o item "${item.product?.name || ''}" do pedido?`)) return;
+    try {
+      await deleteItem.mutateAsync({ itemId: item.id, orderId: id });
+      toast.success('Item removido!');
+    } catch (e: any) {
+      toast.error(e.response?.data?.error?.message || e.response?.data?.error || 'Erro ao remover item');
+    }
+  };
 
   const handleSend = async () => {
     if (!id || !window.confirm('Deseja enviar esta ordem de compra ao fornecedor?')) return;
@@ -245,40 +300,66 @@ export function PurchaseOrderDetailPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4">Itens da Ordem</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Itens da Ordem</h2>
+          {canEditItems && (
+            <span className="text-xs text-gray-500">Ajuste preço/quantidade ou remova itens em falta abaixo.</span>
+          )}
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Produto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Quantidade
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Preço Unit.
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fornecedor
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantidade</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recebido</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço Unit.</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornecedor</th>
+                {canEditItems && (
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                )}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {order.items?.map((item: any) => (
-                <tr key={item.id}>
+              {order.items?.map((item: any) => {
+                const received = item.quantityReceived || 0;
+                const isEditing = editingItemId === item.id;
+                return (
+                <tr key={item.id} className={isEditing ? 'bg-blue-50/40' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{item.product?.name || '-'}</div>
                     <div className="text-sm text-gray-500">{item.product?.code || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.quantity}</div>
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        min={received || 1}
+                        value={editQty}
+                        onChange={(e) => setEditQty(e.target.value)}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                    ) : (
+                      <div className="text-sm text-gray-900">{item.quantity}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{formatPrice(item.unitPrice)}</div>
+                    <div className={`text-sm ${received > 0 ? 'text-emerald-700 font-medium' : 'text-gray-400'}`}>{received}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"
+                      />
+                    ) : (
+                      <div className="text-sm text-gray-900">{formatPrice(item.unitPrice)}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{formatPrice(item.totalPrice)}</div>
@@ -286,8 +367,36 @@ export function PurchaseOrderDetailPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{item.supplier?.name || '-'}</div>
                   </td>
+                  {canEditItems && (
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      {isEditing ? (
+                        <>
+                          <button
+                            onClick={() => saveEditItem(item)}
+                            disabled={updateItem.isPending}
+                            className="text-blue-600 hover:text-blue-900 mr-3 disabled:opacity-50"
+                          >
+                            Salvar
+                          </button>
+                          <button onClick={cancelEditItem} className="text-gray-500 hover:text-gray-700">Cancelar</button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => startEditItem(item)} className="text-blue-600 hover:text-blue-900 mr-3">Editar</button>
+                          <button
+                            onClick={() => handleRemoveItem(item)}
+                            disabled={received > 0}
+                            title={received > 0 ? 'Item já teve recebimento — não pode ser removido' : 'Remover item'}
+                            className="text-red-600 hover:text-red-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+                          >
+                            Remover
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  )}
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>

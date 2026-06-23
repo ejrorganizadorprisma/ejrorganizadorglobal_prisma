@@ -547,6 +547,26 @@ export class PurchaseOrdersRepository {
     return itemsWithRelations.map(this.mapItemToDTO);
   }
 
+  // Retorna o item + o status do pedido pai (para validar edição/recebimento)
+  async getItemWithOrder(itemId: string): Promise<{ id: string; purchaseOrderId: string; quantity: number; quantityReceived: number; orderStatus: string } | null> {
+    const result = await db.query(
+      `SELECT poi.id, poi.purchase_order_id, poi.quantity, poi.quantity_received, po.status AS order_status
+       FROM purchase_order_items poi
+       JOIN purchase_orders po ON po.id = poi.purchase_order_id
+       WHERE poi.id = $1`,
+      [itemId]
+    );
+    if (!result.rows || result.rows.length === 0) return null;
+    const r = result.rows[0];
+    return {
+      id: r.id,
+      purchaseOrderId: r.purchase_order_id,
+      quantity: r.quantity,
+      quantityReceived: r.quantity_received || 0,
+      orderStatus: r.order_status,
+    };
+  }
+
   async addItem(orderId: string, item: CreatePurchaseOrderItemDTO): Promise<PurchaseOrderItem> {
     const totalPrice = this.calculateItemTotal(item);
     const itemId = `po-item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;

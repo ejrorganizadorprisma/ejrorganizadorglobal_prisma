@@ -12,6 +12,19 @@ export class PurchaseOrdersService {
     this.repository = new PurchaseOrdersRepository();
   }
 
+  // Status em que o pedido ainda pode ter itens ajustados (preço/qtd/remover/adicionar).
+  // Bloqueia quando totalmente RECEBIDO ou CANCELADO.
+  private static readonly EDITABLE_STATUSES = ['DRAFT', 'SENT', 'CONFIRMED', 'PARTIAL'];
+
+  private assertOrderEditable(status: string) {
+    if (!PurchaseOrdersService.EDITABLE_STATUSES.includes(status)) {
+      throw Object.assign(
+        new Error('Este pedido não pode mais ser editado (já recebido ou cancelado).'),
+        { statusCode: 400, code: 'ORDER_NOT_EDITABLE' }
+      );
+    }
+  }
+
   async findMany(params: {
     page?: number;
     limit?: number;
@@ -147,13 +160,9 @@ export class PurchaseOrdersService {
   }
 
   async addItem(orderId: string, item: CreatePurchaseOrderItemDTO) {
-    // Verifica se a ordem existe
+    // Verifica se a ordem existe e pode ser editada
     const order = await this.findById(orderId);
-
-    // Só permite adicionar itens em ordens em rascunho
-    if (order.status !== 'DRAFT') {
-      throw new Error('Apenas ordens em rascunho podem ter itens adicionados');
-    }
+    this.assertOrderEditable(order.status);
 
     // Valida o item
     this.validateOrderItem(item);
@@ -162,8 +171,12 @@ export class PurchaseOrdersService {
   }
 
   async updateItem(itemId: string, itemData: Partial<CreatePurchaseOrderItemDTO>) {
-    // Busca o item para verificar a ordem
-    const items = await this.repository.getItems('');
+    // Busca o item + status do pedido pai
+    const ctx = await this.repository.getItemWithOrder(itemId);
+    if (!ctx) {
+      throw new Error('Item não encontrado');
+    }
+    this.assertOrderEditable(ctx.orderStatus);
 
     // Valida os dados do item se fornecidos
     if (itemData.quantity !== undefined && itemData.quantity <= 0) {
@@ -182,10 +195,32 @@ export class PurchaseOrdersService {
       throw new Error('Desconto deve estar entre 0 e 100');
     }
 
+    // Trava: não reduzir a quantidade abaixo do que já foi recebido
+    if (itemData.quantity !== undefined && itemData.quantity < ctx.quantityReceived) {
+      throw Object.assign(
+        new Error(`Não é possível reduzir a quantidade para menos do que já foi recebido (${ctx.quantityReceived}).`),
+        { statusCode: 400, code: 'BELOW_RECEIVED' }
+      );
+    }
+
     return this.repository.updateItem(itemId, itemData);
   }
 
   async deleteItem(itemId: string) {
+    const ctx = await this.repository.getItemWithOrder(itemId);
+    if (!ctx) {
+      throw new Error('Item não encontrado');
+    }
+    this.assertOrderEditable(ctx.orderStatus);
+
+    // Trava: não remover item que já teve recebimento
+    if (ctx.quantityReceived > 0) {
+      throw Object.assign(
+        new Error('Não é possível remover um item que já teve recebimento. Ajuste a quantidade se necessário.'),
+        { statusCode: 400, code: 'ALREADY_RECEIVED' }
+      );
+    }
+
     return this.repository.deleteItem(itemId);
   }
 
