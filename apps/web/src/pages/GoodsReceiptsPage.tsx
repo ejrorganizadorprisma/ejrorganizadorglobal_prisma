@@ -10,6 +10,7 @@ import { useSupplierOrders } from '../hooks/useSupplierOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { PackageCheck, MapPin } from 'lucide-react';
+import { logisticsStyle } from '../lib/logisticsStatus';
 import { toast } from 'sonner';
 
 const STATUS_LABELS = {
@@ -298,16 +299,19 @@ export function GoodsReceiptsPage() {
                         )}
                       </div>
 
-                      {/* Logística — última localização conhecida da mercadoria */}
-                      {order.lastTracking && (
-                        <div className="flex items-start gap-1.5 mb-3 -mt-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                          <div className="min-w-0 text-xs">
-                            <span className="font-semibold">{order.lastTracking.location}</span>
-                            <span className="text-indigo-400"> · {shortDate(order.lastTracking.trackingDate)}</span>
+                      {/* Logística — última localização conhecida da mercadoria (cor por etapa) */}
+                      {order.lastTracking && (() => {
+                        const lg = logisticsStyle(order.lastTracking.location)!;
+                        return (
+                          <div className={`flex items-start gap-1.5 mb-3 -mt-1 px-2.5 py-1.5 rounded-lg ${lg.chip}`}>
+                            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                            <div className="min-w-0 text-xs">
+                              <span className="font-semibold">{order.lastTracking.location}</span>
+                              <span className="opacity-60"> · {shortDate(order.lastTracking.trackingDate)}</span>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       <div className="flex gap-2">
                         <button

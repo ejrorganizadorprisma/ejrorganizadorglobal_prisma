@@ -60,6 +60,7 @@ function formatOrderSecondaries(order: any): string | null {
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
+import { logisticsStyle } from '../lib/logisticsStatus';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendente',
@@ -327,14 +328,15 @@ export function SupplierOrdersPage() {
                         <td className="px-3 py-3 whitespace-nowrap">
                           {(() => {
                             const inProgress = !['RECEIVED', 'CANCELLED'].includes(order.status);
+                            const lg = inProgress ? logisticsStyle(order.lastTracking?.location) : null;
                             const showTip = (e: React.MouseEvent) => {
                               if (!inProgress) return;
                               const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                               setTrackTip({ x: r.left, y: r.bottom + 6, order });
                             };
                             return (
-                              <span
-                                className={`inline-flex items-center gap-1 ${inProgress ? 'cursor-help' : ''}`}
+                              <div
+                                className={`flex flex-col items-start gap-1 ${inProgress ? 'cursor-help' : ''}`}
                                 onMouseEnter={showTip}
                                 onMouseLeave={() => setTrackTip(null)}
                               >
@@ -345,10 +347,17 @@ export function SupplierOrdersPage() {
                                 >
                                   {STATUS_LABELS[order.status] || order.status}
                                 </span>
-                                {inProgress && order.lastTracking && (
-                                  <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                                {lg ? (
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${lg.chip}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${lg.dot}`} />
+                                    {lg.label}
+                                  </span>
+                                ) : inProgress && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-300">
+                                    <MapPin className="w-3 h-3" /> sem logística
+                                  </span>
                                 )}
-                              </span>
+                              </div>
                             );
                           })()}
                         </td>

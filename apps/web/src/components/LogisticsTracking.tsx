@@ -6,6 +6,7 @@ import {
   useAddSupplierOrderTracking,
   useDeleteSupplierOrderTracking,
 } from '../hooks/useSupplierOrders';
+import { LOGISTICS_PRESETS, logisticsStyle } from '../lib/logisticsStatus';
 
 interface Props {
   orderId: string;
@@ -86,17 +87,39 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
       {/* Formulário de nova atualização */}
       {canEdit && (
         <div className="px-4 py-3 bg-slate-50/70 border-b border-gray-100">
+          {/* Atalhos rápidos (mais usados) */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Atalhos:</span>
+            {LOGISTICS_PRESETS.map((preset) => {
+              const st = logisticsStyle(preset)!;
+              const active = location.trim() === preset;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setLocation(preset)}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${active ? `${st.chip} ring-2 ring-offset-1 ring-current` : `${st.chip} opacity-80 hover:opacity-100`}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} /> {preset}
+                </button>
+              );
+            })}
+          </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 min-w-0">
               <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">Localidade *</label>
               <input
                 type="text"
+                list="logistics-presets"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-                placeholder="Ex.: Em trânsito — Foz do Iguaçu / Alfândega"
+                placeholder="Selecione ou digite — ex.: Em trânsito, Foz do Iguaçu…"
                 className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
               />
+              <datalist id="logistics-presets">
+                {LOGISTICS_PRESETS.map((p) => <option key={p} value={p} />)}
+              </datalist>
             </div>
             <div className="sm:w-36">
               <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">Data</label>
@@ -138,17 +161,19 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
             Nenhuma atualização de logística ainda.
           </div>
         ) : (
-          <ol className="relative border-l-2 border-indigo-100 ml-1.5 space-y-4">
-            {list.map((t, idx) => (
+          <ol className="relative border-l-2 border-slate-100 ml-1.5 space-y-4">
+            {list.map((t, idx) => {
+              const st = logisticsStyle(t.location)!;
+              return (
               <li key={t.id} className="ml-4">
-                <span className={`absolute -left-[7px] mt-1 w-3 h-3 rounded-full ring-4 ring-white ${idx === 0 ? 'bg-indigo-600' : 'bg-indigo-200'}`} />
+                <span className={`absolute -left-[7px] mt-1 w-3 h-3 rounded-full ring-4 ring-white ${idx === 0 ? st.dot : 'bg-slate-200'}`} />
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <MapPin className={`w-3.5 h-3.5 shrink-0 ${idx === 0 ? 'text-indigo-600' : 'text-slate-400'}`} />
+                      <MapPin className={`w-3.5 h-3.5 shrink-0 ${idx === 0 ? st.text : 'text-slate-400'}`} />
                       <span className={`text-sm font-semibold ${idx === 0 ? 'text-gray-900' : 'text-gray-700'}`}>{t.location}</span>
                       {idx === 0 && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-full">Atual</span>
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${st.chip}`}>Atual</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-0.5">
@@ -169,7 +194,8 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ol>
         )}
       </div>
