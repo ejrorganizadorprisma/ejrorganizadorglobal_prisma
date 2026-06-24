@@ -461,13 +461,13 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                       </div>
                       {/* Linha de histórico — último valor (atual) registrado, alinhada sob cada campo */}
                       {historyOpen.has(idx) && item.hasHistory && (
-                        <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 leading-none">
-                          <div className="w-[5.5rem] text-right" title="Último custo registrado no produto">{item.lastCost ? grp(item.lastCost) : '—'}</div>
-                          <div className="w-11 text-right">{item.lastMarginWholesale ? `${item.lastMarginWholesale}%` : '—'}</div>
-                          <div className="w-[5.5rem] text-right" title="Último atacado registrado">{item.lastWholesale ? grp(item.lastWholesale) : '—'}</div>
-                          <div className="w-11 text-right">{item.lastMargin ? `${item.lastMargin}%` : '—'}</div>
-                          <div className="w-[5.5rem] text-right" title="Último varejo registrado">{item.lastSale ? grp(item.lastSale) : '—'}</div>
-                          <span className="text-[8px] uppercase tracking-wide text-slate-300">último</span>
+                        <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-[9px] font-bold leading-none">
+                          <div className="w-[5.5rem] text-right text-slate-700" title="Último custo registrado no produto">{item.lastCost ? grp(item.lastCost) : '—'}</div>
+                          <div className="w-11 text-right text-amber-600">{item.lastMarginWholesale ? `${item.lastMarginWholesale}%` : '—'}</div>
+                          <div className="w-[5.5rem] text-right text-amber-700" title="Último atacado registrado">{item.lastWholesale ? grp(item.lastWholesale) : '—'}</div>
+                          <div className="w-11 text-right text-emerald-600">{item.lastMargin ? `${item.lastMargin}%` : '—'}</div>
+                          <div className="w-[5.5rem] text-right text-emerald-700" title="Último varejo registrado">{item.lastSale ? grp(item.lastSale) : '—'}</div>
+                          <span className="text-[8px] uppercase tracking-wide font-bold text-indigo-500">último</span>
                         </div>
                       )}
                       {item.status !== 'CONFORME' && (
