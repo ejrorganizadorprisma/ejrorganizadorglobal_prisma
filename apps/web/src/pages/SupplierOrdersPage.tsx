@@ -10,7 +10,7 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2 } from 'lucide-react';
+import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2, Pencil } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
@@ -377,6 +377,16 @@ export function SupplierOrdersPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+
+                            {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
+                              <button
+                                onClick={() => navigate(`/supplier-orders/${order.id}?edit=1`)}
+                                className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
+                                title="Editar pedido (itens, valores, observações)"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                            )}
 
                             <button
                               onClick={() => handleGeneratePdf(order.id)}

@@ -18,6 +18,13 @@ const GenerateOrdersSchema = z.object({
   purchaseOrderId: z.string().min(1, 'ID da ordem de compra é obrigatório'),
 });
 
+const UpdateSupplierOrderItemSchema = z.object({
+  quantity: z.number().int().positive().optional(),
+  unitPrice: z.number().int().min(0).optional(),
+  discountPercentage: z.number().min(0).max(100).optional(),
+  notes: z.string().optional(),
+});
+
 export class SupplierOrdersController {
   private service: SupplierOrdersService;
 
@@ -155,6 +162,31 @@ export class SupplierOrdersController {
     const { id } = req.params;
     const items = await this.service.getItems(id);
     res.json({ success: true, data: items });
+  };
+
+  updateItem = async (req: Request, res: Response) => {
+    const { itemId } = req.params;
+    const validation = UpdateSupplierOrderItemSchema.safeParse(req.body);
+
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Dados inválidos',
+          details: validation.error.errors,
+        },
+      });
+    }
+
+    const item = await this.service.updateItem(itemId, validation.data);
+    res.json({ success: true, data: item, message: 'Item atualizado com sucesso' });
+  };
+
+  deleteItem = async (req: Request, res: Response) => {
+    const { itemId } = req.params;
+    await this.service.deleteItem(itemId);
+    res.json({ success: true, message: 'Item removido com sucesso' });
   };
 
   uploadInvoiceFile = async (req: Request, res: Response) => {

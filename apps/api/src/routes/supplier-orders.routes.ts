@@ -27,6 +27,10 @@ router.get('/:id/items', asyncHandler(controller.getItems));
 // Gerar pedidos a partir de uma OC
 router.post('/generate', asyncHandler(controller.generateFromPurchaseOrder));
 
+// Itens do pedido (editar qtd/preço/desconto/obs ou remover) — antes de /:id
+router.patch('/items/:itemId', asyncHandler(controller.updateItem));
+router.delete('/items/:itemId', asyncHandler(controller.deleteItem));
+
 // Atualização
 router.patch('/:id', asyncHandler(controller.update));
 

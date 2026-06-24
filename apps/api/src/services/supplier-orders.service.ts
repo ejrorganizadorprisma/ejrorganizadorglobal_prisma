@@ -311,6 +311,94 @@ export class SupplierOrdersService {
     return this.repository.getItems(orderId);
   }
 
+  // Status em que os itens do pedido ainda podem ser ajustados (antes do recebimento total)
+  private static readonly EDITABLE_STATUSES = ['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'];
+
+  private assertOrderEditable(status: string) {
+    if (!SupplierOrdersService.EDITABLE_STATUSES.includes(status)) {
+      throw new AppError(
+        'Este pedido não pode mais ser editado (já recebido ou cancelado).',
+        400,
+        'ORDER_NOT_EDITABLE'
+      );
+    }
+  }
+
+  async updateItem(
+    itemId: string,
+    data: { quantity?: number; unitPrice?: number; discountPercentage?: number; notes?: string }
+  ) {
+    const ctx = await this.repository.getItemWithOrder(itemId);
+    if (!ctx) {
+      throw new AppError('Item não encontrado', 404, 'ITEM_NOT_FOUND');
+    }
+    this.assertOrderEditable(ctx.orderStatus);
+
+    if (data.quantity !== undefined && data.quantity <= 0) {
+      throw new AppError('Quantidade deve ser maior que zero', 400, 'INVALID_QUANTITY');
+    }
+    if (data.unitPrice !== undefined && data.unitPrice < 0) {
+      throw new AppError('Preço unitário não pode ser negativo', 400, 'INVALID_PRICE');
+    }
+    if (data.discountPercentage !== undefined && (data.discountPercentage < 0 || data.discountPercentage > 100)) {
+      throw new AppError('Desconto deve estar entre 0 e 100', 400, 'INVALID_DISCOUNT');
+    }
+    // Trava: não reduzir a quantidade abaixo do que já foi recebido
+    if (data.quantity !== undefined && data.quantity < ctx.quantityReceived) {
+      throw new AppError(
+        `Não é possível reduzir a quantidade para menos do que já foi recebido (${ctx.quantityReceived}).`,
+        400,
+        'BELOW_RECEIVED'
+      );
+    }
+
+    const updated = await this.repository.updateItem(itemId, data);
+
+    // Propaga para o item da Ordem de Compra de origem (mantém OC e recebimento em sincronia)
+    if (ctx.purchaseOrderItemId && (data.quantity !== undefined || data.unitPrice !== undefined)) {
+      const poData: { quantity?: number; unitPrice?: number } = {};
+      if (data.quantity !== undefined) poData.quantity = data.quantity;
+      if (data.unitPrice !== undefined) poData.unitPrice = data.unitPrice;
+      try {
+        await this.purchaseOrdersRepository.updateItem(ctx.purchaseOrderItemId, poData);
+      } catch (err: any) {
+        console.error('Falha ao propagar edição do item para a OC:', err?.message || err);
+      }
+    }
+
+    return updated;
+  }
+
+  async deleteItem(itemId: string) {
+    const ctx = await this.repository.getItemWithOrder(itemId);
+    if (!ctx) {
+      throw new AppError('Item não encontrado', 404, 'ITEM_NOT_FOUND');
+    }
+    this.assertOrderEditable(ctx.orderStatus);
+
+    // Trava: não remover item que já teve recebimento
+    if (ctx.quantityReceived > 0) {
+      throw new AppError(
+        'Não é possível remover um item que já teve recebimento. Ajuste a quantidade se necessário.',
+        400,
+        'ALREADY_RECEIVED'
+      );
+    }
+
+    await this.repository.deleteItem(itemId);
+
+    // Remove também o item correspondente na Ordem de Compra de origem
+    if (ctx.purchaseOrderItemId) {
+      try {
+        await this.purchaseOrdersRepository.deleteItem(ctx.purchaseOrderItemId);
+      } catch (err: any) {
+        console.error('Falha ao propagar remoção do item para a OC:', err?.message || err);
+      }
+    }
+
+    return { success: true };
+  }
+
   private validateStatusTransition(currentStatus: string, newStatus: string) {
     const validTransitions: Record<string, string[]> = {
       PENDING: ['SENT', 'CANCELLED'],

@@ -225,3 +225,41 @@ export function useDeleteSupplierOrder() {
     },
   });
 }
+
+export function useUpdateSupplierOrderItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId, data: itemData }: {
+      itemId: string;
+      orderId?: string;
+      data: { quantity?: number; unitPrice?: number; discountPercentage?: number; notes?: string };
+    }) => {
+      const { data } = await api.patch(`/supplier-orders/items/${itemId}`, itemData);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-order', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-order-items', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}
+
+export function useDeleteSupplierOrderItem() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ itemId }: { itemId: string; orderId?: string }) => {
+      const { data } = await api.delete(`/supplier-orders/items/${itemId}`);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-order', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-order-items', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+    },
+  });
+}

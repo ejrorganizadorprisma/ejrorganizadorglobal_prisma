@@ -593,6 +593,114 @@ export class SupplierOrdersRepository {
     return this.mapItemToDTO(result.rows[0]);
   }
 
+  // Busca um item + status/identidade do pedido pai (para validar edição)
+  async getItemWithOrder(itemId: string): Promise<{
+    id: string;
+    supplierOrderId: string;
+    purchaseOrderItemId: string | null;
+    quantity: number;
+    quantityReceived: number;
+    unitPrice: number;
+    discountPercentage: number;
+    orderStatus: string;
+  } | null> {
+    const result = await db.query(
+      `SELECT soi.id, soi.supplier_order_id, soi.purchase_order_item_id, soi.quantity,
+              soi.quantity_received, soi.unit_price, soi.discount_percentage,
+              so.status AS order_status
+       FROM supplier_order_items soi
+       JOIN supplier_orders so ON so.id = soi.supplier_order_id
+       WHERE soi.id = $1`,
+      [itemId]
+    );
+    if (result.rows.length === 0) return null;
+    const r = result.rows[0];
+    return {
+      id: r.id,
+      supplierOrderId: r.supplier_order_id,
+      purchaseOrderItemId: r.purchase_order_item_id ?? null,
+      quantity: r.quantity,
+      quantityReceived: r.quantity_received || 0,
+      unitPrice: r.unit_price,
+      discountPercentage: r.discount_percentage || 0,
+      orderStatus: r.order_status,
+    };
+  }
+
+  // Atualiza um item do pedido (qtd/preço/desconto/obs) e recalcula totais do pedido.
+  // Preserva a identidade do item (não faz DELETE+INSERT), mantendo quantity_received.
+  async updateItem(
+    itemId: string,
+    data: { quantity?: number; unitPrice?: number; discountPercentage?: number; notes?: string }
+  ): Promise<SupplierOrderItem> {
+    const currentResult = await db.query('SELECT * FROM supplier_order_items WHERE id = $1', [itemId]);
+    if (currentResult.rows.length === 0) {
+      throw new Error('Item não encontrado');
+    }
+    const cur = currentResult.rows[0];
+
+    const quantity = data.quantity ?? cur.quantity;
+    const unitPrice = data.unitPrice ?? cur.unit_price;
+    const discountPercentage = data.discountPercentage ?? cur.discount_percentage ?? 0;
+    const totalPrice = this.calculateItemTotal({ productId: cur.product_id, quantity, unitPrice, discountPercentage });
+
+    const setClauses: string[] = [];
+    const params: any[] = [];
+    let i = 1;
+    if (data.quantity !== undefined) { setClauses.push(`quantity = $${i++}`); params.push(quantity); }
+    if (data.unitPrice !== undefined) { setClauses.push(`unit_price = $${i++}`); params.push(unitPrice); }
+    if (data.discountPercentage !== undefined) { setClauses.push(`discount_percentage = $${i++}`); params.push(discountPercentage); }
+    if (data.notes !== undefined) { setClauses.push(`notes = $${i++}`); params.push(data.notes); }
+    setClauses.push(`total_price = $${i++}`); params.push(totalPrice);
+    params.push(itemId);
+
+    const result = await db.query(
+      `UPDATE supplier_order_items SET ${setClauses.join(', ')} WHERE id = $${i} RETURNING *`,
+      params
+    );
+
+    await this.recalculateTotals(cur.supplier_order_id);
+
+    return this.mapItemToDTO(result.rows[0]);
+  }
+
+  async deleteItem(itemId: string): Promise<{ success: boolean }> {
+    const itemResult = await db.query(
+      'SELECT supplier_order_id FROM supplier_order_items WHERE id = $1',
+      [itemId]
+    );
+    if (itemResult.rows.length === 0) {
+      throw new Error('Item não encontrado');
+    }
+    const supplierOrderId = itemResult.rows[0].supplier_order_id;
+
+    await db.query('DELETE FROM supplier_order_items WHERE id = $1', [itemId]);
+    await this.recalculateTotals(supplierOrderId);
+
+    return { success: true };
+  }
+
+  // Recalcula subtotal/total do pedido a partir dos itens (mantém custo de envio/desconto)
+  private async recalculateTotals(orderId: string): Promise<void> {
+    const sumResult = await db.query(
+      'SELECT COALESCE(SUM(total_price), 0)::bigint AS subtotal FROM supplier_order_items WHERE supplier_order_id = $1',
+      [orderId]
+    );
+    const subtotal = Number(sumResult.rows[0]?.subtotal || 0);
+
+    const orderResult = await db.query(
+      'SELECT shipping_cost, discount_amount FROM supplier_orders WHERE id = $1',
+      [orderId]
+    );
+    const shipping = orderResult.rows[0]?.shipping_cost || 0;
+    const discount = orderResult.rows[0]?.discount_amount || 0;
+
+    await db.query(
+      'UPDATE supplier_orders SET subtotal = $1, total_amount = $2, updated_at = NOW() WHERE id = $3',
+      [subtotal, subtotal + shipping - discount, orderId]
+    );
+  }
+
   // Mappers
   private mapToDTO(data: any): SupplierOrder {
     return {
