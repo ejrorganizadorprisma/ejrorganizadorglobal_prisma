@@ -22,6 +22,9 @@ export interface SupplierOrder {
   internalNotes?: string;
   invoiceFileUrl?: string | null;
   invoiceFileName?: string | null;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
+  invoiceAmount?: number | null;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -140,6 +143,9 @@ export interface UpdateSupplierOrderDTO {
   discountAmount?: number;
   notes?: string;
   internalNotes?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  invoiceAmount?: number;
 }
 
 export class SupplierOrdersRepository {
@@ -560,6 +566,21 @@ export class SupplierOrdersRepository {
       values.push(orderData.internalNotes);
       paramIndex++;
     }
+    if (orderData.invoiceNumber !== undefined) {
+      fields.push(`invoice_number = $${paramIndex}`);
+      values.push(orderData.invoiceNumber || null);
+      paramIndex++;
+    }
+    if (orderData.invoiceDate !== undefined) {
+      fields.push(`invoice_date = $${paramIndex}`);
+      values.push(orderData.invoiceDate || null);
+      paramIndex++;
+    }
+    if (orderData.invoiceAmount !== undefined) {
+      fields.push(`invoice_amount = $${paramIndex}`);
+      values.push(orderData.invoiceAmount ?? null);
+      paramIndex++;
+    }
 
     // Recalcular total se custos mudaram
     if (orderData.shippingCost !== undefined || orderData.discountAmount !== undefined) {
@@ -819,6 +840,9 @@ export class SupplierOrdersRepository {
       internalNotes: data.internal_notes,
       invoiceFileUrl: data.invoice_file_url ?? null,
       invoiceFileName: data.invoice_file_name ?? null,
+      invoiceNumber: data.invoice_number ?? null,
+      invoiceDate: data.invoice_date ?? null,
+      invoiceAmount: data.invoice_amount ?? null,
       createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,

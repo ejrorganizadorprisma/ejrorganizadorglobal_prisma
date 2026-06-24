@@ -21,6 +21,11 @@ export interface SupplierOrder {
   paymentTerms?: string;
   notes?: string;
   internalNotes?: string;
+  invoiceNumber?: string | null;
+  invoiceDate?: string | null;
+  invoiceAmount?: number | null;
+  invoiceFileUrl?: string | null;
+  invoiceFileName?: string | null;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;

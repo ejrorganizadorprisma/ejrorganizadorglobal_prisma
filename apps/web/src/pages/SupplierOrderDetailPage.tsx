@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { Receipt } from 'lucide-react';
+import { api } from '../lib/api';
 import {
   useSupplierOrder,
   useSendSupplierOrder,
@@ -47,12 +50,18 @@ export function SupplierOrderDetailPage() {
   const [internalNotes, setInternalNotes] = useState('');
   const [paymentTerms, setPaymentTerms] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  // Nota Fiscal (lançada já no pedido — pré-preenche o recebimento)
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [invoiceAmount, setInvoiceAmount] = useState('');
+  const [uploadingNf, setUploadingNf] = useState(false);
 
   // Edição inline de item (quantidade / preço unitário em R$)
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
   const [editPriceBRL, setEditPriceBRL] = useState('');
 
+  const queryClient = useQueryClient();
   const { data: order, isLoading } = useSupplierOrder(id);
   const { data: documentSettings } = useDefaultDocumentSettings();
   const sendOrder = useSendSupplierOrder();
@@ -121,6 +130,9 @@ export function SupplierOrderDetailPage() {
     setInternalNotes(order?.internalNotes || '');
     setPaymentTerms(order?.paymentTerms || '');
     setExpectedDeliveryDate(order?.expectedDeliveryDate?.split('T')[0] || '');
+    setInvoiceNumber(order?.invoiceNumber || '');
+    setInvoiceDate(order?.invoiceDate ? String(order.invoiceDate).slice(0, 10) : '');
+    setInvoiceAmount(order?.invoiceAmount != null ? (order.invoiceAmount / 100).toFixed(2) : '');
     setIsEditing(true);
   };
 
@@ -133,12 +145,32 @@ export function SupplierOrderDetailPage() {
           internalNotes: internalNotes || undefined,
           paymentTerms: paymentTerms || undefined,
           expectedDeliveryDate: expectedDeliveryDate || undefined,
-        },
+          invoiceNumber: invoiceNumber || undefined,
+          invoiceDate: invoiceDate || undefined,
+          invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        } as any,
       });
       toast.success('Pedido atualizado!');
       setIsEditing(false);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Erro ao atualizar');
+    }
+  };
+
+  const handleUploadNf = async (file?: File | null) => {
+    if (!file || !id) return;
+    setUploadingNf(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      await api.post(`/supplier-orders/${id}/invoice-file`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      toast.success('Arquivo da NF anexado!');
+      queryClient.invalidateQueries({ queryKey: ['supplier-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao anexar arquivo da NF.');
+    } finally {
+      setUploadingNf(false);
     }
   };
 
@@ -484,6 +516,73 @@ export function SupplierOrderDetailPage() {
                   />
                 </div>
               </div>
+
+              {/* ===== Nota Fiscal (pré-preenche o recebimento) ===== */}
+              <div className="mt-5 pt-4 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <Receipt className="w-4 h-4 text-blue-600" />
+                  <h4 className="text-sm font-semibold text-gray-800">Nota Fiscal</h4>
+                  <span className="text-xs text-gray-400">— preenche automaticamente o recebimento</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nº da NF</label>
+                    <input
+                      type="text"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Data da NF</label>
+                    <input
+                      type="date"
+                      value={invoiceDate}
+                      onChange={(e) => setInvoiceDate(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Valor da NF (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={invoiceAmount}
+                      onChange={(e) => setInvoiceAmount(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-right focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Arquivo (PDF/imagem)</label>
+                    {order.invoiceFileUrl ? (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={order.invoiceFileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-2 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-xs font-semibold"
+                          title="Ver arquivo anexado"
+                        >
+                          <Receipt className="w-3.5 h-3.5" /> Ver NF
+                        </a>
+                        <label className="inline-flex items-center gap-1 px-2.5 py-2 border border-gray-300 text-gray-600 rounded-md hover:bg-gray-50 text-xs cursor-pointer">
+                          {uploadingNf ? '…' : 'Trocar'}
+                          <input type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => handleUploadNf(e.target.files?.[0])} />
+                        </label>
+                      </div>
+                    ) : (
+                      <label className="inline-flex items-center gap-1.5 px-3 py-2 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold cursor-pointer w-full justify-center">
+                        <Receipt className="w-3.5 h-3.5" /> {uploadingNf ? 'Enviando…' : 'Anexar PDF/imagem'}
+                        <input type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => handleUploadNf(e.target.files?.[0])} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-2 mt-4">
                 <button
                   onClick={() => setIsEditing(false)}

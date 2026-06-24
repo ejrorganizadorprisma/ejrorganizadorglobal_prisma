@@ -12,6 +12,9 @@ const UpdateSupplierOrderSchema = z.object({
   discountAmount: z.number().min(0).optional(),
   notes: z.string().optional(),
   internalNotes: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  invoiceDate: z.string().optional(),
+  invoiceAmount: z.number().int().min(0).optional(),
 });
 
 const GenerateOrdersSchema = z.object({

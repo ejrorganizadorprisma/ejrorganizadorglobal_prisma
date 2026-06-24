@@ -11,7 +11,7 @@ import { useSupplierOrders } from '../hooks/useSupplierOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
-import { PackageCheck, MapPin } from 'lucide-react';
+import { PackageCheck, MapPin, Receipt } from 'lucide-react';
 import { logisticsStyle } from '../lib/logisticsStatus';
 import { toast } from 'sonner';
 
@@ -316,6 +316,21 @@ export function GoodsReceiptsPage() {
                           </div>
                         );
                       })()}
+
+                      {/* Nota Fiscal já lançada no pedido */}
+                      {(order.invoiceNumber || order.invoiceAmount != null || order.invoiceFileUrl) && (
+                        <div className="flex items-center gap-1.5 mb-3 -mt-1 px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 text-xs">
+                          <Receipt className="w-3.5 h-3.5 shrink-0" />
+                          <span className="min-w-0 truncate">
+                            <span className="font-semibold">NF {order.invoiceNumber || '—'}</span>
+                            {order.invoiceAmount != null && <span> · {formatPrice(order.invoiceAmount)}</span>}
+                            {order.invoiceDate && <span className="opacity-60"> · {shortDate(order.invoiceDate)}</span>}
+                          </span>
+                          {order.invoiceFileUrl && (
+                            <a href={order.invoiceFileUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="ml-auto shrink-0 underline hover:no-underline" title="Ver arquivo da NF">arquivo</a>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex gap-2">
                         <button

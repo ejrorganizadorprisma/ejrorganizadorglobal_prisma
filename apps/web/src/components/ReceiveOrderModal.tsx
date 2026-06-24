@@ -196,7 +196,14 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
             };
           })
       );
-      if ((order as any).totalAmount && !finalAmount) setFinalAmount(((order as any).totalAmount / 100).toFixed(2));
+      // Pré-preenche a NF a partir do que foi lançado no pedido (se houver)
+      const o = order as any;
+      if (o.invoiceNumber && !invoiceNumber) setInvoiceNumber(o.invoiceNumber);
+      if (o.invoiceDate && !invoiceDate) setInvoiceDate(String(o.invoiceDate).slice(0, 10));
+      if (!finalAmount) {
+        if (o.invoiceAmount != null) setFinalAmount((o.invoiceAmount / 100).toFixed(2));
+        else if (o.totalAmount) setFinalAmount((o.totalAmount / 100).toFixed(2));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order]);
