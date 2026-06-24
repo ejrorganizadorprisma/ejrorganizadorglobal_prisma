@@ -250,10 +250,15 @@ export function GoodsReceiptFormPage() {
               </h1>
             </div>
             {supplierOrder && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                Pedido <span className="font-mono font-medium">{supplierOrder.orderNumber}</span>
-                {supplierOrder.supplier && <> — {supplierOrder.supplier.name}</>}
-              </p>
+              <>
+                {(supplierOrder as any).budget?.title && (
+                  <p className="text-sm font-medium text-gray-700 mt-0.5">{(supplierOrder as any).budget.title}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Pedido <span className="font-mono font-medium">{supplierOrder.orderNumber}</span>
+                  {supplierOrder.supplier && <> — {supplierOrder.supplier.name}</>}
+                </p>
+              </>
             )}
           </div>
         </div>
@@ -264,6 +269,17 @@ export function GoodsReceiptFormPage() {
           </div>
         )}
       </div>
+
+      {/* ===== AVISO DE RECEBIMENTO EM PARCELAS ===== */}
+      {hasPartialReceipt && (
+        <div className="flex items-start gap-2.5 mb-4 px-4 py-3 rounded-xl bg-orange-50 border border-orange-200 text-orange-800">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <p className="text-sm">
+            <span className="font-semibold">Recebimento em parcelas.</span>{' '}
+            Este pedido já teve entrega parcial — os campos abaixo já vêm com o <span className="font-semibold">saldo que falta</span> ({conferenceItems.reduce((s, i) => s + i.quantityPending, 0)} un. em {conferenceItems.filter((i) => i.quantityPending > 0).length} {conferenceItems.filter((i) => i.quantityPending > 0).length === 1 ? 'item' : 'itens'}). Ajuste se chegou menos.
+          </p>
+        </div>
+      )}
 
       {/* ===== DATA RECEBIMENTO ===== */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">

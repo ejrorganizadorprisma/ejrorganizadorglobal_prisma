@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   useGoodsReceipts,
   useDeleteGoodsReceipt,
@@ -10,7 +9,6 @@ import {
 import { useSupplierOrders } from '../hooks/useSupplierOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useFormatPrice } from '../hooks/useFormatPrice';
-import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { PackageCheck, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,8 +57,6 @@ type TabType = 'pending' | 'receipts';
 
 export function GoodsReceiptsPage() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -315,11 +311,11 @@ export function GoodsReceiptsPage() {
 
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setReceivingOrderId(order.id)}
+                          onClick={() => navigate(`/goods-receipts/new?supplierOrderId=${order.id}`)}
                           className="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-md hover:bg-emerald-700 text-sm font-medium flex items-center justify-center gap-1.5"
                         >
                           <PackageCheck className="w-4 h-4" />
-                          {order.status === 'PARTIAL' ? 'Receber parcela' : 'Registrar Recebimento'}
+                          {order.status === 'PARTIAL' ? 'Receber parcela' : 'Conferir e Receber'}
                         </button>
                         <button
                           onClick={() => navigate(`/supplier-orders/${order.id}`)}
@@ -596,19 +592,6 @@ export function GoodsReceiptsPage() {
           )}
         </div>
       </div>
-
-      {receivingOrderId && (
-        <ReceiveOrderModal
-          orderId={receivingOrderId}
-          onClose={() => setReceivingOrderId(null)}
-          onDone={() => {
-            setReceivingOrderId(null);
-            // Sincroniza ambas as abas e a lista de pedidos (mesma fonte do botão verde)
-            queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
-            queryClient.invalidateQueries({ queryKey: ['goods-receipts'] });
-          }}
-        />
-      )}
     </div>
   );
 }
