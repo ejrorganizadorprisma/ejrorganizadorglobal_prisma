@@ -30,6 +30,13 @@ export interface SupplierOrder {
   itemsPending?: number;
   qtyTotal?: number;
   qtyPending?: number;
+  // Última atualização de logística (só no findMany)
+  lastTracking?: {
+    location: string;
+    trackingDate: string;
+    notes?: string;
+    createdAt: string;
+  };
   // Relacionamentos
   supplier?: {
     id: string;
@@ -94,6 +101,24 @@ export interface CreateSupplierOrderDTO {
   internalNotes?: string;
   createdBy?: string;
   items: CreateSupplierOrderItemDTO[];
+}
+
+export interface SupplierOrderTracking {
+  id: string;
+  supplierOrderId: string;
+  location: string;
+  notes?: string;
+  trackingDate: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+export interface CreateSupplierOrderTrackingDTO {
+  location: string;
+  notes?: string;
+  trackingDate?: string;
+  createdBy?: string;
 }
 
 export interface CreateSupplierOrderItemDTO {
@@ -232,11 +257,20 @@ export class SupplierOrdersRepository {
         (SELECT COUNT(*)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as items_total,
         (SELECT COUNT(*)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id AND COALESCE(soi.quantity_received,0) < soi.quantity) as items_pending,
         (SELECT COALESCE(SUM(soi.quantity),0)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as qty_total,
-        (SELECT COALESCE(SUM(GREATEST(soi.quantity - COALESCE(soi.quantity_received,0),0)),0)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as qty_pending
+        (SELECT COALESCE(SUM(GREATEST(soi.quantity - COALESCE(soi.quantity_received,0),0)),0)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as qty_pending,
+        lt.location as last_tracking_location, lt.tracking_date as last_tracking_date,
+        lt.notes as last_tracking_notes, lt.created_at as last_tracking_at
       FROM supplier_orders so
       LEFT JOIN suppliers s ON s.id = so.supplier_id
       LEFT JOIN purchase_orders po ON po.id = so.purchase_order_id
       LEFT JOIN purchase_budgets pb ON pb.id = po.purchase_budget_id
+      LEFT JOIN LATERAL (
+        SELECT location, tracking_date, notes, created_at
+        FROM supplier_order_tracking sot
+        WHERE sot.supplier_order_id = so.id
+        ORDER BY sot.tracking_date DESC, sot.created_at DESC
+        LIMIT 1
+      ) lt ON true
       ${whereClause}
       ORDER BY so.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -715,6 +749,53 @@ export class SupplierOrdersRepository {
     );
   }
 
+  // ==================== Rastreamento de logística ====================
+  async getTracking(orderId: string): Promise<SupplierOrderTracking[]> {
+    const result = await db.query(
+      `SELECT sot.*, u.name AS created_by_name
+       FROM supplier_order_tracking sot
+       LEFT JOIN users u ON u.id = sot.created_by
+       WHERE sot.supplier_order_id = $1
+       ORDER BY sot.tracking_date DESC, sot.created_at DESC`,
+      [orderId]
+    );
+    return result.rows.map(this.mapTrackingToDTO);
+  }
+
+  async addTracking(orderId: string, data: CreateSupplierOrderTrackingDTO): Promise<SupplierOrderTracking> {
+    const id = `sot-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const result = await db.query(
+      `INSERT INTO supplier_order_tracking (id, supplier_order_id, location, notes, tracking_date, created_by)
+       VALUES ($1, $2, $3, $4, COALESCE($5::date, CURRENT_DATE), $6)
+       RETURNING *`,
+      [id, orderId, data.location, data.notes || null, data.trackingDate || null, data.createdBy || null]
+    );
+    return this.mapTrackingToDTO(result.rows[0]);
+  }
+
+  async deleteTracking(trackingId: string): Promise<{ success: boolean }> {
+    await db.query('DELETE FROM supplier_order_tracking WHERE id = $1', [trackingId]);
+    return { success: true };
+  }
+
+  async getTrackingOwnerOrderId(trackingId: string): Promise<string | null> {
+    const r = await db.query('SELECT supplier_order_id FROM supplier_order_tracking WHERE id = $1', [trackingId]);
+    return r.rows[0]?.supplier_order_id ?? null;
+  }
+
+  private mapTrackingToDTO(data: any): SupplierOrderTracking {
+    return {
+      id: data.id,
+      supplierOrderId: data.supplier_order_id,
+      location: data.location,
+      notes: data.notes ?? undefined,
+      trackingDate: data.tracking_date,
+      createdBy: data.created_by ?? undefined,
+      createdByName: data.created_by_name ?? undefined,
+      createdAt: data.created_at,
+    };
+  }
+
   // Mappers
   private mapToDTO(data: any): SupplierOrder {
     return {
@@ -746,6 +827,13 @@ export class SupplierOrdersRepository {
       itemsPending: data.items_pending ?? undefined,
       qtyTotal: data.qty_total ?? undefined,
       qtyPending: data.qty_pending ?? undefined,
+      // Última atualização de logística (preenchido no findMany)
+      lastTracking: data.last_tracking_location ? {
+        location: data.last_tracking_location,
+        trackingDate: data.last_tracking_date,
+        notes: data.last_tracking_notes ?? undefined,
+        createdAt: data.last_tracking_at,
+      } : undefined,
       supplier: data.supplier,
       purchaseOrder: data.purchase_order,
       budget: data.budget,

@@ -29,6 +29,13 @@ export interface SupplierOrder {
   itemsPending?: number;
   qtyTotal?: number;
   qtyPending?: number;
+  // Última atualização de logística (só na listagem)
+  lastTracking?: {
+    location: string;
+    trackingDate: string;
+    notes?: string;
+    createdAt: string;
+  };
   supplier?: {
     id: string;
     name: string;
@@ -228,6 +235,60 @@ export function useDeleteSupplierOrder() {
       return data;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    },
+  });
+}
+
+// ==================== Rastreamento de logística ====================
+export interface SupplierOrderTracking {
+  id: string;
+  supplierOrderId: string;
+  location: string;
+  notes?: string;
+  trackingDate: string;
+  createdBy?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+export function useSupplierOrderTracking(orderId: string | undefined) {
+  return useQuery({
+    queryKey: ['supplier-order-tracking', orderId],
+    queryFn: async () => {
+      const { data } = await api.get(`/supplier-orders/${orderId}/tracking`);
+      return data.data as SupplierOrderTracking[];
+    },
+    enabled: !!orderId,
+  });
+}
+
+export function useAddSupplierOrderTracking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, data: payload }: {
+      orderId: string;
+      data: { location: string; notes?: string; trackingDate?: string };
+    }) => {
+      const { data } = await api.post(`/supplier-orders/${orderId}/tracking`, payload);
+      return data.data as SupplierOrderTracking;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-order-tracking', variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+    },
+  });
+}
+
+export function useDeleteSupplierOrderTracking() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ trackingId }: { trackingId: string; orderId?: string }) => {
+      const { data } = await api.delete(`/supplier-orders/tracking/${trackingId}`);
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['supplier-order-tracking', variables.orderId] });
       queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
     },
   });

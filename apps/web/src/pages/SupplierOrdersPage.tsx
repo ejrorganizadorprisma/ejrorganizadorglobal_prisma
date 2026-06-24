@@ -10,7 +10,7 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2, Pencil } from 'lucide-react';
+import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2, Pencil, MapPin, Truck, Clock } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
@@ -86,6 +86,8 @@ export function SupplierOrdersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
+  // Tooltip de logística (posição fixa p/ não ser cortado pelo overflow da tabela)
+  const [trackTip, setTrackTip] = useState<{ x: number; y: number; order: any } | null>(null);
 
   const { data, isLoading } = useSupplierOrders({
     page,
@@ -323,13 +325,32 @@ export function SupplierOrdersPage() {
                           )}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap">
-                          <span
-                            className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap ${
-                              STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {STATUS_LABELS[order.status] || order.status}
-                          </span>
+                          {(() => {
+                            const inProgress = !['RECEIVED', 'CANCELLED'].includes(order.status);
+                            const showTip = (e: React.MouseEvent) => {
+                              if (!inProgress) return;
+                              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              setTrackTip({ x: r.left, y: r.bottom + 6, order });
+                            };
+                            return (
+                              <span
+                                className={`inline-flex items-center gap-1 ${inProgress ? 'cursor-help' : ''}`}
+                                onMouseEnter={showTip}
+                                onMouseLeave={() => setTrackTip(null)}
+                              >
+                                <span
+                                  className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap ${
+                                    STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'
+                                  }`}
+                                >
+                                  {STATUS_LABELS[order.status] || order.status}
+                                </span>
+                                {inProgress && order.lastTracking && (
+                                  <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                                )}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
                           <div className="flex justify-end gap-1.5 items-center">
@@ -477,6 +498,39 @@ export function SupplierOrdersPage() {
             queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
           }}
         />
+      )}
+
+      {/* Tooltip de logística — última atualização do pedido (posição fixa) */}
+      {trackTip && (
+        <div
+          className="fixed z-[80] w-72 max-w-[calc(100vw-1rem)] pointer-events-none"
+          style={{ left: Math.min(trackTip.x, window.innerWidth - 300), top: trackTip.y }}
+        >
+          <div className="rounded-xl bg-slate-900 text-white shadow-2xl ring-1 ring-black/5 p-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-indigo-300 mb-1.5">
+              <Truck className="w-3.5 h-3.5" /> Logística
+            </div>
+            {trackTip.order.lastTracking ? (
+              <>
+                <div className="flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-300 mt-0.5 shrink-0" />
+                  <span className="text-sm font-semibold leading-snug">{trackTip.order.lastTracking.location}</span>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-slate-300 mt-1 ml-5">
+                  <Clock className="w-3 h-3" />
+                  {String(trackTip.order.lastTracking.trackingDate).slice(8, 10)}/
+                  {String(trackTip.order.lastTracking.trackingDate).slice(5, 7)}/
+                  {String(trackTip.order.lastTracking.trackingDate).slice(0, 4)}
+                </div>
+                {trackTip.order.lastTracking.notes && (
+                  <p className="text-xs text-slate-300 mt-1.5 ml-5 leading-snug">{trackTip.order.lastTracking.notes}</p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-slate-400">Sem atualização de logística ainda. Abra o pedido para registrar onde a mercadoria está.</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

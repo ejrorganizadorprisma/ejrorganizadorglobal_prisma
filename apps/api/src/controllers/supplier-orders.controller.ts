@@ -25,6 +25,12 @@ const UpdateSupplierOrderItemSchema = z.object({
   notes: z.string().optional(),
 });
 
+const CreateTrackingSchema = z.object({
+  location: z.string().min(1, 'Informe a localidade'),
+  notes: z.string().optional(),
+  trackingDate: z.string().optional(),
+});
+
 export class SupplierOrdersController {
   private service: SupplierOrdersService;
 
@@ -187,6 +193,33 @@ export class SupplierOrdersController {
     const { itemId } = req.params;
     await this.service.deleteItem(itemId);
     res.json({ success: true, message: 'Item removido com sucesso' });
+  };
+
+  // ==================== Rastreamento de logística ====================
+  getTracking = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const tracking = await this.service.getTracking(id);
+    res.json({ success: true, data: tracking });
+  };
+
+  addTracking = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const validation = CreateTrackingSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'Dados inválidos', details: validation.error.errors },
+      });
+    }
+    const userId = (req as any).user?.id;
+    const entry = await this.service.addTracking(id, validation.data, userId);
+    res.status(201).json({ success: true, data: entry, message: 'Atualização de logística registrada' });
+  };
+
+  deleteTracking = async (req: Request, res: Response) => {
+    const { trackingId } = req.params;
+    await this.service.deleteTracking(trackingId);
+    res.json({ success: true, message: 'Atualização removida' });
   };
 
   uploadInvoiceFile = async (req: Request, res: Response) => {

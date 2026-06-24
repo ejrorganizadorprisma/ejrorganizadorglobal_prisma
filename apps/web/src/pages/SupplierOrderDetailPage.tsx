@@ -14,6 +14,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { toast } from 'sonner';
 import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
+import { LogisticsTracking } from '../components/LogisticsTracking';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendente',
@@ -425,6 +426,11 @@ export function SupplierOrderDetailPage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Logística — rastreamento da mercadoria (histórico) */}
+          <div className="mb-6">
+            <LogisticsTracking orderId={id!} canEdit={order.status !== 'CANCELLED'} />
           </div>
 
           {/* Edit Form */}

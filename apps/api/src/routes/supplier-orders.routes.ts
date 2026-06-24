@@ -31,6 +31,11 @@ router.post('/generate', asyncHandler(controller.generateFromPurchaseOrder));
 router.patch('/items/:itemId', asyncHandler(controller.updateItem));
 router.delete('/items/:itemId', asyncHandler(controller.deleteItem));
 
+// Rastreamento de logística — rota específica de tracking antes de /:id
+router.delete('/tracking/:trackingId', asyncHandler(controller.deleteTracking));
+router.get('/:id/tracking', asyncHandler(controller.getTracking));
+router.post('/:id/tracking', asyncHandler(controller.addTracking));
+
 // Atualização
 router.patch('/:id', asyncHandler(controller.update));
 

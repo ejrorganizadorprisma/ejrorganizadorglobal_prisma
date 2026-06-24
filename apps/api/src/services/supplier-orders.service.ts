@@ -311,6 +311,34 @@ export class SupplierOrdersService {
     return this.repository.getItems(orderId);
   }
 
+  // ==================== Rastreamento de logística ====================
+  async getTracking(orderId: string) {
+    await this.findById(orderId); // 404 se não existir
+    return this.repository.getTracking(orderId);
+  }
+
+  async addTracking(orderId: string, data: { location?: string; notes?: string; trackingDate?: string }, userId?: string) {
+    await this.findById(orderId);
+    const location = (data.location || '').trim();
+    if (!location) {
+      throw new AppError('Informe a localidade da mercadoria.', 400, 'LOCATION_REQUIRED');
+    }
+    return this.repository.addTracking(orderId, {
+      location,
+      notes: data.notes?.trim() || undefined,
+      trackingDate: data.trackingDate || undefined,
+      createdBy: userId,
+    });
+  }
+
+  async deleteTracking(trackingId: string) {
+    const ownerId = await this.repository.getTrackingOwnerOrderId(trackingId);
+    if (!ownerId) {
+      throw new AppError('Atualização não encontrada', 404, 'TRACKING_NOT_FOUND');
+    }
+    return this.repository.deleteTracking(trackingId);
+  }
+
   // Status em que os itens do pedido ainda podem ser ajustados (antes do recebimento total)
   private static readonly EDITABLE_STATUSES = ['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'];
 

@@ -11,7 +11,7 @@ import { useSupplierOrders } from '../hooks/useSupplierOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
-import { PackageCheck } from 'lucide-react';
+import { PackageCheck, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_LABELS = {
@@ -31,15 +31,21 @@ const STATUS_COLORS = {
 };
 
 const SO_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pendente',
   SENT: 'Enviado',
   CONFIRMED: 'Confirmado',
   PARTIAL: 'Parcial',
+  RECEIVED: 'Recebido',
+  CANCELLED: 'Cancelado',
 };
 
 const SO_STATUS_COLORS: Record<string, string> = {
+  PENDING: 'bg-yellow-100 text-yellow-800',
   SENT: 'bg-blue-100 text-blue-800',
   CONFIRMED: 'bg-green-100 text-green-800',
   PARTIAL: 'bg-orange-100 text-orange-800',
+  RECEIVED: 'bg-emerald-100 text-emerald-800',
+  CANCELLED: 'bg-gray-100 text-gray-600',
 };
 
 const QUALITY_STATUS_LABELS = {
@@ -84,12 +90,21 @@ export function GoodsReceiptsPage() {
   const approveReceipt = useApproveGoodsReceipt();
   const rejectReceipt = useRejectGoodsReceipt();
 
-  // Pedidos que ainda têm mercadoria a receber. Inclui PARTIAL — pedidos que já
-  // tiveram um recebimento mas ainda têm saldo pendente (recebimento em parcelas).
-  // RECEIVED e CANCELLED ficam de fora (nada mais a receber).
+  // Só aparece o card se AINDA há mercadoria a receber (saldo pendente > 0).
+  // Assim, quando o recebimento é finalizado (tudo recebido), o card some na hora —
+  // independente do rótulo de status. Cancelados também ficam de fora.
   const pendingOrders = pendingOrdersData?.data?.filter((so: any) =>
-    ['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(so.status)
+    so.status !== 'CANCELLED' && (so.qtyPending ?? 0) > 0
   ) || [];
+
+  const pendingSummary = {
+    total: pendingOrders.length,
+    partials: pendingOrders.filter((o: any) => o.status === 'PARTIAL').length,
+    unitsPending: pendingOrders.reduce((s: number, o: any) => s + (o.qtyPending ?? 0), 0),
+  };
+
+  // Data (YYYY-MM-DD/ISO) → dd/mm, sem off-by-one
+  const shortDate = (s?: string) => (s ? `${String(s).slice(8, 10)}/${String(s).slice(5, 7)}` : '');
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este recebimento?')) {
@@ -203,9 +218,9 @@ export function GoodsReceiptsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum pedido aguardando recebimento</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Tudo em dia! 🎉</h3>
                   <p className="text-gray-500 mb-4">
-                    Os pedidos aparecem aqui quando estão com status "Enviado", "Confirmado" ou "Parcial".
+                    Nenhum pedido com recebimento em aberto. Pedidos aparecem aqui enquanto houver mercadoria a receber.
                   </p>
                   <button
                     onClick={() => navigate('/supplier-orders')}
@@ -215,16 +230,37 @@ export function GoodsReceiptsPage() {
                   </button>
                 </div>
               ) : (
+                <>
+                {/* Resumo inteligente do que falta receber */}
+                <div className="grid grid-cols-3 gap-3 mb-5">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+                    <p className="text-2xl font-bold text-gray-900 leading-none">{pendingSummary.total}</p>
+                    <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">aguardando</p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+                    <p className="text-2xl font-bold text-orange-600 leading-none">{pendingSummary.partials}</p>
+                    <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">parciais</p>
+                  </div>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-4 py-3">
+                    <p className="text-2xl font-bold text-amber-600 leading-none">{pendingSummary.unitsPending}</p>
+                    <p className="text-[11px] text-gray-500 mt-1 uppercase tracking-wide">unidades a receber</p>
+                  </div>
+                </div>
+              </>
+              )}
+              {!loadingOrders && pendingOrders.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {pendingOrders.map((order: any) => (
                     <div
                       key={order.id}
-                      className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 border-l-4 border-blue-500"
+                      className={`bg-white rounded-lg shadow hover:shadow-md transition-shadow p-4 border-l-4 ${order.status === 'PARTIAL' ? 'border-orange-500' : 'border-blue-500'}`}
                     >
                       <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{order.orderNumber}</h3>
-                          <p className="text-sm text-gray-600">{order.supplier?.name}</p>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-gray-900 truncate" title={order.budget?.title || order.orderNumber}>
+                            {order.budget?.title || order.orderNumber}
+                          </h3>
+                          <p className="text-sm text-gray-600 truncate">{order.supplier?.name}</p>
                         </div>
                         <span
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
@@ -265,6 +301,17 @@ export function GoodsReceiptsPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Logística — última localização conhecida da mercadoria */}
+                      {order.lastTracking && (
+                        <div className="flex items-start gap-1.5 mb-3 -mt-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          <div className="min-w-0 text-xs">
+                            <span className="font-semibold">{order.lastTracking.location}</span>
+                            <span className="text-indigo-400"> · {shortDate(order.lastTracking.trackingDate)}</span>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex gap-2">
                         <button
