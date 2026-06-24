@@ -86,9 +86,12 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     }
   };
 
+  // ---- Datas (conferência) ----
+  const [receiptDate, setReceiptDate] = useState(localDate(new Date()));
   // ---- NF ----
   const [showNf, setShowNf] = useState(true);
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
   const [finalAmount, setFinalAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('BOLETO');
   const [splitCount, setSplitCount] = useState('1');
@@ -258,6 +261,23 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     });
   };
 
+  // Conferência explícita por item: define o status e ajusta a quantidade coerente
+  const setItemStatus = (idx: number, status: ConfStatus) => {
+    setItems((prev) => {
+      const u = [...prev];
+      const it = { ...u[idx], status };
+      if (status === 'CONFORME') { it.quantityReceived = it.quantityPending; it.notes = ''; }
+      else if (status === 'REJEITADO') { it.quantityReceived = 0; }
+      // DIVERGENCIA: mantém a quantidade atual (usuário ajusta + informa o motivo)
+      u[idx] = it;
+      return u;
+    });
+  };
+
+  const markAllConforme = () => {
+    setItems((prev) => prev.map((it) => ({ ...it, status: 'CONFORME' as ConfStatus, quantityReceived: it.quantityPending, notes: '' })));
+  };
+
   const autoSplit = () => {
     const n = parseInt(splitCount, 10); const days = parseInt(intervalDays, 10) || 30;
     if (!n || n < 1) { toast.error('Informe a quantidade de boletos.'); return; }
@@ -293,8 +313,9 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     try {
       const receipt = await createReceipt.mutateAsync({
         supplierOrderId: order.id, supplierId: order.supplierId,
-        receiptDate: localDate(new Date()),
+        receiptDate: receiptDate || localDate(new Date()),
         invoiceNumber: invoiceNumber || undefined,
+        invoiceDate: invoiceDate || undefined,
         items: items.map((item) => ({
           supplierOrderItemId: item.supplierOrderItemId, productId: item.productId,
           quantityOrdered: item.quantityOrdered,
@@ -351,10 +372,33 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     }
   };
 
-  const badge = (s: ConfStatus) =>
-    s === 'CONFORME' ? { cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200', icon: Check, label: 'Conforme' }
-    : s === 'DIVERGENCIA' ? { cls: 'bg-amber-50 text-amber-700 ring-amber-200', icon: AlertTriangle, label: 'Divergência' }
-    : { cls: 'bg-red-50 text-red-700 ring-red-200', icon: Ban, label: 'Recusado' };
+  // Salva a conferência como RASCUNHO (não dá entrada no estoque, não mexe em preços/boletos).
+  // Fica em "Recebimentos Registrados" como Pendente para aprovar depois.
+  const handleSavePending = async () => {
+    if (!order) return;
+    setSaving(true);
+    try {
+      await createReceipt.mutateAsync({
+        supplierOrderId: order.id, supplierId: order.supplierId,
+        receiptDate: receiptDate || localDate(new Date()),
+        invoiceNumber: invoiceNumber || undefined,
+        invoiceDate: invoiceDate || undefined,
+        items: items.map((item) => ({
+          supplierOrderItemId: item.supplierOrderItemId, productId: item.productId,
+          quantityOrdered: item.quantityOrdered,
+          quantityReceived: item.status === 'REJEITADO' ? 0 : item.quantityReceived,
+          unitPrice: item.unitPrice,
+          notes: item.notes || undefined,
+        })),
+      } as any);
+      toast.success('Recebimento salvo como pendente (rascunho).');
+      onDone();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || 'Erro ao salvar recebimento.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4" onClick={onClose}>
@@ -380,23 +424,47 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
             <div className="text-center py-10 text-sm text-gray-400">Nenhum item pendente de recebimento.</div>
           ) : (
             <>
-              <div className="flex items-center gap-2 text-xs">
+              <div className="flex items-center gap-2 text-xs flex-wrap">
                 <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">{summary.conformes} conformes</span>
                 <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">{summary.divergentes} divergências</span>
                 <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-700 font-medium">{summary.rejeitados} recusados</span>
+                <div className="ml-auto flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-slate-500">
+                    <span className="font-medium">Recebido em:</span>
+                    <input
+                      type="date" value={receiptDate} max={localDate(new Date())}
+                      onChange={(e) => setReceiptDate(e.target.value)}
+                      className="px-2 py-1 border border-slate-300 rounded-md text-xs"
+                    />
+                  </label>
+                  <button
+                    onClick={markAllConforme}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 font-medium"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Marcar todos conforme
+                  </button>
+                </div>
               </div>
 
               {/* Itens — layout compacto (2 linhas por item) */}
               <div className="space-y-1.5">
                 {items.map((item, idx) => {
-                  const b = badge(item.status); const BIcon = b.icon;
-                  const statusColor = item.status === 'CONFORME' ? 'text-emerald-500' : item.status === 'DIVERGENCIA' ? 'text-amber-500' : 'text-red-500';
                   const pend = Math.max(0, item.quantityPending - item.quantityReceived);
+                  const segCls = (st: ConfStatus) => {
+                    const active = item.status === st;
+                    if (st === 'CONFORME') return active ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600';
+                    if (st === 'DIVERGENCIA') return active ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 hover:bg-amber-50 hover:text-amber-600';
+                    return active ? 'bg-red-600 text-white shadow-sm' : 'text-slate-400 hover:bg-red-50 hover:text-red-600';
+                  };
                   return (
                     <div key={item.supplierOrderItemId} className="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-sm">
-                      {/* Linha 1: produto + quantidades */}
+                      {/* Linha 1: conferência + produto + quantidades */}
                       <div className="flex items-center gap-2">
-                        <span className="shrink-0" title={b.label}><BIcon className={`w-3.5 h-3.5 ${statusColor}`} /></span>
+                        <div className="flex items-center gap-0.5 shrink-0 bg-slate-50 rounded-lg p-0.5 border border-slate-200">
+                          <button type="button" title="Conforme" onClick={() => setItemStatus(idx, 'CONFORME')} className={`p-1 rounded-md transition-all ${segCls('CONFORME')}`}><Check className="w-3.5 h-3.5" /></button>
+                          <button type="button" title="Divergência" onClick={() => setItemStatus(idx, 'DIVERGENCIA')} className={`p-1 rounded-md transition-all ${segCls('DIVERGENCIA')}`}><AlertTriangle className="w-3.5 h-3.5" /></button>
+                          <button type="button" title="Rejeitado" onClick={() => setItemStatus(idx, 'REJEITADO')} className={`p-1 rounded-md transition-all ${segCls('REJEITADO')}`}><Ban className="w-3.5 h-3.5" /></button>
+                        </div>
                         <p className="text-[13px] font-medium text-slate-800 truncate flex-1 min-w-0">
                           {item.productName}
                           {item.productCode && <span className="text-[10px] text-slate-400 font-normal ml-1.5">{item.productCode}</span>}
@@ -492,10 +560,14 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                 </button>
                 {showNf && (
                   <div className="px-4 pb-4 space-y-3 border-t border-slate-100">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3">
                       <div>
                         <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Nº Nota Fiscal</label>
                         <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm" placeholder="123456" />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Data NF</label>
+                        <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm" />
                       </div>
                       <div>
                         <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Valor total NF (R$)</label>
@@ -538,10 +610,15 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
           )}
         </div>
 
-        <div className="flex justify-end gap-2 px-6 py-4 border-t bg-white">
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-6 py-4 border-t bg-white">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+          <button onClick={handleSavePending} disabled={saving || isLoading || items.length === 0}
+            className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+            title="Salva como rascunho, sem dar entrada no estoque (aprovar depois)">
+            Salvar Pendente
+          </button>
           <button ref={confirmRef} onClick={handleConfirm} disabled={saving || isLoading || items.length === 0}
-            className="px-5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 shadow-sm">
+            className="px-5 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm">
             <PackageCheck className="w-4 h-4" /> {saving ? 'Salvando…' : 'Confirmar recebimento'}
           </button>
         </div>

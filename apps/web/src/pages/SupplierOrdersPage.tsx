@@ -328,6 +328,7 @@ export function SupplierOrdersPage() {
                         <td className="px-3 py-3 whitespace-nowrap">
                           {(() => {
                             const inProgress = !['RECEIVED', 'CANCELLED'].includes(order.status);
+                            // A cor de fundo do status muda conforme a localidade da logística
                             const lg = inProgress ? logisticsStyle(order.lastTracking?.location) : null;
                             const showTip = (e: React.MouseEvent) => {
                               if (!inProgress) return;
@@ -335,29 +336,16 @@ export function SupplierOrdersPage() {
                               setTrackTip({ x: r.left, y: r.bottom + 6, order });
                             };
                             return (
-                              <div
-                                className={`flex flex-col items-start gap-1 ${inProgress ? 'cursor-help' : ''}`}
+                              <span
                                 onMouseEnter={showTip}
                                 onMouseLeave={() => setTrackTip(null)}
+                                title={lg ? order.lastTracking?.location : undefined}
+                                className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap ${inProgress ? 'cursor-help ' : ''}${
+                                  lg ? lg.chip : (STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800')
+                                }`}
                               >
-                                <span
-                                  className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap ${
-                                    STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800'
-                                  }`}
-                                >
-                                  {STATUS_LABELS[order.status] || order.status}
-                                </span>
-                                {lg ? (
-                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${lg.chip}`}>
-                                    <span className={`w-1.5 h-1.5 rounded-full ${lg.dot}`} />
-                                    {lg.label}
-                                  </span>
-                                ) : inProgress && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-300">
-                                    <MapPin className="w-3 h-3" /> sem logística
-                                  </span>
-                                )}
-                              </div>
+                                {STATUS_LABELS[order.status] || order.status}
+                              </span>
                             );
                           })()}
                         </td>
