@@ -56,6 +56,8 @@ export interface SupplierOrderItem {
     code: string;
     name: string;
     factoryCode?: string;
+    costPrice?: number;
+    costPriceCurrency?: string;
     salePrice?: number;
     salePriceCurrency?: string;
     wholesalePrice?: number;

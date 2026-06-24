@@ -4,7 +4,7 @@ import { useCreateGoodsReceipt, useApproveGoodsReceipt } from '../hooks/useGoods
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, PackageCheck, Check, AlertTriangle, Ban, Receipt, CalendarDays, Plus, Trash2 } from 'lucide-react';
+import { X, PackageCheck, Check, AlertTriangle, Ban, Receipt, CalendarDays, Plus, Trash2, History } from 'lucide-react';
 import { formatPriceValue } from '../hooks/useFormatPrice';
 
 type ConfStatus = 'CONFORME' | 'DIVERGENCIA' | 'REJEITADO';
@@ -26,6 +26,13 @@ interface ConfItem {
   wholesalePrice: string;  // Atacado
   margin: string;          // margem custo → varejo
   salePrice: string;       // Varejo
+  // Histórico: último valor (atual) registrado no produto — só leitura, p/ comparação
+  lastCost: string;
+  lastMarginWholesale: string;
+  lastWholesale: string;
+  lastMargin: string;
+  lastSale: string;
+  hasHistory: boolean;
 }
 
 interface Boleto { amount: string; dueDate: string; notes: string; }
@@ -48,6 +55,14 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
 
   const [items, setItems] = useState<ConfItem[]>([]);
   const [saving, setSaving] = useState(false);
+  // Quais itens estão exibindo a linha de histórico (último valor registrado)
+  const [historyOpen, setHistoryOpen] = useState<Set<number>>(new Set());
+  const toggleHistory = (idx: number) =>
+    setHistoryOpen((s) => {
+      const n = new Set(s);
+      n.has(idx) ? n.delete(idx) : n.add(idx);
+      return n;
+    });
   // Navegação por Enter: percorre os campos na ordem do DOM e termina no botão Confirmar
   const scrollRef = useRef<HTMLDivElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -158,6 +173,14 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
             const atacadoStr = atacado > 0 ? (priceCur === 'PYG' ? String(atacado) : atacado.toFixed(2)) : '';
             const marginStr = cost > 0 && varejo > 0 ? (((varejo - cost) / cost) * 100).toFixed(1) : '';
             const marginWholesaleStr = cost > 0 && atacado > 0 ? (((atacado - cost) / cost) * 100).toFixed(1) : '';
+            // Histórico = último valor (atual) registrado no produto: custo, atacado e varejo
+            // anteriores + as margens que eles representavam sobre o custo anterior.
+            const lastCostN = productPriceToCur(it.product?.costPrice, it.product?.costPriceCurrency);
+            const lastCost = lastCostN > 0 ? (priceCur === 'PYG' ? String(lastCostN) : lastCostN.toFixed(2)) : '';
+            const lastWholesale = atacadoStr; // atacado armazenado no produto
+            const lastSale = varejoStr;       // varejo armazenado no produto
+            const lastMargin = lastCostN > 0 && varejo > 0 ? (((varejo - lastCostN) / lastCostN) * 100).toFixed(1) : '';
+            const lastMarginWholesale = lastCostN > 0 && atacado > 0 ? (((atacado - lastCostN) / lastCostN) * 100).toFixed(1) : '';
             return {
               supplierOrderItemId: it.id, productId: it.productId,
               productName: it.product?.name || '-', productCode: it.product?.code,
@@ -165,6 +188,8 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
               unitPrice: it.unitPrice, status: 'CONFORME' as ConfStatus, notes: '',
               costPrice: costStr, marginWholesale: marginWholesaleStr, wholesalePrice: atacadoStr,
               margin: marginStr, salePrice: varejoStr,
+              lastCost, lastMarginWholesale, lastWholesale, lastMargin, lastSale,
+              hasHistory: !!(lastCost || lastWholesale || lastSale),
             };
           })
       );
@@ -426,7 +451,25 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                             onChange={(e) => updatePricing(idx, 'salePrice', parseGrp(e.target.value))}
                             className="w-full px-1.5 py-0.5 border border-emerald-300 rounded text-xs text-right font-semibold text-emerald-700" />
                         </div>
+                        {/* Botão p/ revelar o último valor registrado (sob demanda) */}
+                        <button type="button" onClick={() => toggleHistory(idx)}
+                          title={item.hasHistory ? 'Mostrar/ocultar último valor registrado' : 'Sem histórico registrado'}
+                          disabled={!item.hasHistory}
+                          className={`shrink-0 p-1 rounded transition-colors ${historyOpen.has(idx) ? 'bg-slate-200 text-slate-600' : 'text-slate-400 hover:bg-slate-100'} disabled:opacity-30 disabled:cursor-not-allowed`}>
+                          <History className="w-3.5 h-3.5" />
+                        </button>
                       </div>
+                      {/* Linha de histórico — último valor (atual) registrado, alinhada sob cada campo */}
+                      {historyOpen.has(idx) && item.hasHistory && (
+                        <div className="mt-0.5 flex items-center gap-1.5 flex-wrap text-[9px] text-slate-400 leading-none">
+                          <div className="w-[5.5rem] text-right" title="Último custo registrado no produto">{item.lastCost ? grp(item.lastCost) : '—'}</div>
+                          <div className="w-11 text-right">{item.lastMarginWholesale ? `${item.lastMarginWholesale}%` : '—'}</div>
+                          <div className="w-[5.5rem] text-right" title="Último atacado registrado">{item.lastWholesale ? grp(item.lastWholesale) : '—'}</div>
+                          <div className="w-11 text-right">{item.lastMargin ? `${item.lastMargin}%` : '—'}</div>
+                          <div className="w-[5.5rem] text-right" title="Último varejo registrado">{item.lastSale ? grp(item.lastSale) : '—'}</div>
+                          <span className="text-[8px] uppercase tracking-wide text-slate-300">último</span>
+                        </div>
+                      )}
                       {item.status !== 'CONFORME' && (
                         <input
                           type="text" value={item.notes} onChange={(e) => updateItem(idx, 'notes', e.target.value)}

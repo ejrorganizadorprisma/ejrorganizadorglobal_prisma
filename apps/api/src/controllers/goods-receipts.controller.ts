@@ -270,12 +270,16 @@ export class GoodsReceiptsController {
   approveReceipt = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { approvedBy } = req.body;
+
+      // O aprovador é SEMPRE o usuário autenticado (UUID válido). A movimentação
+      // de estoque grava esse id em inventory_movements.user_id, que tem FK para
+      // users — enviar um rótulo como "Sistema" violava a FK e quebrava o salvamento.
+      const approvedBy = (req as any).user?.id || null;
 
       if (!approvedBy) {
-        return res.status(400).json({
+        return res.status(401).json({
           success: false,
-          error: 'Campo approvedBy é obrigatório',
+          error: 'Usuário não autenticado',
         });
       }
 
