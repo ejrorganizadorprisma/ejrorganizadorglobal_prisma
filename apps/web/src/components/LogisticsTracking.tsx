@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Truck, MapPin, Plus, Trash2, Clock } from 'lucide-react';
+import { Truck, MapPin, Plus, Trash2, Clock, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useSupplierOrderTracking,
@@ -28,13 +28,15 @@ const today = () => {
 };
 
 export function LogisticsTracking({ orderId, canEdit = true }: Props) {
-  const { data: entries, isLoading } = useSupplierOrderTracking(orderId);
+  const { data: entries } = useSupplierOrderTracking(orderId);
   const addTracking = useAddSupplierOrderTracking();
   const deleteTracking = useDeleteSupplierOrderTracking();
 
   const [location, setLocation] = useState('');
   const [trackingDate, setTrackingDate] = useState(today());
   const [notes, setNotes] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleAdd = async () => {
     if (!location.trim()) {
@@ -50,6 +52,7 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
       setLocation('');
       setNotes('');
       setTrackingDate(today());
+      setShowForm(false);
     } catch (e: any) {
       toast.error(e.response?.data?.error?.message || 'Erro ao registrar atualização.');
     }
@@ -66,30 +69,50 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
   };
 
   const list = entries || [];
+  const current = list[0]; // mais recente (ordenado desc)
+  const curSt = logisticsStyle(current?.location);
 
   return (
-    <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-white">
-        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-          <Truck className="w-4 h-4 text-indigo-600" />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 leading-tight">Logística — Rastreamento</h3>
-          <p className="text-[11px] text-gray-400 leading-tight">Onde a mercadoria está · histórico de atualizações</p>
-        </div>
-        {list.length > 0 && (
-          <span className="ml-auto text-[11px] font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-            {list.length} {list.length === 1 ? 'registro' : 'registros'}
+    <div className="bg-white shadow rounded-lg">
+      {/* ===== Linha compacta: localização atual + ações ===== */}
+      <div className="flex items-center gap-2 px-3 py-2 flex-wrap">
+        <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
+        <span className="text-sm font-semibold text-gray-900 shrink-0">Logística</span>
+
+        {current && curSt ? (
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${curSt.chip}`}>
+            <MapPin className="w-3 h-3" /> {current.location}
+            <span className="opacity-60 font-normal">· {fmtDate(current.trackingDate)}</span>
           </span>
+        ) : (
+          <span className="text-xs text-gray-400">Sem atualização registrada</span>
         )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {list.length > 0 && (
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium text-slate-500 hover:bg-slate-100"
+            >
+              Histórico ({list.length})
+              {showHistory ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setShowForm((v) => !v)}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${showForm ? 'bg-slate-100 text-slate-600' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}
+            >
+              {showForm ? <><X className="w-3.5 h-3.5" /> Fechar</> : <><Plus className="w-3.5 h-3.5" /> Atualizar</>}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Formulário de nova atualização */}
-      {canEdit && (
-        <div className="px-4 py-3 bg-slate-50/70 border-b border-gray-100">
-          {/* Atalhos rápidos (mais usados) */}
+      {/* ===== Formulário (colapsável) ===== */}
+      {canEdit && showForm && (
+        <div className="px-3 pb-3 pt-1 border-t border-slate-100">
           <div className="flex flex-wrap items-center gap-1.5 mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Atalhos:</span>
             {LOGISTICS_PRESETS.map((preset) => {
               const st = logisticsStyle(preset)!;
               const active = location.trim() === preset;
@@ -98,7 +121,7 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
                   key={preset}
                   type="button"
                   onClick={() => setLocation(preset)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${active ? `${st.chip} ring-2 ring-offset-1 ring-current` : `${st.chip} opacity-80 hover:opacity-100`}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-all ${st.chip} ${active ? 'ring-2 ring-offset-1 ring-current' : 'opacity-80 hover:opacity-100'}`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} /> {preset}
                 </button>
@@ -106,30 +129,24 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
             })}
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
-            <div className="flex-1 min-w-0">
-              <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">Localidade *</label>
-              <input
-                type="text"
-                list="logistics-presets"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-                placeholder="Selecione ou digite — ex.: Em trânsito, Foz do Iguaçu…"
-                className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <datalist id="logistics-presets">
-                {LOGISTICS_PRESETS.map((p) => <option key={p} value={p} />)}
-              </datalist>
-            </div>
-            <div className="sm:w-36">
-              <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-0.5">Data</label>
-              <input
-                type="date"
-                value={trackingDate}
-                onChange={(e) => setTrackingDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
+            <input
+              type="text"
+              list="logistics-presets"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+              placeholder="Localidade — selecione ou digite"
+              className="flex-1 min-w-0 px-2.5 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <datalist id="logistics-presets">
+              {LOGISTICS_PRESETS.map((p) => <option key={p} value={p} />)}
+            </datalist>
+            <input
+              type="date"
+              value={trackingDate}
+              onChange={(e) => setTrackingDate(e.target.value)}
+              className="sm:w-36 px-2.5 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
           <div className="flex flex-col sm:flex-row gap-2 mt-2">
             <input
@@ -137,7 +154,7 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
-              placeholder="Observação (opcional) — ex.: previsão de chegada, transportadora, nº de rastreio…"
+              placeholder="Observação (opcional) — transportadora, rastreio, previsão…"
               className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded-md text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
             />
             <button
@@ -151,54 +168,43 @@ export function LogisticsTracking({ orderId, canEdit = true }: Props) {
         </div>
       )}
 
-      {/* Timeline do histórico */}
-      <div className="px-4 py-3">
-        {isLoading ? (
-          <div className="text-center py-4 text-xs text-gray-400">Carregando…</div>
-        ) : list.length === 0 ? (
-          <div className="text-center py-6 text-sm text-gray-400">
-            <MapPin className="w-5 h-5 mx-auto mb-1 text-gray-300" />
-            Nenhuma atualização de logística ainda.
-          </div>
-        ) : (
-          <ol className="relative border-l-2 border-slate-100 ml-1.5 space-y-4">
+      {/* ===== Histórico (colapsável) ===== */}
+      {showHistory && list.length > 0 && (
+        <div className="px-3 pb-3 pt-2 border-t border-slate-100">
+          <ol className="relative border-l-2 border-slate-100 ml-1.5 space-y-3">
             {list.map((t, idx) => {
               const st = logisticsStyle(t.location)!;
               return (
-              <li key={t.id} className="ml-4">
-                <span className={`absolute -left-[7px] mt-1 w-3 h-3 rounded-full ring-4 ring-white ${idx === 0 ? st.dot : 'bg-slate-200'}`} />
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <MapPin className={`w-3.5 h-3.5 shrink-0 ${idx === 0 ? st.text : 'text-slate-400'}`} />
-                      <span className={`text-sm font-semibold ${idx === 0 ? 'text-gray-900' : 'text-gray-700'}`}>{t.location}</span>
-                      {idx === 0 && (
-                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${st.chip}`}>Atual</span>
-                      )}
+                <li key={t.id} className="ml-3.5">
+                  <span className={`absolute -left-[7px] mt-1 w-3 h-3 rounded-full ring-4 ring-white ${idx === 0 ? st.dot : 'bg-slate-200'}`} />
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <MapPin className={`w-3.5 h-3.5 shrink-0 ${idx === 0 ? st.text : 'text-slate-400'}`} />
+                        <span className={`text-sm font-semibold ${idx === 0 ? 'text-gray-900' : 'text-gray-700'}`}>{t.location}</span>
+                        <span className="text-[11px] text-gray-400 inline-flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {fmtDate(t.trackingDate)}
+                          {t.createdByName && <span className="text-gray-300">· {t.createdByName}</span>}
+                        </span>
+                      </div>
+                      {t.notes && <p className="text-xs text-gray-600 mt-0.5 whitespace-pre-wrap">{t.notes}</p>}
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-gray-400 mt-0.5">
-                      <Clock className="w-3 h-3" />
-                      <span>{fmtDate(t.trackingDate)}</span>
-                      {t.createdByName && <span className="text-gray-300">· por {t.createdByName}</span>}
-                    </div>
-                    {t.notes && <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">{t.notes}</p>}
+                    {canEdit && (
+                      <button
+                        onClick={() => handleDelete(t.id)}
+                        className="shrink-0 p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                        title="Remover atualização"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  {canEdit && (
-                    <button
-                      onClick={() => handleDelete(t.id)}
-                      className="shrink-0 p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                      title="Remover atualização"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </li>
+                </li>
               );
             })}
           </ol>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
