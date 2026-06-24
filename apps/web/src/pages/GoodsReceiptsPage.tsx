@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useGoodsReceipts,
   useDeleteGoodsReceipt,
@@ -9,6 +10,8 @@ import {
 import { useSupplierOrders } from '../hooks/useSupplierOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
+import { PackageCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_LABELS = {
@@ -50,6 +53,8 @@ type TabType = 'pending' | 'receipts';
 
 export function GoodsReceiptsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -79,12 +84,11 @@ export function GoodsReceiptsPage() {
   const approveReceipt = useApproveGoodsReceipt();
   const rejectReceipt = useRejectGoodsReceipt();
 
-  // Filtrar pedidos que ainda não tiveram recebimento registrado.
-  // Inclui PENDING (pedidos recém-criados a partir de orçamentos transformados)
-  // para que TODO pedido apareça aguardando recebimento. PARTIAL já teve um
-  // recebimento criado, então não aparece mais aqui.
+  // Pedidos que ainda têm mercadoria a receber. Inclui PARTIAL — pedidos que já
+  // tiveram um recebimento mas ainda têm saldo pendente (recebimento em parcelas).
+  // RECEIVED e CANCELLED ficam de fora (nada mais a receber).
   const pendingOrders = pendingOrdersData?.data?.filter((so: any) =>
-    ['PENDING', 'SENT', 'CONFIRMED'].includes(so.status)
+    ['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(so.status)
   ) || [];
 
   const handleDelete = async (id: string) => {
@@ -144,7 +148,7 @@ export function GoodsReceiptsPage() {
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Recebimento de Mercadorias</h1>
               <p className="text-sm text-gray-500 mt-1">
-                Gerencie os recebimentos de pedidos dos fornecedores
+                Veja o que ainda há a receber e lance cada parcela direto pelo card do pedido
               </p>
             </div>
           </div>
@@ -248,16 +252,27 @@ export function GoodsReceiptsPage() {
                         </div>
                         <div className="flex justify-between">
                           <span>Itens:</span>
-                          <span className="font-medium text-gray-700">{order.items?.length || 0} produto(s)</span>
+                          <span className="font-medium text-gray-700">{order.itemsTotal ?? order.items?.length ?? 0} produto(s)</span>
                         </div>
+                        {/* Saldo pendente — destaque para recebimento parcial (em parcelas) */}
+                        {(order.itemsPending ?? 0) > 0 && (order.status === 'PARTIAL' || (order.qtyPending ?? 0) < (order.qtyTotal ?? 0)) && (
+                          <div className="flex justify-between text-amber-700">
+                            <span className="font-medium">Falta receber:</span>
+                            <span className="font-semibold">
+                              {order.itemsPending} {order.itemsPending === 1 ? 'item' : 'itens'}
+                              {(order.qtyPending ?? 0) > 0 && ` · ${order.qtyPending} un.`}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2">
                         <button
-                          onClick={() => navigate(`/goods-receipts/new?supplierOrderId=${order.id}`)}
-                          className="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-md hover:bg-emerald-700 text-sm font-medium"
+                          onClick={() => setReceivingOrderId(order.id)}
+                          className="flex-1 bg-emerald-600 text-white px-3 py-2 rounded-md hover:bg-emerald-700 text-sm font-medium flex items-center justify-center gap-1.5"
                         >
-                          Registrar Recebimento
+                          <PackageCheck className="w-4 h-4" />
+                          {order.status === 'PARTIAL' ? 'Receber parcela' : 'Registrar Recebimento'}
                         </button>
                         <button
                           onClick={() => navigate(`/supplier-orders/${order.id}`)}
@@ -534,6 +549,19 @@ export function GoodsReceiptsPage() {
           )}
         </div>
       </div>
+
+      {receivingOrderId && (
+        <ReceiveOrderModal
+          orderId={receivingOrderId}
+          onClose={() => setReceivingOrderId(null)}
+          onDone={() => {
+            setReceivingOrderId(null);
+            // Sincroniza ambas as abas e a lista de pedidos (mesma fonte do botão verde)
+            queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['goods-receipts'] });
+          }}
+        />
+      )}
     </div>
   );
 }

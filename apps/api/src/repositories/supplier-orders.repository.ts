@@ -25,6 +25,11 @@ export interface SupplierOrder {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  // Resumo de pendência (só no findMany)
+  itemsTotal?: number;
+  itemsPending?: number;
+  qtyTotal?: number;
+  qtyPending?: number;
   // Relacionamentos
   supplier?: {
     id: string;
@@ -223,7 +228,11 @@ export class SupplierOrdersRepository {
         pb.id as budget_id, pb.budget_number as budget_number, pb.title as budget_title,
         pb.currency as budget_currency,
         pb.exchange_rate_1 as budget_rate1, pb.exchange_rate_2 as budget_rate2, pb.exchange_rate_3 as budget_rate3,
-        pb.additional_costs as budget_additional_costs
+        pb.additional_costs as budget_additional_costs,
+        (SELECT COUNT(*)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as items_total,
+        (SELECT COUNT(*)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id AND COALESCE(soi.quantity_received,0) < soi.quantity) as items_pending,
+        (SELECT COALESCE(SUM(soi.quantity),0)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as qty_total,
+        (SELECT COALESCE(SUM(GREATEST(soi.quantity - COALESCE(soi.quantity_received,0),0)),0)::int FROM supplier_order_items soi WHERE soi.supplier_order_id = so.id) as qty_pending
       FROM supplier_orders so
       LEFT JOIN suppliers s ON s.id = so.supplier_id
       LEFT JOIN purchase_orders po ON po.id = so.purchase_order_id
@@ -732,6 +741,11 @@ export class SupplierOrdersRepository {
       createdBy: data.created_by,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
+      // Resumo de pendência (preenchido no findMany; undefined no findById)
+      itemsTotal: data.items_total ?? undefined,
+      itemsPending: data.items_pending ?? undefined,
+      qtyTotal: data.qty_total ?? undefined,
+      qtyPending: data.qty_pending ?? undefined,
       supplier: data.supplier,
       purchaseOrder: data.purchase_order,
       budget: data.budget,

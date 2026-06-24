@@ -24,6 +24,11 @@ export interface SupplierOrder {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  // Resumo de pendência (só na listagem)
+  itemsTotal?: number;
+  itemsPending?: number;
+  qtyTotal?: number;
+  qtyPending?: number;
   supplier?: {
     id: string;
     name: string;
