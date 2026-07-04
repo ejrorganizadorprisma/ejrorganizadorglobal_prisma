@@ -20,6 +20,7 @@ export function SystemSettingsPage() {
   const [exchangeRateBrlToPyg, setExchangeRateBrlToPyg] = useState(1450.00);
   const [exchangeRateUsdToPyg, setExchangeRateUsdToPyg] = useState(7250.00);
   const [enabledCurrencies, setEnabledCurrencies] = useState<Currency[]>(['BRL', 'PYG', 'USD']);
+  const [floorIdentificationMethod, setFloorIdentificationMethod] = useState<'LOGGED_USER' | 'EMPLOYEE_CODE'>('LOGGED_USER');
 
   // Estados de inversão para os 3 campos
   const [isBrlUsdInverted, setIsBrlUsdInverted] = useState(false);
@@ -46,6 +47,7 @@ export function SystemSettingsPage() {
       setExchangeRateBrlToPyg(settings.exchangeRateBrlToPyg);
       setExchangeRateUsdToPyg(settings.exchangeRateUsdToPyg);
       setEnabledCurrencies(settings.enabledCurrencies);
+      if ((settings as any).floorIdentificationMethod) setFloorIdentificationMethod((settings as any).floorIdentificationMethod);
     }
   }, [settings]);
 
@@ -64,7 +66,7 @@ export function SystemSettingsPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [country, defaultCurrency, language, exchangeRateBrlToUsd, exchangeRateBrlToPyg, exchangeRateUsdToPyg, enabledCurrencies]); // Dependências para ter acesso aos valores atuais
+  }, [country, defaultCurrency, language, exchangeRateBrlToUsd, exchangeRateBrlToPyg, exchangeRateUsdToPyg, enabledCurrencies, floorIdentificationMethod]); // Dependências para ter acesso aos valores atuais
 
   // Ao mudar o país, sugerir moeda e língua padrão (mas permitir personalização)
   const handleCountryChange = (newCountry: Country) => {
@@ -97,6 +99,7 @@ export function SystemSettingsPage() {
         exchangeRateBrlToPyg,
         exchangeRateUsdToPyg,
         enabledCurrencies,
+        floorIdentificationMethod,
       });
       alert('✅ Configurações salvas com sucesso!');
     } catch (error: any) {
@@ -118,6 +121,37 @@ export function SystemSettingsPage() {
       <p className="text-gray-600 mb-8">
         Configure o país, moeda, idioma e taxas de câmbio do sistema
       </p>
+
+      {/* Identificação no chão de fábrica */}
+      <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
+        <h2 className="text-lg lg:text-xl font-semibold mb-1 flex items-center gap-2">
+          <span>🏭</span>
+          <span>Identificação na Separação e Expedição</span>
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Como registrar o funcionário responsável ao assumir uma separação ou fechar a expedição.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {([
+            { key: 'LOGGED_USER', title: 'Usuário logado', desc: 'O responsável é o usuário que está logado no computador.' },
+            { key: 'EMPLOYEE_CODE', title: 'Código de funcionário', desc: 'Computador compartilhado: cada um digita seu código ao assumir.' },
+          ] as const).map((opt) => {
+            const selected = floorIdentificationMethod === opt.key;
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setFloorIdentificationMethod(opt.key)}
+                className={`p-5 rounded-lg border-2 transition-all text-left ${selected ? 'border-violet-500 bg-violet-50 shadow-md' : 'border-gray-200 hover:border-gray-300'}`}
+              >
+                <div className="font-semibold text-gray-800">{opt.title}</div>
+                <div className="text-sm text-gray-500 mt-1">{opt.desc}</div>
+                {selected && <div className="mt-2 text-xs font-semibold text-violet-600">✓ Selecionado</div>}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-400 mt-3">Pressione F10 ou salve para aplicar.</p>
+      </div>
 
       {/* País */}
       <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">

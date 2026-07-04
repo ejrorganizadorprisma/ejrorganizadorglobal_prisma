@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder, useReceiveSalesOrder, useToDeliverSalesOrder, useCompleteSalesOrder } from '../hooks/useSalesOrders';
+import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder, useReceiveSalesOrder, useToDeliverSalesOrder, useCompleteSalesOrder, useReleaseSeparation } from '../hooks/useSalesOrders';
 import { SeparationModal } from '../components/sales-order/SeparationModal';
 import { DeliveryModal } from '../components/sales-order/DeliveryModal';
 import { useFormatPrice } from '../hooks/useFormatPrice';
@@ -37,7 +37,9 @@ const statusConfig: Record<string, { label: string; bg: string; text: string; ic
   DRAFT: { label: 'Rascunho', bg: 'bg-gray-100', text: 'text-gray-600', icon: FileText },
   PENDING: { label: 'Pedido de venda', bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
   RECEIVED: { label: 'Pedido recebido', bg: 'bg-sky-50', text: 'text-sky-700', icon: CheckCircle },
-  SEPARATED: { label: 'Pedido separado', bg: 'bg-violet-50', text: 'text-violet-700', icon: CheckCircle },
+  AWAITING_SEPARATION: { label: 'Aguardando separação', bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
+  SEPARATING: { label: 'Em separação', bg: 'bg-violet-50', text: 'text-violet-700', icon: Clock },
+  SEPARATED: { label: 'Separado (conferir)', bg: 'bg-violet-50', text: 'text-violet-700', icon: CheckCircle },
   APPROVED: { label: 'Venda autorizada', bg: 'bg-blue-50', text: 'text-blue-700', icon: CheckCircle },
   CONVERTING: { label: 'Faturando…', bg: 'bg-indigo-50', text: 'text-indigo-700', icon: Clock },
   PARTIALLY_CONVERTED: { label: 'Parcialmente faturado', bg: 'bg-teal-50', text: 'text-teal-700', icon: ArrowRightCircle },
@@ -82,18 +84,26 @@ export function SalesOrdersPage() {
   const receiveOrder = useReceiveSalesOrder();
   const toDeliverOrder = useToDeliverSalesOrder();
   const completeOrder = useCompleteSalesOrder();
+  const releaseSeparation = useReleaseSeparation();
 
-  // Próxima etapa do workflow conforme o status (Demanda 9)
+  const doRelease = async (order: any) => {
+    try {
+      await releaseSeparation.mutateAsync({ id: order.id, body: {} });
+      toast.success('Pedido liberado para o estoque separar!');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao liberar separação');
+    }
+  };
+
+  // Próxima etapa do workflow conforme o status
   const nextStep = (order: any): { label: string; color: string; run: () => void } | null => {
     const s = order.status;
-    if (s === 'PENDING') return { label: 'Receber', color: 'bg-sky-600 hover:bg-sky-700', run: async () => { try { await receiveOrder.mutateAsync({ id: order.id }); toast.success('Pedido recebido!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
-    if (s === 'RECEIVED') return { label: 'Separar', color: 'bg-violet-600 hover:bg-violet-700', run: () => setSeparatingId(order.id) };
-    if (s === 'SEPARATED') return { label: 'Autorizar', color: 'bg-blue-600 hover:bg-blue-700', run: () => setApproveTarget({ id: order.id, number: order.orderNumber }) };
-    if (s === 'APPROVED') return { label: 'Faturar', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
-    if (s === 'PARTIALLY_CONVERTED') return { label: 'Faturar saldo', color: 'bg-teal-600 hover:bg-teal-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
-    if (s === 'CONVERTED') return { label: 'A entregar', color: 'bg-orange-600 hover:bg-orange-700', run: async () => { try { await toDeliverOrder.mutateAsync({ id: order.id }); toast.success('Venda em entrega!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
-    if (s === 'TO_DELIVER') return { label: 'Entregue', color: 'bg-lime-600 hover:bg-lime-700', run: () => setDeliveringOrder({ id: order.id, number: order.orderNumber }) };
-    if (s === 'DELIVERED') return { label: 'Concluir', color: 'bg-green-600 hover:bg-green-700', run: async () => { try { await completeOrder.mutateAsync({ id: order.id }); toast.success('Venda concluída!'); } catch (e: any) { toast.error(e.response?.data?.error?.message || 'Erro'); } } };
+    if (s === 'PENDING' || s === 'APPROVED' || s === 'RECEIVED')
+      return { label: 'Liberar Separação', color: 'bg-amber-600 hover:bg-amber-700', run: () => doRelease(order) };
+    if (s === 'SEPARATED')
+      return { label: 'Conferência OK', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
+    if (s === 'PARTIALLY_CONVERTED')
+      return { label: 'Faturar saldo', color: 'bg-teal-600 hover:bg-teal-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
     return null;
   };
 

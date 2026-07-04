@@ -125,6 +125,7 @@ const menuSections: MenuSection[] = [
           { name: 'Lista de Fornecedores', path: '/suppliers', icon: Users, page: 'suppliers' as AppPage },
           { name: 'Novo Fornecedor', path: '/suppliers/new', icon: Plus, page: 'suppliers' as AppPage },
           { name: 'Indústrias', path: '/manufacturers', icon: Factory, page: 'suppliers' as AppPage },
+          { name: 'Transportadoras', path: '/cadastros/transportadoras', icon: Truck, page: 'carriers' as AppPage },
         ],
       },
     ],
@@ -161,6 +162,18 @@ const menuSections: MenuSection[] = [
           { name: 'Lista de Vendas', path: '/sales', icon: DollarSign, page: 'sales' as AppPage },
           { name: 'Nova Venda', path: '/sales/new', icon: Plus, page: 'sales' as AppPage },
         ],
+      },
+      {
+        name: 'Separação no Estoque',
+        path: '/estoque/separacao',
+        icon: PackageOpen,
+        page: 'separation' as AppPage,
+      },
+      {
+        name: 'Expedição',
+        path: '/expedicao',
+        icon: Truck,
+        page: 'expedition' as AppPage,
       },
       {
         name: 'Ordens de Serviço',

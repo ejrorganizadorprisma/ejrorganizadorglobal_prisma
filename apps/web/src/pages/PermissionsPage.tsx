@@ -12,6 +12,7 @@ const roleLabels: Record<UserRole, string> = {
   COORDINATOR: 'Coordenador(a)',
   SALESPERSON: 'Vendedor',
   STOCK: 'Estoque',
+  EXPEDITION: 'Expedidor',
   PRODUCTION: 'Produção',
   TECHNICIAN: 'Técnico',
   MONITOR: 'Monitor',

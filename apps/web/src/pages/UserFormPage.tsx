@@ -36,6 +36,7 @@ export function UserFormPage() {
     confirmPassword: '',
     role: 'SALESPERSON' as UserRole,
     isActive: true,
+    employeeCode: '',
     // Personal data
     document: '',
     birthDate: '',
@@ -120,6 +121,7 @@ export function UserFormPage() {
         password: '',
         confirmPassword: '',
         role: user.role,
+        employeeCode: (user as any).employeeCode || '',
         isActive: user.isActive,
         document: user.document || '',
         birthDate: user.birthDate ? String(user.birthDate).slice(0, 10) : '',
@@ -207,6 +209,7 @@ export function UserFormPage() {
         email: formData.email,
         role: formData.role,
         isActive: formData.isActive,
+        employeeCode: formData.employeeCode || null,
         // Personal data
         document: formData.document || null,
         birthDate: formData.birthDate || null,
@@ -584,10 +587,26 @@ export function UserFormPage() {
                 <option value="COORDINATOR">Coordenador(a)</option>
                 <option value="SALESPERSON">Vendedor</option>
                 <option value="STOCK">Estoque</option>
+                <option value="EXPEDITION">Expedidor</option>
                 <option value="PRODUCTION">Produção</option>
                 <option value="TECHNICIAN">Técnico</option>
                 <option value="MONITOR">Monitor</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Código de funcionário
+              </label>
+              <input
+                type="text"
+                name="employeeCode"
+                value={formData.employeeCode}
+                onChange={handleChange}
+                placeholder="Ex.: 1234 (separação/expedição)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+              <p className="text-xs text-gray-400 mt-1">Usado quando o computador é compartilhado no estoque/expedição.</p>
             </div>
 
             <div>

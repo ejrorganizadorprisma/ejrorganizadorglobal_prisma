@@ -2,13 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import type { SalesOrder, SalesOrderFilters } from '@ejr/shared-types';
 
-export function useSalesOrders(filters: SalesOrderFilters) {
+export function useSalesOrders(filters: SalesOrderFilters, options?: { refetchInterval?: number }) {
   return useQuery({
     queryKey: ['sales-orders', filters],
     queryFn: async () => {
       const { data } = await api.get('/sales-orders', { params: filters });
       return data as { data: SalesOrder[]; pagination: { page: number; limit: number; total: number; totalPages: number } };
     },
+    refetchInterval: options?.refetchInterval,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -229,3 +231,52 @@ export const useSeparateSalesOrder = () => useWorkflowAction('separate');
 export const useToDeliverSalesOrder = () => useWorkflowAction('to-deliver');
 export const useMarkDeliveredSalesOrder = () => useWorkflowAction('mark-delivered');
 export const useCompleteSalesOrder = () => useWorkflowAction('complete');
+
+// ==================== SEPARAÇÃO NO ESTOQUE ====================
+
+/** Fila do estoque em tempo real (aguardando + em separação). */
+export function useSeparationQueue(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['separation-queue'],
+    queryFn: async () => {
+      const { data } = await api.get('/sales-orders/separation/queue');
+      return (data?.data ?? []) as SalesOrder[];
+    },
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+function useSeparationMutation(action: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: string; body?: any }) => {
+      const response = await api.post(`/sales-orders/${id}/${action}`, body || {});
+      return response.data.data as SalesOrder;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['separation-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['sales-orders', vars.id] });
+    },
+  });
+}
+
+export const useReleaseSeparation = () => useSeparationMutation('release-separation');
+export const useClaimSeparation = () => useSeparationMutation('claim-separation');
+export const usePostponeSeparation = () => useSeparationMutation('postpone-separation');
+
+export function useSeparationEvents(id: string, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['sales-orders', id, 'separation-events'],
+    queryFn: async () => {
+      const { data } = await api.get(`/sales-orders/${id}/separation-events`);
+      return (data?.data ?? []) as Array<{
+        id: string; action: string; note?: string; createdAt: string;
+        user?: { id: string; name: string };
+      }>;
+    },
+    enabled: options?.enabled ?? !!id,
+  });
+}

@@ -126,6 +126,78 @@ export function useUpdatePayment() {
   });
 }
 
+// ==================== FATURAMENTO / EXPEDIÇÃO / COLETA ====================
+
+/** Fila de expedição: vendas Em Expedição + Aguardando Transportadora. */
+export function useExpeditionQueue(options?: { refetchInterval?: number }) {
+  return useQuery({
+    queryKey: ['expedition-queue'],
+    queryFn: async () => {
+      const [inExp, awaiting] = await Promise.all([
+        api.get('/sales', { params: { fulfillmentStatus: 'IN_EXPEDITION', limit: 500 } }),
+        api.get('/sales', { params: { fulfillmentStatus: 'AWAITING_CARRIER', limit: 500 } }),
+      ]);
+      const a = (inExp.data?.data ?? []) as Sale[];
+      const b = (awaiting.data?.data ?? []) as Sale[];
+      return [...a, ...b];
+    },
+    refetchInterval: options?.refetchInterval ?? 6000,
+    refetchIntervalInBackground: false,
+  });
+}
+
+function invalidateSalesQueues(qc: ReturnType<typeof useQueryClient>, id?: string) {
+  qc.invalidateQueries({ queryKey: ['sales'] });
+  qc.invalidateQueries({ queryKey: ['expedition-queue'] });
+  if (id) qc.invalidateQueries({ queryKey: ['sales', id] });
+}
+
+export function useInvoiceSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string } }) => {
+      const res = await api.post(`/sales/${id}/invoice`, data);
+      return res.data.data as Sale;
+    },
+    onSuccess: (_d, v) => invalidateSalesQueues(qc, v.id),
+  });
+}
+
+export function useUploadSaleFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, endpoint, file }: { id: string; endpoint: 'invoice-file' | 'collection-receipt'; file: File }) => {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await api.post(`/sales/${id}/${endpoint}`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      return res.data.data as Sale;
+    },
+    onSuccess: (_d, v) => invalidateSalesQueues(qc, v.id),
+  });
+}
+
+export function useExpeditionSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { carrierId: string; carrierScheduledDate?: string; volumesCount: number; bundlesCount?: number; expeditionNotes?: string; employeeCode?: string } }) => {
+      const res = await api.post(`/sales/${id}/expedition`, data);
+      return res.data.data as Sale;
+    },
+    onSuccess: (_d, v) => invalidateSalesQueues(qc, v.id),
+  });
+}
+
+export function useCollectSale() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { driverName?: string; collectionCarrierVolumes?: number; employeeCode?: string } }) => {
+      const res = await api.post(`/sales/${id}/collect`, data);
+      return res.data.data as Sale;
+    },
+    onSuccess: (_d, v) => invalidateSalesQueues(qc, v.id),
+  });
+}
+
 export interface ConvertToSaleDTO {
   quoteId: string;
   paymentMethod: string;

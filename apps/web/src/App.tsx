@@ -82,6 +82,9 @@ import { MobileAppPage } from './pages/MobileAppPage';
 
 // Sales Orders (Pedidos de Venda)
 import { SalesOrdersPage } from './pages/SalesOrdersPage';
+import StockSeparationPage from './pages/StockSeparationPage';
+import ExpeditionPage from './pages/ExpeditionPage';
+import CarriersPage from './pages/CarriersPage';
 import { SalesOrderConvertPage } from './pages/SalesOrderConvertPage';
 import { SalesOrderEditPage } from './pages/SalesOrderEditPage';
 import { SalesOrderFormPage } from './pages/SalesOrderFormPage';
@@ -222,6 +225,36 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <DashboardPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/estoque/separacao"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <StockSeparationPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expedicao"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <ExpeditionPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cadastros/transportadoras"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <CarriersPage />
             </MainLayout>
           </ProtectedRoute>
         }
