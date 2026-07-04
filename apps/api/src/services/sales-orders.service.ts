@@ -4,7 +4,7 @@ import { SalesService } from './sales.service';
 import { CustomersRepository } from '../repositories/customers.repository';
 import { PushNotificationsService } from './push-notifications.service';
 import { db } from '../config/database';
-import { NotFoundError, BadRequestError, ForbiddenError } from '../utils/errors';
+import { NotFoundError, BadRequestError, ForbiddenError, ConflictError } from '../utils/errors';
 import {
   SalesOrderStatus,
   type CreateSalesOrderDTO,
@@ -493,6 +493,17 @@ export class SalesOrdersService {
 
       const sale = await this.salesService.create(saleData, userId, userRole);
 
+      // Conferência OK: a venda nasce com estágio de fulfillment "Conferido".
+      try {
+        await db.query(
+          `UPDATE sales SET fulfillment_status = 'CONFERRED', updated_at = NOW() WHERE id = $1`,
+          [sale.id]
+        );
+        await this.repository.addSeparationEvent(order.id, userId, 'CONFERRED');
+      } catch (confErr) {
+        console.error('[convertToSale] Falha ao marcar fulfillment CONFERRED:', confErr);
+      }
+
       // Fechar o ciclo: total ou parcial.
       if (remaining.length === 0) {
         // Faturamento integral: CONVERTING → CONVERTED
@@ -595,7 +606,117 @@ export class SalesOrdersService {
     return updated;
   }
 
-  // ==================== WORKFLOW (Demanda 9) ====================
+  // ==================== SEPARAÇÃO NO ESTOQUE ====================
+
+  /**
+   * Lê o método de identificação do chão (system_settings) e resolve o
+   * responsável: usuário logado (LOGGED_USER) ou usuário do código digitado
+   * (EMPLOYEE_CODE, computador compartilhado).
+   */
+  private async resolveResponsible(userId: string, employeeCode?: string): Promise<string> {
+    const cfg = await db.query(
+      `SELECT floor_identification_method FROM system_settings LIMIT 1`
+    );
+    const method = cfg.rows[0]?.floor_identification_method || 'LOGGED_USER';
+    if (method !== 'EMPLOYEE_CODE') return userId;
+
+    const code = (employeeCode || '').trim();
+    if (!code) throw new BadRequestError('Informe o código de funcionário');
+    const u = await db.query(
+      `SELECT id FROM users WHERE employee_code = $1 AND is_active = true LIMIT 1`,
+      [code]
+    );
+    if (u.rows.length === 0) throw new BadRequestError('Código de funcionário inválido ou inativo');
+    return u.rows[0].id;
+  }
+
+  /** Fila de separação do estoque (aguardando + em separação). */
+  async listSeparationQueue() {
+    return this.repository.findAll({
+      statuses: [SalesOrderStatus.AWAITING_SEPARATION, SalesOrderStatus.SEPARATING],
+      limit: 500,
+      page: 1,
+    } as any);
+  }
+
+  /** Gerente libera o pedido para a fila do estoque. */
+  async releaseForSeparation(id: string, userId: string, userRole?: string) {
+    if (!isAdminRole(userRole) && userRole !== 'STOCK') {
+      throw new ForbiddenError('Sem permissão para liberar separação');
+    }
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status === SalesOrderStatus.AWAITING_SEPARATION) return o;
+    const ok = await this.repository.releaseForSeparation(id, userId);
+    if (!ok) {
+      throw new BadRequestError(
+        `Só pedidos pendentes/aprovados podem ser liberados para separação (atual: ${o.status})`
+      );
+    }
+    return this.repository.findById(id);
+  }
+
+  /** Funcionário do estoque assume a separação (claim atômico). */
+  async claimSeparation(id: string, userId: string, employeeCode?: string) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status === SalesOrderStatus.SEPARATING) {
+      throw new ConflictError(
+        `Este pedido já foi assumido por ${o.separationResponsible?.name || 'outro funcionário'}.`
+      );
+    }
+    if (o.status !== SalesOrderStatus.AWAITING_SEPARATION) {
+      throw new BadRequestError(`Pedido não está disponível para separação (atual: ${o.status})`);
+    }
+    const responsible = await this.resolveResponsible(userId, employeeCode);
+    const ok = await this.repository.claimSeparation(id, responsible);
+    if (!ok) {
+      throw new ConflictError('Este pedido acabou de ser assumido por outro funcionário.');
+    }
+    return this.repository.findById(id);
+  }
+
+  /** Adiar separação: devolve à fila para outro funcionário. */
+  async postponeSeparation(id: string, note?: string) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status !== SalesOrderStatus.SEPARATING) {
+      throw new BadRequestError(`Só é possível adiar um pedido em separação (atual: ${o.status})`);
+    }
+    const ok = await this.repository.postponeSeparation(id, note);
+    if (!ok) throw new BadRequestError('Não foi possível adiar a separação');
+    return this.repository.findById(id);
+  }
+
+  /** "Tudo Separado": grava quantidades/justificativas e conclui a separação. */
+  async separate(
+    id: string,
+    items: Array<{ id: string; quantitySeparated: number; separationStatus: string; separationNote?: string | null }>
+  ) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status !== SalesOrderStatus.SEPARATING) {
+      throw new BadRequestError(`Só pedidos em separação podem ser finalizados (atual: ${o.status})`);
+    }
+    // Justificativa obrigatória quando falta (MISSING/PARTIAL)
+    for (const it of items || []) {
+      if ((it.separationStatus === 'MISSING' || it.separationStatus === 'PARTIAL') && !(it.separationNote || '').trim()) {
+        throw new BadRequestError('Justifique os itens em falta antes de finalizar a separação');
+      }
+    }
+    const ok = await this.repository.separate(id, items || []);
+    if (!ok) throw new BadRequestError('Não foi possível finalizar a separação');
+    return this.repository.findById(id);
+  }
+
+  /** Histórico de eventos de separação (avaliação de funcionários). */
+  async getSeparationEvents(id: string) {
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    return this.repository.getSeparationEvents(id);
+  }
+
+  // ==================== WORKFLOW (Demanda 9 — legado) ====================
 
   async receive(id: string, userId: string) {
     const o = await this.repository.findById(id);
@@ -604,15 +725,6 @@ export class SalesOrdersService {
     if (o.status !== SalesOrderStatus.PENDING)
       throw new BadRequestError(`Só pedidos pendentes podem ser recebidos (atual: ${o.status})`);
     await this.repository.receive(id, userId);
-    return this.repository.findById(id);
-  }
-
-  async separate(id: string, userId: string, items: Array<{ id: string; quantitySeparated: number; separationStatus: string }>) {
-    const o = await this.repository.findById(id);
-    if (!o) throw new NotFoundError('Pedido não encontrado');
-    if (o.status !== SalesOrderStatus.RECEIVED)
-      throw new BadRequestError(`Só pedidos recebidos podem ser separados (atual: ${o.status})`);
-    await this.repository.separate(id, userId, items || []);
     return this.repository.findById(id);
   }
 

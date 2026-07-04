@@ -12,7 +12,13 @@ router.post('/convert-from-quote', controller.convertFromQuote);
 router.post('/:id/convert-to-sale', controller.convertToSale);
 router.post('/:id/cancel', controller.cancel);
 router.post('/:id/receive', controller.receive);
+// Separação no Estoque
+router.get('/separation/queue', controller.separationQueue);
+router.post('/:id/release-separation', controller.releaseSeparation);
+router.post('/:id/claim-separation', controller.claimSeparation);
+router.post('/:id/postpone-separation', controller.postponeSeparation);
 router.post('/:id/separate', controller.separate);
+router.get('/:id/separation-events', controller.separationEvents);
 router.post('/:id/approve', controller.approve);
 router.post('/:id/to-deliver', controller.toDeliver);
 router.post('/:id/mark-delivered', controller.markDelivered);

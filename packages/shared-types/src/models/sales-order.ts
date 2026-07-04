@@ -4,7 +4,9 @@ import { z } from 'zod';
 export enum SalesOrderStatus {
   DRAFT = 'DRAFT',                                 // Rascunho (ainda não sincronizado)
   PENDING = 'PENDING',                             // 1. Pedido de venda (vendedor criou)
-  RECEIVED = 'RECEIVED',                           // 2. Pedido recebido (Candy recebeu)
+  RECEIVED = 'RECEIVED',                           // 2. Pedido recebido (legado)
+  AWAITING_SEPARATION = 'AWAITING_SEPARATION',     // 2b. Liberado p/ separação (fila do estoque, sem responsável)
+  SEPARATING = 'SEPARATING',                       // 2c. Em separação (travado; responsável assumiu)
   SEPARATED = 'SEPARATED',                         // 3. Pedido separado (depósito separou)
   APPROVED = 'APPROVED',                           // 4. Venda autorizada (Candy conferiu)
   CONVERTING = 'CONVERTING',                       // Lock otimista: faturamento em andamento (transitório)
@@ -26,6 +28,10 @@ export interface SalesOrderItem {
   unitPrice: number; // centavos
   discount: number;  // centavos
   total: number;     // centavos
+  // Separação
+  quantitySeparated?: number;
+  separationStatus?: 'OK' | 'PARTIAL' | 'MISSING';
+  separationNote?: string; // justificativa quando falta (MISSING/PARTIAL)
   product?: {
     id: string;
     code: string;
@@ -57,11 +63,23 @@ export interface SalesOrder {
   cancelReason?: string;
   approvedAt?: string;
   approvedBy?: string;
+  // Separação (chão de estoque)
+  releasedForSeparationAt?: string;
+  releasedBy?: string;
+  separationClaimedBy?: string;
+  separationClaimedAt?: string;
+  separatedBy?: string;
+  separatedAt?: string;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
 
   // Populated fields
+  separationResponsible?: {
+    id: string;
+    name: string;
+  };
+  separationEvents?: SeparationEvent[];
   customer?: {
     id: string;
     name: string;
@@ -80,6 +98,39 @@ export interface SalesOrder {
     saleNumber: string;
   };
 }
+
+/**
+ * Evento do fluxo de separação (histórico p/ avaliação de funcionários).
+ */
+export interface SeparationEvent {
+  id: string;
+  salesOrderId: string;
+  userId?: string;
+  action: 'CLAIMED' | 'POSTPONED' | 'COMPLETED' | 'CONFERRED' | 'RELEASED';
+  note?: string;
+  createdAt: string;
+  // Populated
+  user?: { id: string; name: string };
+}
+
+// Item enviado ao "Tudo Separado".
+export const SeparateItemInputSchema = z.object({
+  id: z.string().min(1),
+  quantitySeparated: z.number().int().min(0),
+  separationStatus: z.enum(['OK', 'PARTIAL', 'MISSING']),
+  separationNote: z.string().optional().nullable(),
+});
+export const SeparateOrderSchema = z.object({
+  items: z.array(SeparateItemInputSchema).min(1),
+});
+export type SeparateItemInput = z.infer<typeof SeparateItemInputSchema>;
+export type SeparateOrderDTO = z.infer<typeof SeparateOrderSchema>;
+
+// Assumir a separação (claim). employeeCode só quando identificação por código.
+export const ClaimSeparationSchema = z.object({
+  employeeCode: z.string().optional(),
+});
+export type ClaimSeparationDTO = z.infer<typeof ClaimSeparationSchema>;
 
 export const SalesOrderItemInputSchema = z.object({
   itemType: z.enum(['PRODUCT', 'SERVICE']),

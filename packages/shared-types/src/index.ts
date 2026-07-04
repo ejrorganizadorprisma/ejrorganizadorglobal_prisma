@@ -16,6 +16,9 @@ export * from './models/manufacturer';
 // Brand (Marca)
 export * from './models/brand';
 
+// Carrier (Transportadora)
+export * from './models/carrier';
+
 // Customer
 export * from './models/customer';
 

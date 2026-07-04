@@ -247,6 +247,7 @@ export class AuthService {
       password,
       name,
       role,
+      employeeCode,
       allowedHours,
       document,
       birthDate,
@@ -280,13 +281,13 @@ export class AuthService {
         id, email, password_hash, name, role, allowed_hours, is_active,
         document, birth_date, phone, whatsapp, email_alt, address, photo_url,
         commission_rate, monthly_target, region,
-        hire_date, contract_type, notes
+        hire_date, contract_type, notes, employee_code
       )
        VALUES (
         $1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11, $12, $13, $14,
         $15, $16, $17,
-        $18, $19, $20
+        $18, $19, $20, $21
        )
        RETURNING *`,
       [
@@ -310,6 +311,7 @@ export class AuthService {
         hireDate ?? null,
         contractType ?? null,
         notes ?? null,
+        employeeCode ?? null,
       ]
     );
 

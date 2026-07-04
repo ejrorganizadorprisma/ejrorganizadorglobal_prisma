@@ -40,6 +40,15 @@ export enum DeliveryStatus {
   RETURNED = 'RETURNED',
 }
 
+// Estágio operacional da venda no fluxo de chão de fábrica (independente do
+// status financeiro SaleStatus). Preenchido a partir da Conferência.
+export enum FulfillmentStatus {
+  CONFERRED = 'CONFERRED',           // Conferido (venda recém-criada pela conferência)
+  IN_EXPEDITION = 'IN_EXPEDITION',   // Em Expedição (faturada, NF lançada)
+  AWAITING_CARRIER = 'AWAITING_CARRIER', // Aguardando Transportadora (volumes/atados + coleta agendada)
+  COLLECTED = 'COLLECTED',           // Coletado pela transportadora
+}
+
 export interface DeliveryAddress {
   street: string;
   number?: string;
@@ -111,11 +120,40 @@ export interface Sale {
   deliveryStatus?: DeliveryStatus;
   deliveredAt?: string;
   shippingNotes?: string;
+  // Fluxo de expedição (chão de fábrica)
+  fulfillmentStatus?: FulfillmentStatus;
+  // Nota Fiscal de saída (apenas registro; integração fiscal PY virá depois)
+  nfNumber?: string;
+  nfDate?: string;
+  nfAmount?: number; // centavos
+  nfFileUrl?: string;
+  nfFileName?: string;
+  invoicedAt?: string;
+  invoicedBy?: string;
+  // Expedição
+  carrierId?: string;
+  carrierScheduledDate?: string;
+  volumesCount?: number;
+  bundlesCount?: number; // atados
+  expeditionNotes?: string;
+  expeditionConferredBy?: string;
+  expeditionConferredAt?: string;
+  // Coleta pela transportadora
+  collectedAt?: string;
+  collectedBy?: string;
+  collectionDriverName?: string;
+  collectionCarrierVolumes?: number;
+  collectionReceiptUrl?: string;
+  collectionReceiptName?: string;
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
 
   // Populated fields
+  carrier?: {
+    id: string;
+    name: string;
+  };
   customer?: {
     id: string;
     name: string;
@@ -190,6 +228,31 @@ export interface UpdateSaleDTO {
   shippingNotes?: string;
 }
 
+// Faturamento: lança a NF de saída e (opcionalmente) a transportadora.
+export interface InvoiceSaleDTO {
+  nfNumber: string;
+  nfDate?: string;
+  nfAmount?: number; // centavos
+  carrierId?: string; // opcional no faturamento
+}
+
+// Expedição: conferência final + volumes/atados + transportadora (obrigatória) + coleta agendada.
+export interface ExpeditionSaleDTO {
+  carrierId: string; // obrigatório na expedição
+  carrierScheduledDate?: string;
+  volumesCount: number;
+  bundlesCount?: number; // atados
+  expeditionNotes?: string;
+  employeeCode?: string; // quando identificação por código
+}
+
+// Coleta: transportadora retirou a mercadoria (recibo + motorista + volumes).
+export interface CollectSaleDTO {
+  driverName?: string;
+  collectionCarrierVolumes?: number;
+  employeeCode?: string;
+}
+
 export interface CreateSalePaymentDTO {
   installmentNumber: number;
   paymentMethod: PaymentMethod;
@@ -207,6 +270,7 @@ export interface UpdateSalePaymentDTO {
 export interface SaleFilters {
   customerId?: string;
   status?: SaleStatus;
+  fulfillmentStatus?: FulfillmentStatus;
   startDate?: string;
   endDate?: string;
   search?: string;

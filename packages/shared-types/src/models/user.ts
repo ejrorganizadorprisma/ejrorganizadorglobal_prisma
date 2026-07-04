@@ -8,6 +8,7 @@ export enum UserRole {
   COORDINATOR = 'COORDINATOR',
   SALESPERSON = 'SALESPERSON',
   STOCK = 'STOCK',
+  EXPEDITION = 'EXPEDITION', // Expedidor — confere expedição e fecha coleta pela transportadora
   PRODUCTION = 'PRODUCTION',
   TECHNICIAN = 'TECHNICIAN',
   MONITOR = 'MONITOR',
@@ -20,6 +21,8 @@ export interface User {
   name: string;
   role: UserRole;
   isActive: boolean;
+  // Código curto de funcionário (identificação em computador compartilhado no chão de fábrica)
+  employeeCode?: string | null;
   // Extended profile - personal data
   document?: string | null;
   birthDate?: string | null;
@@ -101,6 +104,7 @@ export const CreateUserSchema = z.object({
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres'),
   name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   role: z.nativeEnum(UserRole),
+  employeeCode: optionalNullableString,
   // Personal data
   document: optionalNullableString,
   birthDate: optionalNullableDate,
@@ -142,6 +146,7 @@ export const UpdateUserSchema = z.object({
   password: z.string().min(8, 'Senha deve ter no mínimo 8 caracteres').optional(),
   role: z.nativeEnum(UserRole).optional(),
   isActive: z.boolean().optional(),
+  employeeCode: optionalNullableString,
   // Personal data
   document: optionalNullableString,
   birthDate: optionalNullableDate,

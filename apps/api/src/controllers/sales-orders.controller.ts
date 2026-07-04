@@ -200,10 +200,47 @@ export class SalesOrdersController {
     } catch (error) { next(error); }
   };
 
+  // ===== Separação no Estoque =====
+
+  separationQueue = async (_req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const result = await this.service.listSeparationQueue();
+      res.json({ success: true, data: result.data });
+    } catch (error) { next(error); }
+  };
+
+  releaseSeparation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.releaseForSeparation(req.params.id, req.user!.id, req.user!.role);
+      res.json({ success: true, data: order, message: 'Pedido liberado para separação' });
+    } catch (error) { next(error); }
+  };
+
+  claimSeparation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.claimSeparation(req.params.id, req.user!.id, req.body?.employeeCode);
+      res.json({ success: true, data: order, message: 'Separação assumida' });
+    } catch (error) { next(error); }
+  };
+
+  postponeSeparation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.postponeSeparation(req.params.id, req.body?.note);
+      res.json({ success: true, data: order, message: 'Separação adiada' });
+    } catch (error) { next(error); }
+  };
+
   separate = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const order = await this.service.separate(req.params.id, req.user!.id, req.body?.items || []);
+      const order = await this.service.separate(req.params.id, req.body?.items || []);
       res.json({ success: true, data: order, message: 'Pedido separado' });
+    } catch (error) { next(error); }
+  };
+
+  separationEvents = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.getSeparationEvents(req.params.id);
+      res.json({ success: true, data });
     } catch (error) { next(error); }
   };
 

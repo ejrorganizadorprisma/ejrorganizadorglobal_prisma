@@ -2,6 +2,9 @@ export type Country = 'BR' | 'PY';
 export type Currency = 'BRL' | 'PYG' | 'USD';
 export type Language = 'pt-BR' | 'es-PY';
 
+// Método de identificação do responsável no chão de fábrica (Separação e Expedição)
+export type FloorIdentificationMethod = 'LOGGED_USER' | 'EMPLOYEE_CODE';
+
 export interface SystemSettings {
   id: string;
   country: Country;
@@ -20,6 +23,9 @@ export interface SystemSettings {
   mobileAppEnabled: boolean;
   mobileAppApiKey: string | null;
 
+  // Chão de fábrica: como identificar o responsável na Separação/Expedição
+  floorIdentificationMethod: FloorIdentificationMethod;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,6 +40,7 @@ export interface UpdateSystemSettingsDTO {
   enabledCurrencies?: Currency[];
   mobileAppEnabled?: boolean;
   mobileAppApiKey?: string | null;
+  floorIdentificationMethod?: FloorIdentificationMethod;
 }
 
 export const COUNTRY_CONFIG = {

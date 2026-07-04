@@ -14,7 +14,7 @@ interface FindManyParams {
 
 // Lista compartilhada de colunas estendidas para SELECT/RETURNING
 const USER_COLUMNS = `
-  id, email, name, role, is_active, allowed_hours,
+  id, email, name, role, is_active, allowed_hours, employee_code,
   document, birth_date, phone, whatsapp, email_alt, address, photo_url,
   commission_rate, monthly_target, region,
   hire_date, contract_type, notes,
@@ -30,6 +30,7 @@ function mapUserRow(user: any) {
     role: user.role,
     isActive: user.is_active,
     allowedHours: user.allowed_hours,
+    employeeCode: user.employee_code ?? null,
     // Personal data
     document: user.document ?? null,
     birthDate: user.birth_date ?? null,
@@ -160,6 +161,7 @@ export class UsersService {
     if (data.role !== undefined) pushField('role', data.role);
     if (data.isActive !== undefined) pushField('is_active', data.isActive);
     if (data.allowedHours !== undefined) pushField('allowed_hours', data.allowedHours);
+    if (data.employeeCode !== undefined) pushField('employee_code', data.employeeCode);
 
     // Personal data
     if (data.document !== undefined) pushField('document', data.document);

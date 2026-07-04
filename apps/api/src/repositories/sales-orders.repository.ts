@@ -63,6 +63,14 @@ export class SalesOrdersRepository {
       paramIndex++;
     }
 
+    // Múltiplos status (usado pela fila de Separação no Estoque)
+    const statuses = (filters as any).statuses as string[] | undefined;
+    if (Array.isArray(statuses) && statuses.length > 0) {
+      conditions.push(`so.status = ANY($${paramIndex})`);
+      queryParams.push(statuses);
+      paramIndex++;
+    }
+
     if (startDate) {
       conditions.push(`so.order_date >= $${paramIndex}`);
       queryParams.push(startDate);
@@ -94,11 +102,14 @@ export class SalesOrdersRepository {
         u.id    AS seller_id_join,
         u.name  AS seller_name,
         u.email AS seller_email,
+        scu.id  AS resp_id_join,
+        scu.name AS resp_name,
         s.id    AS sale_id_join,
         s.sale_number AS sale_number
       FROM sales_orders so
       LEFT JOIN customers c ON so.customer_id = c.id
       LEFT JOIN users     u ON so.seller_id   = u.id
+      LEFT JOIN users     scu ON so.separation_claimed_by = scu.id
       LEFT JOIN sales     s ON so.sale_id     = s.id
       ${whereClause}
       ORDER BY so.created_at DESC
@@ -141,6 +152,9 @@ export class SalesOrdersRepository {
                 email: row.seller_email,
               }
             : null,
+          separation_responsible: row.resp_id_join
+            ? { id: row.resp_id_join, name: row.resp_name }
+            : null,
           sale: row.sale_id_join
             ? { id: row.sale_id_join, sale_number: row.sale_number }
             : null,
@@ -169,12 +183,14 @@ export class SalesOrdersRepository {
     const query = `
       SELECT
         so.*,
-        row_to_json(c.*) AS customer,
-        row_to_json(u.*) AS seller,
-        row_to_json(s.*) AS sale
+        row_to_json(c.*)   AS customer,
+        row_to_json(u.*)   AS seller,
+        row_to_json(scu.*) AS separation_responsible,
+        row_to_json(s.*)   AS sale
       FROM sales_orders so
       LEFT JOIN customers c ON so.customer_id = c.id
       LEFT JOIN users     u ON so.seller_id   = u.id
+      LEFT JOIN users     scu ON so.separation_claimed_by = scu.id
       LEFT JOIN sales     s ON so.sale_id     = s.id
       WHERE so.id = $1
     `;
@@ -192,9 +208,12 @@ export class SalesOrdersRepository {
       [id]
     );
 
+    const events = await this.getSeparationEvents(id);
+
     return this.mapToSalesOrder({
       ...row,
       items: itemsResult.rows,
+      separationEvents: events,
     });
   }
 
@@ -596,18 +615,163 @@ export class SalesOrdersRepository {
     );
   }
 
-  async separate(id: string, userId: string, items: Array<{ id: string; quantitySeparated: number; separationStatus: string }>): Promise<void> {
-    for (const it of items) {
-      await db.query(
-        `UPDATE sales_order_items SET quantity_separated=$1, separation_status=$2 WHERE id=$3 AND sales_order_id=$4`,
-        [it.quantitySeparated, it.separationStatus, it.id, id]
-      );
-    }
-    await db.query(
-      `UPDATE sales_orders SET status='SEPARATED', separated_at=NOW(), separated_by=$1, updated_at=NOW()
-        WHERE id=$2 AND status='RECEIVED'`,
+  // ==================== SEPARAÇÃO NO ESTOQUE ====================
+
+  /**
+   * Registra um evento no histórico de separação (avaliação de funcionários).
+   */
+  async addSeparationEvent(
+    orderId: string,
+    userId: string | null,
+    action: string,
+    note?: string | null,
+    client?: any
+  ): Promise<void> {
+    const id = `sepev-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const sql = `INSERT INTO separation_events (id, sales_order_id, user_id, action, note)
+                 VALUES ($1,$2,$3,$4,$5)`;
+    const params = [id, orderId, userId, action, note || null];
+    if (client) await client.query(sql, params);
+    else await db.query(sql, params);
+  }
+
+  async getSeparationEvents(orderId: string): Promise<any[]> {
+    const result = await db.query(
+      `SELECT se.*, u.name AS user_name
+         FROM separation_events se
+         LEFT JOIN users u ON u.id = se.user_id
+        WHERE se.sales_order_id = $1
+        ORDER BY se.created_at ASC`,
+      [orderId]
+    );
+    return result.rows.map((r: any) => ({
+      id: r.id,
+      salesOrderId: r.sales_order_id,
+      userId: r.user_id || undefined,
+      action: r.action,
+      note: r.note || undefined,
+      createdAt: r.created_at,
+      user: r.user_id ? { id: r.user_id, name: r.user_name } : undefined,
+    }));
+  }
+
+  /**
+   * Gerente libera o pedido para a fila de separação do estoque.
+   * PENDING/APPROVED → AWAITING_SEPARATION. Limpa qualquer claim anterior.
+   */
+  async releaseForSeparation(id: string, userId: string): Promise<boolean> {
+    const upd = await db.query(
+      `UPDATE sales_orders
+          SET status = 'AWAITING_SEPARATION',
+              released_for_separation_at = NOW(),
+              released_by = $1,
+              separation_claimed_by = NULL,
+              separation_claimed_at = NULL,
+              updated_at = NOW()
+        WHERE id = $2
+          AND status IN ('PENDING','APPROVED','RECEIVED')
+        RETURNING id`,
       [userId, id]
     );
+    if (upd.rowCount === 0) return false;
+    await this.addSeparationEvent(id, userId, 'RELEASED');
+    return true;
+  }
+
+  /**
+   * Funcionário do estoque ASSUME a separação (claim atômico).
+   * AWAITING_SEPARATION → SEPARATING travando com o responsável.
+   * Retorna true se conseguiu; false se já foi assumido por outro (corrida).
+   */
+  async claimSeparation(id: string, responsibleUserId: string): Promise<boolean> {
+    const ok = await db.transaction(async (client) => {
+      const sel = await client.query(
+        `SELECT status FROM sales_orders WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (sel.rows.length === 0) return false;
+      if (sel.rows[0].status !== 'AWAITING_SEPARATION') return false;
+      const upd = await client.query(
+        `UPDATE sales_orders
+            SET status = 'SEPARATING',
+                separation_claimed_by = $1,
+                separation_claimed_at = NOW(),
+                updated_at = NOW()
+          WHERE id = $2 AND status = 'AWAITING_SEPARATION'
+          RETURNING id`,
+        [responsibleUserId, id]
+      );
+      if (upd.rowCount === 0) return false;
+      await this.addSeparationEvent(id, responsibleUserId, 'CLAIMED', null, client);
+      return true;
+    });
+    return ok;
+  }
+
+  /**
+   * Adiar separação: devolve o pedido à fila e libera para outro funcionário.
+   * SEPARATING → AWAITING_SEPARATION. Registra POSTPONED no histórico.
+   */
+  async postponeSeparation(id: string, note?: string | null): Promise<boolean> {
+    const ok = await db.transaction(async (client) => {
+      const sel = await client.query(
+        `SELECT separation_claimed_by FROM sales_orders WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (sel.rows.length === 0) return false;
+      const previousResponsible = sel.rows[0].separation_claimed_by;
+      const upd = await client.query(
+        `UPDATE sales_orders
+            SET status = 'AWAITING_SEPARATION',
+                separation_claimed_by = NULL,
+                separation_claimed_at = NULL,
+                updated_at = NOW()
+          WHERE id = $1 AND status = 'SEPARATING'
+          RETURNING id`,
+        [id]
+      );
+      if (upd.rowCount === 0) return false;
+      await this.addSeparationEvent(id, previousResponsible, 'POSTPONED', note, client);
+      return true;
+    });
+    return ok;
+  }
+
+  /**
+   * "Tudo Separado": grava quantidades/justificativas por item e conclui.
+   * SEPARATING → SEPARATED. separated_by = responsável que estava com o claim.
+   */
+  async separate(
+    id: string,
+    items: Array<{ id: string; quantitySeparated: number; separationStatus: string; separationNote?: string | null }>
+  ): Promise<boolean> {
+    return db.transaction(async (client) => {
+      const sel = await client.query(
+        `SELECT separation_claimed_by, status FROM sales_orders WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+      if (sel.rows.length === 0) return false;
+      if (sel.rows[0].status !== 'SEPARATING') return false;
+      const responsible = sel.rows[0].separation_claimed_by;
+
+      for (const it of items) {
+        await client.query(
+          `UPDATE sales_order_items
+              SET quantity_separated = $1, separation_status = $2, separation_note = $3
+            WHERE id = $4 AND sales_order_id = $5`,
+          [it.quantitySeparated, it.separationStatus, it.separationNote || null, it.id, id]
+        );
+      }
+
+      await client.query(
+        `UPDATE sales_orders
+            SET status = 'SEPARATED', separated_at = NOW(), separated_by = $1, updated_at = NOW()
+          WHERE id = $2 AND status = 'SEPARATING'`,
+        [responsible, id]
+      );
+      await this.addSeparationEvent(id, responsible, 'COMPLETED', null, client);
+      return true;
+    });
   }
 
   async toDeliver(id: string): Promise<void> {
@@ -659,7 +823,7 @@ export class SalesOrdersRepository {
         return null;
       }
       const prev = sel.rows[0].status as string;
-      if (!['PENDING', 'APPROVED', 'DRAFT', 'PARTIALLY_CONVERTED'].includes(prev)) {
+      if (!['PENDING', 'APPROVED', 'DRAFT', 'PARTIALLY_CONVERTED', 'SEPARATED'].includes(prev)) {
         return null;
       }
       const upd = await client.query(
@@ -667,7 +831,7 @@ export class SalesOrdersRepository {
             SET status = 'CONVERTING',
                 updated_at = NOW()
           WHERE id = $1
-            AND status IN ('PENDING','APPROVED','DRAFT','PARTIALLY_CONVERTED')
+            AND status IN ('PENDING','APPROVED','DRAFT','PARTIALLY_CONVERTED','SEPARATED')
           RETURNING id`,
         [id]
       );
@@ -766,9 +930,19 @@ export class SalesOrdersRepository {
       cancelReason: row.cancel_reason || undefined,
       approvedAt: row.approved_at || undefined,
       approvedBy: row.approved_by || undefined,
+      releasedForSeparationAt: row.released_for_separation_at || undefined,
+      releasedBy: row.released_by || undefined,
+      separationClaimedBy: row.separation_claimed_by || undefined,
+      separationClaimedAt: row.separation_claimed_at || undefined,
+      separatedBy: row.separated_by || undefined,
+      separatedAt: row.separated_at || undefined,
       createdBy: row.created_by || undefined,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      separationResponsible: row.separation_responsible
+        ? { id: row.separation_responsible.id, name: row.separation_responsible.name }
+        : undefined,
+      separationEvents: row.separationEvents || undefined,
       customer: row.customer
         ? {
             id: row.customer.id,
@@ -808,6 +982,9 @@ export class SalesOrdersRepository {
       unitPrice: data.unit_price,
       discount: data.discount,
       total: data.total,
+      quantitySeparated: data.quantity_separated ?? undefined,
+      separationStatus: data.separation_status || undefined,
+      separationNote: data.separation_note || undefined,
       product: data.product
         ? {
             id: data.product.id,

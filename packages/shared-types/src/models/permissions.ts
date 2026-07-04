@@ -32,6 +32,9 @@ export enum AppPage {
   COLLECTIONS = 'collections',
   COMMISSIONS = 'commissions',
   GPS_LOG = 'gps_log',
+  SEPARATION = 'separation',   // Separação no Estoque (chão de fábrica)
+  EXPEDITION = 'expedition',   // Expedição / coleta pela transportadora
+  CARRIERS = 'carriers',       // Cadastro de transportadoras
 }
 
 // Available actions for each page

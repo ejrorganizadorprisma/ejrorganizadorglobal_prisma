@@ -1,8 +1,12 @@
+import fs from 'fs';
+import path from 'path';
 import { SalesRepository } from '../repositories/sales.repository';
 import { QuotesRepository } from '../repositories/quotes.repository';
 import { CommissionsRepository } from '../repositories/commissions.repository';
 import { NotFoundError, BadRequestError } from '../utils/errors';
 import { db } from '../config/database';
+import { supabase } from '../config/supabase';
+import { env } from '../config/env';
 import {
   SaleStatus,
   CommissionSourceType,
@@ -374,5 +378,117 @@ export class SalesService {
     }
 
     return this.repository.updatePayment(paymentId, data);
+  }
+
+  // ==================== FATURAMENTO / EXPEDIÇÃO / COLETA ====================
+
+  /** Resolve o responsável do chão (usuário logado ou código de funcionário). */
+  private async resolveResponsible(userId: string, employeeCode?: string): Promise<string> {
+    const cfg = await db.query(`SELECT floor_identification_method FROM system_settings LIMIT 1`);
+    const method = cfg.rows[0]?.floor_identification_method || 'LOGGED_USER';
+    if (method !== 'EMPLOYEE_CODE') return userId;
+    const code = (employeeCode || '').trim();
+    if (!code) throw new BadRequestError('Informe o código de funcionário');
+    const u = await db.query(
+      `SELECT id FROM users WHERE employee_code = $1 AND is_active = true LIMIT 1`,
+      [code]
+    );
+    if (u.rows.length === 0) throw new BadRequestError('Código de funcionário inválido ou inativo');
+    return u.rows[0].id;
+  }
+
+  /** Faz upload de PDF/JPG/PNG para o Storage (ou disco local) e retorna a URL. */
+  private async uploadFile(file: Express.Multer.File, prefix: string): Promise<{ url: string; name: string }> {
+    const buf = file.buffer;
+    const isPdf = buf.length > 4 && buf.toString('ascii', 0, 4) === '%PDF';
+    const isJpg = buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const isPng = buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+    let ext = '', contentType = '';
+    if (isPdf) { ext = 'pdf'; contentType = 'application/pdf'; }
+    else if (isJpg) { ext = 'jpg'; contentType = 'image/jpeg'; }
+    else if (isPng) { ext = 'png'; contentType = 'image/png'; }
+    else throw new BadRequestError('Arquivo inválido. Envie PDF, JPG ou PNG.');
+
+    const filename = `${prefix}-${Date.now()}.${ext}`;
+    if (supabase && env.SUPABASE_URL) {
+      const { error } = await supabase.storage
+        .from('product-images')
+        .upload(filename, buf, { contentType, upsert: true });
+      if (error) throw new BadRequestError(`Erro ao enviar arquivo: ${error.message}`);
+      return { url: `${env.SUPABASE_URL}/storage/v1/object/public/product-images/${filename}`, name: file.originalname || filename };
+    }
+    const dir = path.join(process.cwd(), 'uploads', 'nf');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), buf);
+    return { url: `/uploads/nf/${filename}`, name: file.originalname || filename };
+  }
+
+  /** Faturamento: lança a NF de saída (+ transportadora opcional) → Em Expedição. */
+  async invoice(id: string, userId: string, dto: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
+    const sale = await this.repository.findById(id);
+    if (!sale) throw new NotFoundError('Venda não encontrada');
+    if (sale.fulfillmentStatus && sale.fulfillmentStatus !== 'CONFERRED') {
+      throw new BadRequestError(`Esta venda não está pronta para faturamento (situação: ${sale.fulfillmentStatus})`);
+    }
+    if (!dto.nfNumber || !dto.nfNumber.trim()) throw new BadRequestError('Número da NF é obrigatório');
+    await this.repository.invoice(id, userId, {
+      nfNumber: dto.nfNumber.trim(),
+      nfDate: dto.nfDate,
+      nfAmount: dto.nfAmount,
+      carrierId: dto.carrierId,
+    });
+    return this.repository.findById(id);
+  }
+
+  async uploadNfFile(id: string, file: Express.Multer.File) {
+    const sale = await this.repository.findById(id);
+    if (!sale) throw new NotFoundError('Venda não encontrada');
+    const { url, name } = await this.uploadFile(file, `nf-out-${id}`);
+    await this.repository.updateNfFile(id, url, name);
+    return this.repository.findById(id);
+  }
+
+  /** Expedição: volumes/atados + transportadora (obrigatória) + coleta agendada. */
+  async expedition(
+    id: string,
+    userId: string,
+    dto: { carrierId: string; carrierScheduledDate?: string; volumesCount: number; bundlesCount?: number; expeditionNotes?: string; employeeCode?: string }
+  ) {
+    const sale = await this.repository.findById(id);
+    if (!sale) throw new NotFoundError('Venda não encontrada');
+    if (!dto.carrierId) throw new BadRequestError('Selecione a transportadora para fechar a expedição');
+    if (!dto.volumesCount || dto.volumesCount < 1) throw new BadRequestError('Informe a quantidade de volumes');
+    const responsible = await this.resolveResponsible(userId, dto.employeeCode);
+    await this.repository.expedition(id, responsible, {
+      carrierId: dto.carrierId,
+      carrierScheduledDate: dto.carrierScheduledDate,
+      volumesCount: dto.volumesCount,
+      bundlesCount: dto.bundlesCount,
+      expeditionNotes: dto.expeditionNotes,
+    });
+    return this.repository.findById(id);
+  }
+
+  /** Avisar coleta: transportadora retirou (motorista + volumes). */
+  async collect(id: string, userId: string, dto: { driverName?: string; collectionCarrierVolumes?: number; employeeCode?: string }) {
+    const sale = await this.repository.findById(id);
+    if (!sale) throw new NotFoundError('Venda não encontrada');
+    if (sale.fulfillmentStatus !== 'AWAITING_CARRIER') {
+      throw new BadRequestError('Só é possível registrar coleta de vendas aguardando transportadora');
+    }
+    const responsible = await this.resolveResponsible(userId, dto.employeeCode);
+    await this.repository.collect(id, responsible, {
+      driverName: dto.driverName,
+      collectionCarrierVolumes: dto.collectionCarrierVolumes,
+    });
+    return this.repository.findById(id);
+  }
+
+  async uploadCollectionReceipt(id: string, file: Express.Multer.File) {
+    const sale = await this.repository.findById(id);
+    if (!sale) throw new NotFoundError('Venda não encontrada');
+    const { url, name } = await this.uploadFile(file, `coleta-${id}`);
+    await this.repository.updateCollectionReceipt(id, url, name);
+    return this.repository.findById(id);
   }
 }

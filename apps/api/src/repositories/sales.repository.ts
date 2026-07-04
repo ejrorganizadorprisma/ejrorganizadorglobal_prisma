@@ -52,6 +52,12 @@ export class SalesRepository {
       paramIndex++;
     }
 
+    if (filters.fulfillmentStatus) {
+      conditions.push(`s.fulfillment_status = $${paramIndex}`);
+      queryParams.push(filters.fulfillmentStatus);
+      paramIndex++;
+    }
+
     if (startDate) {
       conditions.push(`s.sale_date >= $${paramIndex}`);
       queryParams.push(startDate);
@@ -100,12 +106,15 @@ export class SalesRepository {
         sel.name as seller_user_name,
         sel.email as seller_user_email,
         so.id as sales_order_id_ref,
-        so.order_number as sales_order_number_ref
+        so.order_number as sales_order_number_ref,
+        car.id as carrier_ref_id,
+        car.name as carrier_ref_name
       FROM sales s
       LEFT JOIN customers c ON s.customer_id = c.id
       LEFT JOIN users u ON s.created_by = u.id
       LEFT JOIN users sel ON s.seller_id = sel.id
       LEFT JOIN sales_orders so ON s.sales_order_id = so.id
+      LEFT JOIN carriers car ON s.carrier_id = car.id
       ${whereClause}
       ORDER BY s.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -193,12 +202,15 @@ export class SalesRepository {
         CASE WHEN so.id IS NOT NULL
              THEN json_build_object('id', so.id, 'order_number', so.order_number)
              ELSE NULL
-        END as sales_order_ref
+        END as sales_order_ref,
+        car.id as carrier_ref_id,
+        car.name as carrier_ref_name
       FROM sales s
       LEFT JOIN customers c ON s.customer_id = c.id
       LEFT JOIN users u ON s.created_by = u.id
       LEFT JOIN users sel ON s.seller_id = sel.id
       LEFT JOIN sales_orders so ON s.sales_order_id = so.id
+      LEFT JOIN carriers car ON s.carrier_id = car.id
       WHERE s.id = $1
     `;
 
@@ -935,6 +947,81 @@ export class SalesRepository {
   /**
    * Mapear dados do banco para Sale
    */
+  // ==================== FATURAMENTO / EXPEDIÇÃO / COLETA ====================
+
+  async invoice(
+    id: string,
+    userId: string,
+    dto: { nfNumber: string; nfDate?: string | null; nfAmount?: number | null; carrierId?: string | null }
+  ): Promise<void> {
+    await db.query(
+      `UPDATE sales
+          SET nf_number = $1,
+              nf_date = $2,
+              nf_amount = $3,
+              carrier_id = COALESCE($4, carrier_id),
+              invoiced_at = NOW(),
+              invoiced_by = $5,
+              fulfillment_status = 'IN_EXPEDITION',
+              updated_at = NOW()
+        WHERE id = $6`,
+      [dto.nfNumber, dto.nfDate || null, dto.nfAmount ?? null, dto.carrierId || null, userId, id]
+    );
+  }
+
+  async updateNfFile(id: string, url: string, name: string): Promise<void> {
+    await db.query(
+      `UPDATE sales SET nf_file_url = $1, nf_file_name = $2, updated_at = NOW() WHERE id = $3`,
+      [url, name, id]
+    );
+  }
+
+  async expedition(
+    id: string,
+    userId: string,
+    dto: { carrierId: string; carrierScheduledDate?: string | null; volumesCount: number; bundlesCount?: number | null; expeditionNotes?: string | null }
+  ): Promise<void> {
+    await db.query(
+      `UPDATE sales
+          SET carrier_id = $1,
+              carrier_scheduled_date = $2,
+              volumes_count = $3,
+              bundles_count = $4,
+              expedition_notes = $5,
+              expedition_conferred_by = $6,
+              expedition_conferred_at = NOW(),
+              fulfillment_status = 'AWAITING_CARRIER',
+              updated_at = NOW()
+        WHERE id = $7`,
+      [dto.carrierId, dto.carrierScheduledDate || null, dto.volumesCount, dto.bundlesCount ?? null, dto.expeditionNotes || null, userId, id]
+    );
+  }
+
+  async collect(
+    id: string,
+    userId: string,
+    dto: { driverName?: string | null; collectionCarrierVolumes?: number | null }
+  ): Promise<void> {
+    await db.query(
+      `UPDATE sales
+          SET collected_at = NOW(),
+              collected_by = $1,
+              collection_driver_name = $2,
+              collection_carrier_volumes = $3,
+              fulfillment_status = 'COLLECTED',
+              updated_at = NOW()
+        WHERE id = $4`,
+      [userId, dto.driverName || null, dto.collectionCarrierVolumes ?? null, id]
+    );
+  }
+
+  async updateCollectionReceipt(id: string, url: string, name: string): Promise<void> {
+    await db.query(
+      `UPDATE sales SET collection_receipt_url = $1, collection_receipt_name = $2, updated_at = NOW() WHERE id = $3`,
+      [url, name, id]
+    );
+  }
+
   private mapToSale(data: any): Sale {
     // delivery_address vem como JSONB do Postgres — pode estar parseado ou como string
     let deliveryAddress: any = undefined;
@@ -972,6 +1059,31 @@ export class SalesRepository {
       deliveryStatus: data.delivery_status || undefined,
       deliveredAt: data.delivered_at || undefined,
       shippingNotes: data.shipping_notes || undefined,
+      // Fluxo de expedição
+      fulfillmentStatus: data.fulfillment_status || undefined,
+      nfNumber: data.nf_number || undefined,
+      nfDate: data.nf_date || undefined,
+      nfAmount: data.nf_amount ?? undefined,
+      nfFileUrl: data.nf_file_url || undefined,
+      nfFileName: data.nf_file_name || undefined,
+      invoicedAt: data.invoiced_at || undefined,
+      invoicedBy: data.invoiced_by || undefined,
+      carrierId: data.carrier_id || undefined,
+      carrierScheduledDate: data.carrier_scheduled_date || undefined,
+      volumesCount: data.volumes_count ?? undefined,
+      bundlesCount: data.bundles_count ?? undefined,
+      expeditionNotes: data.expedition_notes || undefined,
+      expeditionConferredBy: data.expedition_conferred_by || undefined,
+      expeditionConferredAt: data.expedition_conferred_at || undefined,
+      collectedAt: data.collected_at || undefined,
+      collectedBy: data.collected_by || undefined,
+      collectionDriverName: data.collection_driver_name || undefined,
+      collectionCarrierVolumes: data.collection_carrier_volumes ?? undefined,
+      collectionReceiptUrl: data.collection_receipt_url || undefined,
+      collectionReceiptName: data.collection_receipt_name || undefined,
+      carrier: data.carrier_ref_id
+        ? { id: data.carrier_ref_id, name: data.carrier_ref_name }
+        : undefined,
       createdBy: data.created_by || undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at,

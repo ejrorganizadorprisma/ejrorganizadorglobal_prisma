@@ -23,6 +23,7 @@ export class SalesController {
         limit: parseInt(req.query.limit as string) || 20,
         customerId: req.query.customerId as string,
         status: req.query.status as any,
+        fulfillmentStatus: req.query.fulfillmentStatus as any,
         startDate: req.query.startDate as string,
         endDate: req.query.endDate as string,
         search: req.query.search as string,
@@ -229,5 +230,44 @@ export class SalesController {
     } catch (error) {
       next(error);
     }
+  };
+
+  // ==================== FATURAMENTO / EXPEDIÇÃO / COLETA ====================
+
+  invoice = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const sale = await this.service.invoice(req.params.id, req.user!.id, req.body || {});
+      res.json({ success: true, data: sale, message: 'Venda faturada' });
+    } catch (error) { next(error); }
+  };
+
+  uploadNfFile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) return res.status(400).json({ success: false, message: 'Arquivo não enviado' });
+      const sale = await this.service.uploadNfFile(req.params.id, req.file);
+      res.json({ success: true, data: sale, message: 'NF anexada' });
+    } catch (error) { next(error); }
+  };
+
+  expedition = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const sale = await this.service.expedition(req.params.id, req.user!.id, req.body || {});
+      res.json({ success: true, data: sale, message: 'Expedição registrada' });
+    } catch (error) { next(error); }
+  };
+
+  collect = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const sale = await this.service.collect(req.params.id, req.user!.id, req.body || {});
+      res.json({ success: true, data: sale, message: 'Coleta registrada' });
+    } catch (error) { next(error); }
+  };
+
+  uploadCollectionReceipt = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) return res.status(400).json({ success: false, message: 'Arquivo não enviado' });
+      const sale = await this.service.uploadCollectionReceipt(req.params.id, req.file);
+      res.json({ success: true, data: sale, message: 'Recibo anexado' });
+    } catch (error) { next(error); }
   };
 }

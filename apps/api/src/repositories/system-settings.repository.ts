@@ -116,6 +116,12 @@ export class SystemSettingsRepository {
       paramIndex++;
     }
 
+    if (dto.floorIdentificationMethod !== undefined) {
+      updateFields.push(`floor_identification_method = $${paramIndex}`);
+      values.push(dto.floorIdentificationMethod);
+      paramIndex++;
+    }
+
     // Adicionar updated_at
     updateFields.push(`updated_at = NOW()`);
 
@@ -170,6 +176,7 @@ export class SystemSettingsRepository {
       enabledCurrencies: data.enabled_currencies as Currency[],
       mobileAppEnabled: data.mobile_app_enabled ?? false,
       mobileAppApiKey: data.mobile_app_api_key ?? null,
+      floorIdentificationMethod: data.floor_identification_method ?? 'LOGGED_USER',
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
