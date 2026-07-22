@@ -236,9 +236,9 @@ export interface UpdateSaleDTO {
 
 // Faturamento: lança a NF de saída e (opcionalmente) a transportadora.
 export interface InvoiceSaleDTO {
-  nfNumber: string;
-  nfDate?: string;
-  nfAmount?: number; // centavos
+  nfNumber?: string;  // opcional — gerado automaticamente (NF-AAAA-NNNN) quando vazio
+  nfDate?: string;    // opcional — default = hoje
+  nfAmount?: number;  // centavos — default = total da venda
   carrierId?: string; // opcional no faturamento
 }
 

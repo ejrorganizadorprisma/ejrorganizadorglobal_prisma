@@ -424,7 +424,7 @@ export class SalesService {
   }
 
   /** Faturamento: lança a NF de saída (+ transportadora opcional) → Em Expedição. */
-  async invoice(id: string, userId: string, dto: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
+  async invoice(id: string, userId: string, dto: { nfNumber?: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
     const sale = await this.repository.findById(id);
     if (!sale) throw new NotFoundError('Venda não encontrada');
     if (sale.fulfillmentStatus !== 'CONFERRED') {
@@ -434,11 +434,14 @@ export class SalesService {
           : 'Esta venda não passou pela conferência e não pode ser faturada.'
       );
     }
-    if (!dto.nfNumber || !dto.nfNumber.trim()) throw new BadRequestError('Número da NF é obrigatório');
+    // NF gerada automaticamente quando não informada; data = hoje; valor = total da venda.
+    const nfNumber = dto.nfNumber?.trim() || (await this.repository.generateNfNumber());
+    const nfDate = dto.nfDate || new Date().toISOString().slice(0, 10);
+    const nfAmount = dto.nfAmount ?? sale.total;
     await this.repository.invoice(id, userId, {
-      nfNumber: dto.nfNumber.trim(),
-      nfDate: dto.nfDate,
-      nfAmount: dto.nfAmount,
+      nfNumber,
+      nfDate,
+      nfAmount,
       carrierId: dto.carrierId,
     });
     return this.repository.findById(id);
