@@ -68,12 +68,6 @@ const menuSections: MenuSection[] = [
         page: 'dashboard' as AppPage,
       },
       {
-        // Resolve — Central de Demandas. Sem `page`: visível para todos os logados.
-        name: 'Resolve',
-        path: '/resolve',
-        icon: LifeBuoy,
-      },
-      {
         name: 'Visão Geral',
         path: '/overview',
         icon: TrendingUp,
@@ -279,6 +273,12 @@ const menuSections: MenuSection[] = [
   {
     label: 'Sistema',
     items: [
+      {
+        // Resolve — Central de Demandas. Sem `page`: visível para todos os logados.
+        name: 'Resolve',
+        path: '/resolve',
+        icon: LifeBuoy,
+      },
       {
         name: 'Configurações',
         icon: Settings,
