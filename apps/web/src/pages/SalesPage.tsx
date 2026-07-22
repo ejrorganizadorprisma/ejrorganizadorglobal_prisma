@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSales, useSaleStats, useDeleteSale } from '../hooks/useSales';
+import { useSales, useSaleStats, useDeleteSale, useInvoiceSale, useUploadSaleFile } from '../hooks/useSales';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { api } from '../lib/api';
@@ -72,6 +72,8 @@ export function SalesPage() {
 
   const { data: stats } = useSaleStats();
   const deleteSale = useDeleteSale();
+  const invoice = useInvoiceSale();
+  const uploadNf = useUploadSaleFile();
   const { formatPrice, defaultCurrency } = useFormatPrice();
   const { data: documentSettings } = useDefaultDocumentSettings();
   const [pdfMenuOpen, setPdfMenuOpen] = useState<string | null>(null);
@@ -508,7 +510,17 @@ export function SalesPage() {
       )}
 
       {invoiceTarget && (
-        <InvoiceModal sale={invoiceTarget} onClose={() => setInvoiceTarget(null)} />
+        <InvoiceModal
+          title={invoiceTarget.saleNumber}
+          defaultAmountCents={invoiceTarget.total}
+          onClose={() => setInvoiceTarget(null)}
+          onConfirm={async (nf) => {
+            await invoice.mutateAsync({ id: invoiceTarget.id, data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId } });
+            if (nf.file) await uploadNf.mutateAsync({ id: invoiceTarget.id, endpoint: 'invoice-file', file: nf.file });
+            toast.success('Venda faturada! Enviada para expedição.');
+            setInvoiceTarget(null);
+          }}
+        />
       )}
     </div>
   );

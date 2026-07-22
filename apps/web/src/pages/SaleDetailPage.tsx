@@ -23,7 +23,7 @@ import {
   Printer,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useSale, useUpdateSale, useUpdatePayment } from '../hooks/useSales';
+import { useSale, useUpdateSale, useUpdatePayment, useInvoiceSale, useUploadSaleFile } from '../hooks/useSales';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { generateSalePDF } from '../utils/salePdfGenerator';
@@ -70,6 +70,8 @@ export function SaleDetailPage() {
   const { data: sale, isLoading } = useSale(id!);
   const updateSale = useUpdateSale();
   const updatePayment = useUpdatePayment();
+  const invoice = useInvoiceSale();
+  const uploadNf = useUploadSaleFile();
   const { formatPrice, defaultCurrency } = useFormatPrice();
   const { data: documentSettings } = useDefaultDocumentSettings();
   const [invoiceOpen, setInvoiceOpen] = useState(false);
@@ -603,7 +605,19 @@ export function SaleDetailPage() {
         </div>
       </div>
 
-      {invoiceOpen && <InvoiceModal sale={sale} onClose={() => setInvoiceOpen(false)} />}
+      {invoiceOpen && (
+        <InvoiceModal
+          title={sale.saleNumber}
+          defaultAmountCents={sale.total}
+          onClose={() => setInvoiceOpen(false)}
+          onConfirm={async (nf) => {
+            await invoice.mutateAsync({ id: sale.id, data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId } });
+            if (nf.file) await uploadNf.mutateAsync({ id: sale.id, endpoint: 'invoice-file', file: nf.file });
+            toast.success('Venda faturada! Enviada para expedição.');
+            setInvoiceOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSalesOrder, useConvertOrderToSale, type ConvertToSaleFromOrderDTO } from '../hooks/useSalesOrders';
+import { useInvoiceSale, useUploadSaleFile } from '../hooks/useSales';
+import { InvoiceModal, type NfData } from '../components/InvoiceModal';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import {
   ArrowLeft,
@@ -47,6 +49,9 @@ export function SalesOrderConvertPage() {
   const navigate = useNavigate();
   const { data: order, isLoading } = useSalesOrder(id!, { enabled: !!id });
   const convertMutation = useConvertOrderToSale();
+  const invoiceMutation = useInvoiceSale();
+  const uploadMutation = useUploadSaleFile();
+  const [nfOpen, setNfOpen] = useState(false);
   const { formatPrice } = useFormatPrice();
 
   const [paymentMethod, setPaymentMethod] = useState('PIX');
@@ -147,22 +152,8 @@ export function SalesOrderConvertPage() {
     return st.quantity <= 0 || st.quantity > item.quantity;
   });
 
-  const handleConvert = async () => {
-    if (!paymentMethod) {
-      toast.error('Selecione o metodo de pagamento');
-      return;
-    }
-    if (!hasAnySelected) {
-      toast.error('Selecione ao menos um item para faturar');
-      return;
-    }
-    if (invalidQty) {
-      toast.error('Quantidade inválida em algum item');
-      return;
-    }
-
-    // Monta lista de itens parciais — sempre enviamos (mesmo conversão total)
-    // para que o backend trate uniformemente. Se for total, será igual ao original.
+  const buildDto = (): ConvertToSaleFromOrderDTO => {
+    // Itens marcados (sempre enviados; se total, igual ao original).
     const itemsPayload = selectedRows.map((r) => ({
       itemType: r.item.itemType,
       productId: r.item.productId,
@@ -171,8 +162,7 @@ export function SalesOrderConvertPage() {
       unitPrice: r.item.unitPrice,
       discount: r.item.discount || 0,
     }));
-
-    const dto: ConvertToSaleFromOrderDTO = {
+    return {
       paymentMethod,
       saleDate: new Date().toISOString(),
       dueDate: dueDate || undefined,
@@ -185,19 +175,33 @@ export function SalesOrderConvertPage() {
       shippingNotes: shippingNotes || undefined,
       items: itemsPayload,
     };
+  };
 
-    try {
-      await convertMutation.mutateAsync({ orderId: order.id, data: dto });
-      toast.success(
-        isPartialConversion
-          ? 'Pedido faturado! O saldo virou um Pedido de Venda | Pendência.'
-          : 'Pedido faturado com sucesso! Venda criada.'
-      );
-      // Após conversão, redireciona para o detalhe do pedido (PARTIALLY ou CONVERTED)
-      navigate(`/sales-orders/${order.id}/edit`);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || error.response?.data?.error?.message || 'Erro ao faturar');
+  // Clique em "Faturar": valida e abre o modal da NF.
+  const openNf = () => {
+    if (!paymentMethod) { toast.error('Selecione o metodo de pagamento'); return; }
+    if (!hasAnySelected) { toast.error('Selecione ao menos um item para faturar'); return; }
+    if (invalidQty) { toast.error('Quantidade inválida em algum item'); return; }
+    setNfOpen(true);
+  };
+
+  // Confirmar no modal: converte o pedido em venda E lança a NF na venda (→ Em Expedição).
+  const doFaturar = async (nf: NfData) => {
+    const dto = buildDto();
+    const sale: any = await convertMutation.mutateAsync({ orderId: order.id, data: dto });
+    if (sale?.id) {
+      await invoiceMutation.mutateAsync({
+        id: sale.id,
+        data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId },
+      });
+      if (nf.file) await uploadMutation.mutateAsync({ id: sale.id, endpoint: 'invoice-file', file: nf.file });
     }
+    toast.success(
+      isPartialConversion
+        ? 'Faturado! NF lançada e o saldo virou um Pedido de Venda | Pendência.'
+        : 'Pedido faturado e NF lançada. Enviado para expedição.'
+    );
+    navigate(sale?.id ? `/sales/${sale.id}` : `/sales-orders/${order.id}/edit`);
   };
 
   return (
@@ -559,11 +563,11 @@ export function SalesOrderConvertPage() {
 
           {/* Convert button */}
           <button
-            onClick={handleConvert}
-            disabled={convertMutation.isPending || !hasAnySelected || invalidQty}
+            onClick={openNf}
+            disabled={convertMutation.isPending || invoiceMutation.isPending || !hasAnySelected || invalidQty}
             className="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {convertMutation.isPending ? (
+            {(convertMutation.isPending || invoiceMutation.isPending) ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <ArrowRightCircle className="w-5 h-5" />
@@ -579,6 +583,16 @@ export function SalesOrderConvertPage() {
           )}
         </div>
       </div>
+
+      {nfOpen && (
+        <InvoiceModal
+          title={order.orderNumber}
+          defaultAmountCents={finalTotal}
+          confirmLabel="Faturar e lançar NF"
+          onClose={() => setNfOpen(false)}
+          onConfirm={doFaturar}
+        />
+      )}
     </div>
   );
 }
