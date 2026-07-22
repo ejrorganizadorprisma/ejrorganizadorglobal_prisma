@@ -122,7 +122,10 @@ function ExpeditionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
       <ItemsList sale={sale} />
       <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="col-span-2">
-          <label className="block text-xs font-medium text-slate-500 mb-1">Transportadora *</label>
+          <label className="text-xs font-medium text-slate-500 mb-1 flex items-center justify-between">
+            <span>Transportadora *</span>
+            {carriers.length === 0 && <a href="/cadastros/transportadoras" className="text-cyan-600 hover:underline font-normal">+ cadastrar</a>}
+          </label>
           <select value={carrierId} onChange={(e) => setCarrierId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none">
             <option value="">Selecione…</option>
             {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -161,18 +164,34 @@ function ExpeditionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
 }
 
 function CollectionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
+  const { data: carriers = [] } = useActiveCarriers();
   const collect = useCollectSale();
   const upload = useUploadSaleFile();
   const [open, setOpen] = useState(false);
   const [driver, setDriver] = useState('');
   const [volumes, setVolumes] = useState<number>(sale.volumesCount || 1);
+  const [carrierId, setCarrierId] = useState(sale.carrierId || '');
+  const [freight, setFreight] = useState('');
+  const [freightMode, setFreightMode] = useState<'' | 'CIF' | 'FOB'>((sale.freightMode as any) || '');
+  const [tracking, setTracking] = useState(sale.trackingCode || '');
+  const [forecast, setForecast] = useState(sale.deliveryForecast?.slice(0, 10) || '');
   const [code, setCode] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
   const submit = async () => {
     if (byCode && !code.trim()) { toast.error('Informe seu código de funcionário'); return; }
     try {
-      await collect.mutateAsync({ id: sale.id, data: { driverName: driver || undefined, collectionCarrierVolumes: volumes, employeeCode: code.trim() || undefined } });
+      const freightCents = freight ? Math.round(parseFloat(freight.replace(',', '.')) * 100) : undefined;
+      await collect.mutateAsync({ id: sale.id, data: {
+        driverName: driver || undefined,
+        collectionCarrierVolumes: volumes,
+        employeeCode: code.trim() || undefined,
+        carrierId: carrierId || undefined,
+        shippingCost: freightCents,
+        freightMode: freightMode || undefined,
+        trackingCode: tracking || undefined,
+        deliveryForecast: forecast || undefined,
+      } });
       if (file) await upload.mutateAsync({ id: sale.id, endpoint: 'collection-receipt', file });
       toast.success('Coleta registrada!');
       setOpen(false);
@@ -198,6 +217,36 @@ function CollectionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
         </div>
       ) : (
         <div className="mt-3 border-t border-amber-100 pt-3 grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-xs font-medium text-slate-500 mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1"><Truck className="w-3 h-3" /> Transportadora</span>
+              {carriers.length === 0 && <a href="/cadastros/transportadoras" className="text-cyan-600 hover:underline font-normal">+ cadastrar</a>}
+            </label>
+            <select value={carrierId} onChange={(e) => setCarrierId(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none">
+              <option value="">Selecione…</option>
+              {carriers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Valor do frete</label>
+            <input value={freight} onChange={(e) => setFreight(e.target.value)} placeholder="0,00" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Modalidade (frete)</label>
+            <select value={freightMode} onChange={(e) => setFreightMode(e.target.value as any)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none">
+              <option value="">—</option>
+              <option value="CIF">CIF (remetente paga)</option>
+              <option value="FOB">FOB (destinatário paga)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Código de rastreio</label>
+            <input value={tracking} onChange={(e) => setTracking(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><Calendar className="w-3 h-3" /> Previsão de entrega</label>
+            <input type="date" value={forecast} onChange={(e) => setForecast(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />
+          </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1 flex items-center gap-1"><User className="w-3 h-3" /> Motorista/Responsável</label>
             <input value={driver} onChange={(e) => setDriver(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />

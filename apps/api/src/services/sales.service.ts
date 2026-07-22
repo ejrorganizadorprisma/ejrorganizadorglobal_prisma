@@ -481,7 +481,20 @@ export class SalesService {
   }
 
   /** Avisar coleta: transportadora retirou (motorista + volumes). */
-  async collect(id: string, userId: string, dto: { driverName?: string; collectionCarrierVolumes?: number; employeeCode?: string }) {
+  async collect(
+    id: string,
+    userId: string,
+    dto: {
+      driverName?: string;
+      collectionCarrierVolumes?: number;
+      employeeCode?: string;
+      carrierId?: string;
+      shippingCost?: number;
+      freightMode?: string;
+      trackingCode?: string;
+      deliveryForecast?: string;
+    }
+  ) {
     const sale = await this.repository.findById(id);
     if (!sale) throw new NotFoundError('Venda não encontrada');
     if (sale.fulfillmentStatus !== 'AWAITING_CARRIER') {
@@ -491,6 +504,11 @@ export class SalesService {
     await this.repository.collect(id, responsible, {
       driverName: dto.driverName,
       collectionCarrierVolumes: dto.collectionCarrierVolumes,
+      carrierId: dto.carrierId,
+      shippingCost: dto.shippingCost,
+      freightMode: dto.freightMode,
+      trackingCode: dto.trackingCode,
+      deliveryForecast: dto.deliveryForecast,
     });
     return this.repository.findById(id);
   }

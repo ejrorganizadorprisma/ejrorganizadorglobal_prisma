@@ -469,6 +469,17 @@ export function SalesOrderEditPage() {
               <Printer className="w-4 h-4" />
               PDF Impressao
             </button>
+            {order.status === 'CONVERTED' && order.sale?.id && (
+              <button
+                type="button"
+                onClick={() => navigate(`/sales/${order.sale!.id}`)}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
+                title="Abrir a venda gerada (NF / Expedição / Coleta)"
+              >
+                <ArrowRightCircle className="w-4 h-4" />
+                Abrir Venda
+              </button>
+            )}
           </div>
         </div>
         {isReadOnly && (

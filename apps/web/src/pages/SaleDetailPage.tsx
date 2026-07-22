@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Truck,
   DollarSign,
   User,
   Calendar,
@@ -25,7 +27,20 @@ import { useSale, useUpdateSale, useUpdatePayment } from '../hooks/useSales';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { generateSalePDF } from '../utils/salePdfGenerator';
+import { InvoiceModal } from '../components/InvoiceModal';
 import { SaleStatus, PaymentStatus } from '@ejr/shared-types';
+
+const fulfillmentConfig: Record<string, { label: string; bg: string; text: string }> = {
+  CONFERRED: { label: 'Conferido', bg: 'bg-violet-50 border-violet-200', text: 'text-violet-700' },
+  IN_EXPEDITION: { label: 'Em Expedição', bg: 'bg-cyan-50 border-cyan-200', text: 'text-cyan-700' },
+  AWAITING_CARRIER: { label: 'Aguardando Transportadora', bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700' },
+  COLLECTED: { label: 'Coletado', bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700' },
+};
+
+function brDate(d?: string) {
+  if (!d) return '';
+  return d.slice(0, 10).split('-').reverse().join('/');
+}
 
 const statusConfig: Record<SaleStatus, { label: string; bg: string; text: string; icon: any }> = {
   PENDING: { label: 'Pendente', bg: 'bg-amber-50 border-amber-200', text: 'text-amber-700', icon: Clock },
@@ -57,6 +72,7 @@ export function SaleDetailPage() {
   const updatePayment = useUpdatePayment();
   const { formatPrice, defaultCurrency } = useFormatPrice();
   const { data: documentSettings } = useDefaultDocumentSettings();
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
 
   const handleGeneratePDF = (mode: 'elegant' | 'print') => {
     if (!sale) return;
@@ -239,6 +255,55 @@ export function SaleDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Expedição / Fulfillment */}
+      {sale.fulfillmentStatus && (
+        <div className="mb-6 bg-white rounded-xl shadow-sm border p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Truck className="w-5 h-5 text-cyan-600" />
+              <h2 className="font-semibold text-gray-900">Expedição</h2>
+              {(() => {
+                const fc = fulfillmentConfig[sale.fulfillmentStatus!];
+                return fc ? (
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full border ${fc.bg} ${fc.text}`}>{fc.label}</span>
+                ) : null;
+              })()}
+            </div>
+            <div className="flex items-center gap-2">
+              {sale.fulfillmentStatus === 'CONFERRED' && (
+                <button
+                  onClick={() => setInvoiceOpen(true)}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium flex items-center gap-2 shadow-sm"
+                >
+                  <Receipt className="w-4 h-4" /> Faturamento / NF
+                </button>
+              )}
+              {(sale.fulfillmentStatus === 'IN_EXPEDITION' || sale.fulfillmentStatus === 'AWAITING_CARRIER') && (
+                <button
+                  onClick={() => navigate('/expedicao')}
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-medium flex items-center gap-2 shadow-sm"
+                >
+                  <Truck className="w-4 h-4" /> Ir para Expedição
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
+            {sale.nfNumber && <div><span className="text-gray-400">NF:</span> <span className="font-medium">{sale.nfNumber}</span></div>}
+            {sale.carrier?.name && <div><span className="text-gray-400">Transportadora:</span> <span className="font-medium">{sale.carrier.name}</span></div>}
+            {typeof sale.shippingCost === 'number' && sale.shippingCost > 0 && <div><span className="text-gray-400">Valor do frete:</span> <span className="font-medium">{formatPrice(sale.shippingCost)}</span></div>}
+            {sale.freightMode && <div><span className="text-gray-400">Modalidade:</span> <span className="font-medium">{sale.freightMode}</span></div>}
+            {sale.trackingCode && <div><span className="text-gray-400">Rastreio:</span> <span className="font-medium">{sale.trackingCode}</span></div>}
+            {sale.deliveryForecast && <div><span className="text-gray-400">Previsão de entrega:</span> <span className="font-medium">{brDate(sale.deliveryForecast)}</span></div>}
+          </div>
+
+          <p className="mt-2 text-xs text-gray-400">
+            Fluxo: Conferido → Faturamento/NF → Em Expedição → Aguardando Transportadora → Coletado.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Main content */}
@@ -537,6 +602,8 @@ export function SaleDetailPage() {
           </div>
         </div>
       </div>
+
+      {invoiceOpen && <InvoiceModal sale={sale} onClose={() => setInvoiceOpen(false)} />}
     </div>
   );
 }

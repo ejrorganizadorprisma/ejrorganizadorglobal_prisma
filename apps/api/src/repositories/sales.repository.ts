@@ -1003,7 +1003,15 @@ export class SalesRepository {
   async collect(
     id: string,
     userId: string,
-    dto: { driverName?: string | null; collectionCarrierVolumes?: number | null }
+    dto: {
+      driverName?: string | null;
+      collectionCarrierVolumes?: number | null;
+      carrierId?: string | null;
+      shippingCost?: number | null;
+      freightMode?: string | null;
+      trackingCode?: string | null;
+      deliveryForecast?: string | null;
+    }
   ): Promise<void> {
     await db.query(
       `UPDATE sales
@@ -1011,10 +1019,25 @@ export class SalesRepository {
               collected_by = $1,
               collection_driver_name = $2,
               collection_carrier_volumes = $3,
+              carrier_id        = COALESCE($4, carrier_id),
+              shipping_cost     = COALESCE($5, shipping_cost),
+              freight_mode      = COALESCE($6, freight_mode),
+              tracking_code     = COALESCE($7, tracking_code),
+              delivery_forecast = COALESCE($8, delivery_forecast),
               fulfillment_status = 'COLLECTED',
               updated_at = NOW()
-        WHERE id = $4`,
-      [userId, dto.driverName || null, dto.collectionCarrierVolumes ?? null, id]
+        WHERE id = $9`,
+      [
+        userId,
+        dto.driverName || null,
+        dto.collectionCarrierVolumes ?? null,
+        dto.carrierId || null,
+        dto.shippingCost ?? null,
+        dto.freightMode || null,
+        dto.trackingCode || null,
+        dto.deliveryForecast || null,
+        id,
+      ]
     );
   }
 
@@ -1072,6 +1095,8 @@ export class SalesRepository {
       invoicedAt: data.invoiced_at || undefined,
       invoicedBy: data.invoiced_by || undefined,
       carrierId: data.carrier_id || undefined,
+      freightMode: data.freight_mode || undefined,
+      deliveryForecast: data.delivery_forecast || undefined,
       carrierScheduledDate: data.carrier_scheduled_date || undefined,
       volumesCount: data.volumes_count ?? undefined,
       bundlesCount: data.bundles_count ?? undefined,

@@ -145,6 +145,9 @@ export interface Sale {
   collectionCarrierVolumes?: number;
   collectionReceiptUrl?: string;
   collectionReceiptName?: string;
+  // Frete (registrado na coleta) — transportadora=carrierId, valor=shippingCost, rastreio=trackingCode
+  freightMode?: 'CIF' | 'FOB';   // CIF = remetente paga; FOB = destinatário paga
+  deliveryForecast?: string;     // previsão de entrega ao cliente
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -254,6 +257,12 @@ export interface CollectSaleDTO {
   driverName?: string;
   collectionCarrierVolumes?: number;
   employeeCode?: string;
+  // Frete informado na coleta
+  carrierId?: string;
+  shippingCost?: number;         // centavos (valor do frete)
+  freightMode?: 'CIF' | 'FOB';
+  trackingCode?: string;
+  deliveryForecast?: string;     // YYYY-MM-DD
 }
 
 export interface CreateSalePaymentDTO {

@@ -448,6 +448,15 @@ export function SalesOrdersPage() {
                               </button>
                             ) : null;
                           })()}
+                          {order.status === 'CONVERTED' && order.sale?.id && (
+                            <button
+                              onClick={() => navigate(`/sales/${order.sale.id}`)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                              title="Abrir a venda gerada (NF / Expedição / Coleta)"
+                            >
+                              Abrir Venda →
+                            </button>
+                          )}
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => handleCancel(order.id, order.orderNumber)}
@@ -537,6 +546,14 @@ export function SalesOrdersPage() {
                           </button>
                         ) : null;
                       })()}
+                      {order.status === 'CONVERTED' && order.sale?.id && (
+                        <button
+                          onClick={() => navigate(`/sales/${order.sale.id}`)}
+                          className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
+                        >
+                          Abrir Venda →
+                        </button>
+                      )}
                       {(order.status === 'DRAFT' ||
                         (order.status === 'PENDING' && order.pendingOriginOrderId)) && (
                         <button
