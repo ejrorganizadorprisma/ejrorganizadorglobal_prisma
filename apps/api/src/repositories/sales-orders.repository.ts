@@ -105,12 +105,14 @@ export class SalesOrdersRepository {
         scu.id  AS resp_id_join,
         scu.name AS resp_name,
         s.id    AS sale_id_join,
-        s.sale_number AS sale_number
+        s.sale_number AS sale_number,
+        po.order_number AS pending_origin_number
       FROM sales_orders so
       LEFT JOIN customers c ON so.customer_id = c.id
       LEFT JOIN users     u ON so.seller_id   = u.id
       LEFT JOIN users     scu ON so.separation_claimed_by = scu.id
       LEFT JOIN sales     s ON so.sale_id     = s.id
+      LEFT JOIN sales_orders po ON so.pending_origin_order_id = po.id
       ${whereClause}
       ORDER BY
         -- Prioridade inteligente para a operação:
@@ -200,12 +202,14 @@ export class SalesOrdersRepository {
         row_to_json(c.*)   AS customer,
         row_to_json(u.*)   AS seller,
         row_to_json(scu.*) AS separation_responsible,
-        row_to_json(s.*)   AS sale
+        row_to_json(s.*)   AS sale,
+        po.order_number    AS pending_origin_number
       FROM sales_orders so
       LEFT JOIN customers c ON so.customer_id = c.id
       LEFT JOIN users     u ON so.seller_id   = u.id
       LEFT JOIN users     scu ON so.separation_claimed_by = scu.id
       LEFT JOIN sales     s ON so.sale_id     = s.id
+      LEFT JOIN sales_orders po ON so.pending_origin_order_id = po.id
       WHERE so.id = $1
     `;
     const result = await db.query(query, [id]);
@@ -341,6 +345,78 @@ export class SalesOrdersRepository {
   }
 
   /**
+   * Cria um "Pedido de Venda | Pendência" com o saldo (itens não faturados) de um
+   * pedido de origem. Nasce como PENDING, ligado ao pedido de origem via
+   * pending_origin_order_id, para ser recebido/faturado quando houver estoque.
+   */
+  async createBackorder(
+    origin: SalesOrder,
+    remainingItems: Array<{
+      itemType: 'PRODUCT' | 'SERVICE';
+      productId?: string;
+      serviceName?: string;
+      quantity: number;
+      unitPrice: number;
+      discount?: number;
+    }>,
+    userId: string
+  ): Promise<SalesOrder> {
+    const createdId = await db.transaction(async (client) => {
+      const orderNumber = await this.generateOrderNumber(client);
+
+      let subtotal = 0;
+      const items = remainingItems.map((it) => {
+        const disc = it.discount || 0;
+        const total = it.quantity * it.unitPrice - disc;
+        subtotal += total;
+        return { ...it, discount: disc, total };
+      });
+
+      const id = `sorder-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+      await client.query(
+        `INSERT INTO sales_orders (
+          id, order_number, customer_id, seller_id, status, order_date,
+          subtotal, discount, total, internal_notes, created_by,
+          pending_origin_order_id
+        ) VALUES ($1,$2,$3,$4,'PENDING',NOW(),$5,0,$6,$7,$8,$9)`,
+        [
+          id,
+          orderNumber,
+          origin.customerId,
+          origin.sellerId,
+          subtotal,
+          subtotal,
+          `Pendência do pedido ${origin.orderNumber} (itens faltantes na separação).`,
+          userId,
+          origin.id,
+        ]
+      );
+
+      for (const item of items) {
+        const itemId = `soitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        await client.query(
+          `INSERT INTO sales_order_items (
+            id, sales_order_id, item_type, product_id, service_name,
+            quantity, unit_price, discount, total
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            itemId, id, item.itemType,
+            item.productId || null, item.serviceName || null,
+            item.quantity, item.unitPrice, item.discount, item.total,
+          ]
+        );
+      }
+
+      return id;
+    });
+
+    const order = await this.findById(createdId);
+    if (!order) throw new Error('Erro ao buscar pedido de pendência recém-criado');
+    return order;
+  }
+
+  /**
    * Atualizar pedido.
    *
    * Suporta edição completa: campos do header (cliente, data, notas, status)
@@ -470,6 +546,70 @@ export class SalesOrdersRepository {
     } else {
       await db.query(query, params);
     }
+  }
+
+  /**
+   * Fecha o pedido como CONVERTED refletindo apenas os itens efetivamente
+   * faturados (billed) — usado quando há saldo que vira pedido de pendência.
+   * Substitui os itens do pedido pelos billed e recalcula subtotal/total.
+   */
+  async convertWithBilledItems(
+    orderId: string,
+    billedItems: Array<{
+      itemType: 'PRODUCT' | 'SERVICE';
+      productId?: string;
+      serviceName?: string;
+      quantity: number;
+      unitPrice: number;
+      discount?: number;
+    }>,
+    saleId: string,
+    userId: string
+  ): Promise<void> {
+    await db.transaction(async (client) => {
+      const head = await client.query(
+        `SELECT discount FROM sales_orders WHERE id = $1 FOR UPDATE`,
+        [orderId]
+      );
+      const headerDiscount = Number(head.rows[0]?.discount ?? 0);
+
+      await client.query(
+        `DELETE FROM sales_order_items WHERE sales_order_id = $1`,
+        [orderId]
+      );
+
+      let subtotal = 0;
+      for (const item of billedItems) {
+        const disc = item.discount || 0;
+        const total = item.quantity * item.unitPrice - disc;
+        subtotal += total;
+        const itemId = `soitem-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        await client.query(
+          `INSERT INTO sales_order_items (
+            id, sales_order_id, item_type, product_id, service_name,
+            quantity, unit_price, discount, total
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+          [
+            itemId, orderId, item.itemType,
+            item.productId || null, item.serviceName || null,
+            item.quantity, item.unitPrice, disc, total,
+          ]
+        );
+      }
+
+      await client.query(
+        `UPDATE sales_orders
+            SET status       = 'CONVERTED',
+                subtotal     = $1,
+                total        = $2,
+                sale_id      = COALESCE(sale_id, $3),
+                converted_at = NOW(),
+                converted_by = $4,
+                updated_at   = NOW()
+          WHERE id = $5`,
+        [subtotal, Math.max(0, subtotal - headerDiscount), saleId, userId, orderId]
+      );
+    });
   }
 
   /**
@@ -944,6 +1084,8 @@ export class SalesOrdersRepository {
       latitude: row.latitude != null ? Number(row.latitude) : undefined,
       longitude: row.longitude != null ? Number(row.longitude) : undefined,
       saleId: row.sale_id || undefined,
+      pendingOriginOrderId: row.pending_origin_order_id || undefined,
+      pendingOriginNumber: row.pending_origin_number || undefined,
       convertedAt: row.converted_at || undefined,
       convertedBy: row.converted_by || undefined,
       cancelledAt: row.cancelled_at || undefined,

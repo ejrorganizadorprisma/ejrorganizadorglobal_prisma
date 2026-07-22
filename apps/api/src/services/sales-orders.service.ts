@@ -503,22 +503,23 @@ export class SalesOrdersService {
         console.error('[convertToSale] Falha ao registrar evento CONFERRED:', evErr);
       }
 
-      // Fechar o ciclo: total ou parcial.
+      // O pedido de ORIGEM fecha como CONVERTED e segue o fluxo normal (expedição etc.).
+      // Saldo não faturado (itens que faltaram na separação) → NOVO pedido
+      // "Pedido de Venda | Pendência", ligado ao pedido de origem.
+      let backorder: any = null;
       if (remaining.length === 0) {
-        // Faturamento integral: CONVERTING → CONVERTED
+        // Faturamento integral: apenas marca CONVERTED.
         await this.repository.markAsConverted(order.id, sale.id, userId);
       } else {
-        // Faturamento parcial: substitui itens do pedido pelos remanescentes
-        // e marca como PARTIALLY_CONVERTED. Tudo numa transação curta.
-        await db.transaction(async (client) => {
-          await this.repository.markAsPartiallyConverted(
-            order.id,
-            remaining,
-            sale.id,
-            userId,
-            client
-          );
-        });
+        // Fecha a origem como CONVERTED já refletindo os itens efetivamente faturados
+        // (billed) e gera o pedido de pendência com o saldo. createBackorder é
+        // best-effort: não derruba o faturamento já concluído se falhar (apenas loga).
+        await this.repository.convertWithBilledItems(order.id, billedItems, sale.id, userId);
+        try {
+          backorder = await this.repository.createBackorder(order, remaining, userId);
+        } catch (boErr) {
+          console.error('[convertToSale] Falha ao gerar pedido de pendência:', boErr);
+        }
       }
 
       // Sempre registra histórico (uma linha por faturamento)
@@ -531,10 +532,10 @@ export class SalesOrdersService {
       // ─── Push (fire-and-forget) ───
       const pushBody = remaining.length === 0
         ? `${order.orderNumber} virou Venda ${sale.saleNumber}`
-        : `${order.orderNumber} faturado parcialmente (Venda ${sale.saleNumber}). Saldo segue em aberto.`;
+        : `${order.orderNumber} faturado (Venda ${sale.saleNumber}). Saldo em pendência${backorder ? ': ' + backorder.orderNumber : ''}.`;
       PushNotificationsService.instance()
         .sendToUser(order.sellerId, {
-          title: remaining.length === 0 ? 'Pedido faturado' : 'Pedido faturado parcialmente',
+          title: remaining.length === 0 ? 'Pedido faturado' : 'Pedido faturado (saldo em pendência)',
           body: pushBody,
           data: {
             type: 'ORDER_CONVERTED',

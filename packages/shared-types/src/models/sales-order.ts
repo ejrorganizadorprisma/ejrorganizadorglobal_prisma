@@ -57,6 +57,8 @@ export interface SalesOrder {
   latitude?: number;
   longitude?: number;
   saleId?: string;        // Preenchido após PRIMEIRA conversão em venda (histórico completo em sales_order_conversions)
+  pendingOriginOrderId?: string; // Se preenchido, é um "Pedido de Venda | Pendência" gerado do saldo de outro pedido
+  pendingOriginNumber?: string;  // Número do pedido de origem (exibição/hover)
   convertedAt?: string;
   convertedBy?: string;
   cancelledAt?: string;

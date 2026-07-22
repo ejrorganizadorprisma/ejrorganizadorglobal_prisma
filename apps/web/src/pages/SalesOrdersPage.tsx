@@ -52,6 +52,26 @@ const statusConfig: Record<string, { label: string; bg: string; text: string; ic
   CANCELLED: { label: 'Cancelado', bg: 'bg-red-50', text: 'text-red-600', icon: XCircle },
 };
 
+/**
+ * Config visual do status considerando o caso "Pedido de Venda | Pendência"
+ * (pedido PENDING gerado do saldo de outro pedido). Cada status tem cor própria.
+ */
+function statusDisplay(order: any): { label: string; bg: string; text: string; icon: any; title: string } {
+  const base = statusConfig[order.status] || statusConfig.PENDING;
+  if (order.status === 'PENDING' && order.pendingOriginOrderId) {
+    return {
+      label: 'Pedido de Venda | Pendência',
+      bg: 'bg-rose-100',
+      text: 'text-rose-700',
+      icon: AlertTriangle,
+      title: order.pendingOriginNumber
+        ? `Pendência do pedido ${order.pendingOriginNumber}`
+        : 'Pendência de outro pedido',
+    };
+  }
+  return { ...base, title: base.label };
+}
+
 type ForecastState = 'overdue' | 'today' | 'upcoming' | 'inflow';
 
 /**
@@ -361,7 +381,7 @@ export function SalesOrdersPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {orders.map((order: any) => {
-                  const cfg = statusConfig[order.status] || statusConfig.PENDING;
+                  const cfg = statusDisplay(order);
                   const StatusIcon = cfg.icon;
                   const fm = getForecastMeta(order);
                   const rowTint =
@@ -390,7 +410,10 @@ export function SalesOrdersPage() {
                         {formatPrice(order.total)}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${cfg.bg} ${cfg.text}`}>
+                        <span
+                          title={cfg.title}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${cfg.bg} ${cfg.text} ${order.pendingOriginOrderId ? 'cursor-help' : ''}`}
+                        >
                           <StatusIcon className="w-3 h-3" />
                           {cfg.label}
                         </span>
@@ -434,11 +457,12 @@ export function SalesOrdersPage() {
                               <Ban className="w-4 h-4" />
                             </button>
                           )}
-                          {order.status === 'DRAFT' && (
+                          {(order.status === 'DRAFT' ||
+                            (order.status === 'PENDING' && order.pendingOriginOrderId)) && (
                             <button
                               onClick={() => handleDelete(order.id, order.orderNumber)}
                               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Excluir rascunho"
+                              title={order.pendingOriginOrderId ? 'Excluir pedido de pendência' : 'Excluir rascunho'}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -455,7 +479,7 @@ export function SalesOrdersPage() {
           {/* Mobile Cards */}
           <div className="lg:hidden space-y-3">
             {orders.map((order: any) => {
-              const cfg = statusConfig[order.status] || statusConfig.PENDING;
+              const cfg = statusDisplay(order);
               const StatusIcon = cfg.icon;
               const fm = getForecastMeta(order);
               const cardTint =
@@ -472,7 +496,10 @@ export function SalesOrdersPage() {
                       <p className="text-sm text-gray-500">{order.customer?.name}</p>
                       {fm && <div className="mt-1"><ForecastBadge meta={fm} /></div>}
                     </div>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${cfg.bg} ${cfg.text}`}>
+                    <span
+                      title={cfg.title}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${cfg.bg} ${cfg.text} ${order.pendingOriginOrderId ? 'cursor-help' : ''}`}
+                    >
                       <StatusIcon className="w-3 h-3" />
                       {cfg.label}
                     </span>
@@ -510,6 +537,16 @@ export function SalesOrdersPage() {
                           </button>
                         ) : null;
                       })()}
+                      {(order.status === 'DRAFT' ||
+                        (order.status === 'PENDING' && order.pendingOriginOrderId)) && (
+                        <button
+                          onClick={() => handleDelete(order.id, order.orderNumber)}
+                          className="px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Excluir
+                        </button>
+                      )}
                     </div>
                   </div>
                   {order.sale && (

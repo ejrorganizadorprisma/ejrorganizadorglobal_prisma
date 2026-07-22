@@ -190,7 +190,7 @@ export function SalesOrderConvertPage() {
       await convertMutation.mutateAsync({ orderId: order.id, data: dto });
       toast.success(
         isPartialConversion
-          ? 'Pedido faturado parcialmente! Venda criada com o subset selecionado.'
+          ? 'Pedido faturado! O saldo virou um Pedido de Venda | Pendência.'
           : 'Pedido faturado com sucesso! Venda criada.'
       );
       // Após conversão, redireciona para o detalhe do pedido (PARTIALLY ou CONVERTED)
@@ -421,10 +421,11 @@ export function SalesOrderConvertPage() {
             <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-800">
-                <p className="font-semibold mb-1">Conversão parcial</p>
+                <p className="font-semibold mb-1">Faturamento parcial</p>
                 <p>
-                  Esta é uma conversão parcial. O saldo do pedido continuará disponível para
-                  faturamento posterior.
+                  Você vai faturar só a quantidade separada. O saldo (itens que faltaram) vira
+                  automaticamente um novo <strong>"Pedido de Venda | Pendência"</strong>, para
+                  ser faturado quando houver estoque.
                 </p>
               </div>
             </div>
