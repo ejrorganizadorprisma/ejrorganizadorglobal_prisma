@@ -62,15 +62,23 @@ export function SalesOrderConvertPage() {
   // Seleção/quantidade parcial por item — keyed por id (ou índice como fallback)
   const [itemSelection, setItemSelection] = useState<Record<string, ItemSelectionState>>({});
 
-  // Inicializa seleção quando o pedido carrega/muda — todos marcados, qty original
+  // Quantidade padrão a faturar = quantidade SEPARADA pelo estoque (quando houve
+  // separação); senão, a quantidade desejada do pedido.
+  const defaultQtyFor = (item: any) =>
+    item.quantitySeparated != null ? item.quantitySeparated : item.quantity;
+
+  // Inicializa seleção quando o pedido carrega/muda — default = qty separada.
+  // Item sem nada separado (0) começa desmarcado.
   useEffect(() => {
     if (!order?.items) return;
     const next: Record<string, ItemSelectionState> = {};
     order.items.forEach((item, idx) => {
       const key = item.id || `idx-${idx}`;
-      next[key] = { selected: true, quantity: item.quantity };
+      const qty = defaultQtyFor(item);
+      next[key] = { selected: qty > 0, quantity: qty };
     });
     setItemSelection(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.items]);
 
   if (isLoading) {
@@ -93,8 +101,10 @@ export function SalesOrderConvertPage() {
 
   // Helpers para acessar/atualizar seleção
   const getKey = (item: any, idx: number) => item.id || `idx-${idx}`;
-  const getState = (item: any, idx: number): ItemSelectionState =>
-    itemSelection[getKey(item, idx)] || { selected: true, quantity: item.quantity };
+  const getState = (item: any, idx: number): ItemSelectionState => {
+    const qty = defaultQtyFor(item);
+    return itemSelection[getKey(item, idx)] || { selected: qty > 0, quantity: qty };
+  };
 
   const updateSelection = (key: string, patch: Partial<ItemSelectionState>) => {
     setItemSelection((prev) => ({
@@ -228,7 +238,7 @@ export function SalesOrderConvertPage() {
                   onClick={() => {
                     const next: Record<string, ItemSelectionState> = {};
                     items.forEach((item, idx) => {
-                      next[getKey(item, idx)] = { selected: true, quantity: item.quantity };
+                      next[getKey(item, idx)] = { selected: true, quantity: defaultQtyFor(item) };
                     });
                     setItemSelection(next);
                   }}
@@ -241,7 +251,7 @@ export function SalesOrderConvertPage() {
                   onClick={() => {
                     const next: Record<string, ItemSelectionState> = {};
                     items.forEach((item, idx) => {
-                      next[getKey(item, idx)] = { selected: false, quantity: item.quantity };
+                      next[getKey(item, idx)] = { selected: false, quantity: defaultQtyFor(item) };
                     });
                     setItemSelection(next);
                   }}
@@ -262,6 +272,10 @@ export function SalesOrderConvertPage() {
                 const qtyOver = state.quantity > item.quantity;
                 const qtyZeroOrLess = state.quantity <= 0;
                 const isItemPartial = state.selected && state.quantity < item.quantity;
+                // Separação: quanto o estoque efetivamente separou vs. o desejado.
+                const separated = item.quantitySeparated;
+                const hasSep = separated != null;
+                const shortfall = hasSep ? item.quantity - separated : 0;
 
                 return (
                   <div
@@ -289,11 +303,36 @@ export function SalesOrderConvertPage() {
                         {item.product?.name || item.serviceName || '-'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        Original: {item.quantity}x {formatPrice(item.unitPrice)}
+                        {formatPrice(item.unitPrice)} / un
                         {item.discount > 0 && (
                           <span className="text-red-500 ml-2">-{formatPrice(item.discount)}</span>
                         )}
                       </p>
+                      {hasSep ? (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-xs">
+                          <span className="text-gray-600">
+                            Desejada: <b className="text-gray-800">{item.quantity}</b>
+                          </span>
+                          <span className={shortfall > 0 ? 'text-amber-700' : 'text-emerald-700'}>
+                            Separada: <b>{separated}</b>
+                          </span>
+                          {shortfall > 0 && (
+                            <span
+                              className="inline-flex items-center gap-1 text-amber-700 cursor-help underline decoration-dotted"
+                              title={
+                                item.separationNote
+                                  ? `Motivo do estoque: ${item.separationNote}`
+                                  : 'Separado parcialmente pelo estoque'
+                              }
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              {separated === 0 ? 'Nada separado' : `Faltaram ${shortfall}`}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 mt-0.5">Quantidade: {item.quantity}</p>
+                      )}
                       {state.selected && balance > 0 && (
                         <p className="text-xs text-amber-700 mt-0.5">
                           Saldo: {balance} {balance === 1 ? 'unidade ficará' : 'unidades ficarão'} pendente
