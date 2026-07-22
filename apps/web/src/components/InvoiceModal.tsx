@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { Receipt, X, Clock } from 'lucide-react';
 import { useNextNfNumber } from '../hooks/useSales';
 import { useActiveCarriers } from '../hooks/useCarriers';
+import { CurrencyInput } from './CurrencyInput';
+import type { Currency } from '@ejr/shared-types';
 
 export interface NfData {
   nfNumber: string;
@@ -23,12 +25,14 @@ export interface NfData {
 export function InvoiceModal({
   title,
   defaultAmountCents,
+  currency,
   confirmLabel = 'Confirmar faturamento',
   onClose,
   onConfirm,
 }: {
   title: string;
-  defaultAmountCents: number;
+  defaultAmountCents: number; // valor total no formato de armazenamento da moeda (PYG inteiro; BRL/USD centavos)
+  currency: Currency;
   confirmLabel?: string;
   onClose: () => void;
   onConfirm: (nf: NfData) => Promise<void>;
@@ -38,7 +42,7 @@ export function InvoiceModal({
 
   const [nfNumber, setNfNumber] = useState('');
   const [nfDate, setNfDate] = useState(new Date().toISOString().slice(0, 10));
-  const [nfAmount, setNfAmount] = useState(((defaultAmountCents ?? 0) / 100).toFixed(2).replace('.', ','));
+  const [nfAmount, setNfAmount] = useState<number>(defaultAmountCents ?? 0);
   const [carrierId, setCarrierId] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -57,8 +61,7 @@ export function InvoiceModal({
     if (!nfNumber.trim()) { toast.error('Informe o número da NF'); return; }
     setSaving(true);
     try {
-      const amountCents = nfAmount ? Math.round(parseFloat(nfAmount.replace(',', '.')) * 100) : undefined;
-      await onConfirm({ nfNumber: nfNumber.trim(), nfDate: nfDate || undefined, nfAmount: amountCents, carrierId: carrierId || undefined, file });
+      await onConfirm({ nfNumber: nfNumber.trim(), nfDate: nfDate || undefined, nfAmount: nfAmount || undefined, carrierId: carrierId || undefined, file });
       // sucesso: o pai fecha/navega. Não mexemos mais no estado.
     } catch (e: any) {
       toast.error(e.response?.data?.message || e.response?.data?.error?.message || 'Erro ao faturar');
@@ -96,8 +99,7 @@ export function InvoiceModal({
               <input type="date" value={nfDate} onChange={(e) => setNfDate(e.target.value)} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Valor da NF</label>
-              <input value={nfAmount} onChange={(e) => setNfAmount(e.target.value)} placeholder="0,00" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />
+              <CurrencyInput label="Valor da NF" value={nfAmount} currency={currency} onChange={(v) => setNfAmount(v)} />
             </div>
           </div>
           <div>

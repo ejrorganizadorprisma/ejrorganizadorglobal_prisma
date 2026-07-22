@@ -609,6 +609,7 @@ export function SaleDetailPage() {
         <InvoiceModal
           title={sale.saleNumber}
           defaultAmountCents={sale.total}
+          currency={defaultCurrency}
           onClose={() => setInvoiceOpen(false)}
           onConfirm={async (nf) => {
             await invoice.mutateAsync({ id: sale.id, data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId } });

@@ -53,7 +53,7 @@ export function SalesOrderConvertPage() {
   const uploadMutation = useUploadSaleFile();
   const returnMutation = useReturnToSeparation();
   const [nfOpen, setNfOpen] = useState(false);
-  const { formatPrice } = useFormatPrice();
+  const { formatPrice, defaultCurrency } = useFormatPrice();
 
   const [paymentMethod, setPaymentMethod] = useState('PIX');
   const [installments, setInstallments] = useState(1);
@@ -613,6 +613,7 @@ export function SalesOrderConvertPage() {
         <InvoiceModal
           title={order.orderNumber}
           defaultAmountCents={finalTotal}
+          currency={defaultCurrency}
           confirmLabel="Faturar e lançar NF"
           onClose={() => setNfOpen(false)}
           onConfirm={doFaturar}
