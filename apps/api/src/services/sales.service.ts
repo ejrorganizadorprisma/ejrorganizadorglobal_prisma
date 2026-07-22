@@ -508,6 +508,7 @@ export class SalesService {
       employeeCode?: string;
       carrierId?: string;
       shippingCost?: number;
+      freightCurrency?: string;
       freightMode?: string;
       trackingCode?: string;
       deliveryForecast?: string;
@@ -524,6 +525,7 @@ export class SalesService {
       collectionCarrierVolumes: dto.collectionCarrierVolumes,
       carrierId: dto.carrierId,
       shippingCost: dto.shippingCost,
+      freightCurrency: dto.freightCurrency,
       freightMode: dto.freightMode,
       trackingCode: dto.trackingCode,
       deliveryForecast: dto.deliveryForecast,

@@ -1022,6 +1022,7 @@ export class SalesRepository {
       collectionCarrierVolumes?: number | null;
       carrierId?: string | null;
       shippingCost?: number | null;
+      freightCurrency?: string | null;
       freightMode?: string | null;
       trackingCode?: string | null;
       deliveryForecast?: string | null;
@@ -1035,18 +1036,20 @@ export class SalesRepository {
               collection_carrier_volumes = $3,
               carrier_id        = COALESCE($4, carrier_id),
               shipping_cost     = COALESCE($5, shipping_cost),
-              freight_mode      = COALESCE($6, freight_mode),
-              tracking_code     = COALESCE($7, tracking_code),
-              delivery_forecast = COALESCE($8, delivery_forecast),
+              freight_currency  = COALESCE($6, freight_currency),
+              freight_mode      = COALESCE($7, freight_mode),
+              tracking_code     = COALESCE($8, tracking_code),
+              delivery_forecast = COALESCE($9, delivery_forecast),
               fulfillment_status = 'COLLECTED',
               updated_at = NOW()
-        WHERE id = $9`,
+        WHERE id = $10`,
       [
         userId,
         dto.driverName || null,
         dto.collectionCarrierVolumes ?? null,
         dto.carrierId || null,
         dto.shippingCost ?? null,
+        dto.freightCurrency || null,
         dto.freightMode || null,
         dto.trackingCode || null,
         dto.deliveryForecast || null,
@@ -1110,6 +1113,7 @@ export class SalesRepository {
       invoicedBy: data.invoiced_by || undefined,
       carrierId: data.carrier_id || undefined,
       freightMode: data.freight_mode || undefined,
+      freightCurrency: data.freight_currency || undefined,
       deliveryForecast: data.delivery_forecast || undefined,
       carrierScheduledDate: data.carrier_scheduled_date || undefined,
       volumesCount: data.volumes_count ?? undefined,

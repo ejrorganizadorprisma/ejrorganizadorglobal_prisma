@@ -6,8 +6,10 @@ import {
 import { useExpeditionQueue, useExpeditionSale, useCollectSale, useUploadSaleFile } from '../hooks/useSales';
 import { useActiveCarriers } from '../hooks/useCarriers';
 import { useSystemSettings } from '../hooks/useSystemSettings';
+import { CurrencyInput } from '../components/CurrencyInput';
 import { api } from '../lib/api';
 import type { Sale } from '@ejr/shared-types';
+import { CURRENCY_CONFIG, type Currency } from '@ejr/shared-types';
 
 function fileUrl(url?: string) {
   if (!url) return '';
@@ -19,6 +21,7 @@ function fileUrl(url?: string) {
 export default function ExpeditionPage() {
   const { data: settings } = useSystemSettings();
   const byCode = settings?.floorIdentificationMethod === 'EMPLOYEE_CODE';
+  const defaultCurrency = (settings?.defaultCurrency as Currency) || 'BRL';
   const { data: queue = [], isLoading } = useExpeditionQueue();
 
   const inExpedition = queue.filter((s) => s.fulfillmentStatus === 'IN_EXPEDITION');
@@ -50,7 +53,7 @@ export default function ExpeditionPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Aguardando Transportadora ({awaiting.length})</h2>
             {awaiting.length === 0 ? (
               <Empty text="Nenhuma venda aguardando coleta." />
-            ) : awaiting.map((s) => <CollectionCard key={s.id} sale={s} byCode={byCode} />)}
+            ) : awaiting.map((s) => <CollectionCard key={s.id} sale={s} byCode={byCode} defaultCurrency={defaultCurrency} />)}
           </section>
         </div>
       )}
@@ -163,7 +166,7 @@ function ExpeditionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
   );
 }
 
-function CollectionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
+function CollectionCard({ sale, byCode, defaultCurrency }: { sale: Sale; byCode: boolean; defaultCurrency: Currency }) {
   const { data: carriers = [] } = useActiveCarriers();
   const collect = useCollectSale();
   const upload = useUploadSaleFile();
@@ -171,7 +174,8 @@ function CollectionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
   const [driver, setDriver] = useState('');
   const [volumes, setVolumes] = useState<number>(sale.volumesCount || 1);
   const [carrierId, setCarrierId] = useState(sale.carrierId || '');
-  const [freight, setFreight] = useState('');
+  const [freightValue, setFreightValue] = useState<number>(sale.shippingCost || 0);
+  const [freightCurrency, setFreightCurrency] = useState<Currency>((sale.freightCurrency as Currency) || defaultCurrency);
   const [freightMode, setFreightMode] = useState<'' | 'CIF' | 'FOB'>((sale.freightMode as any) || '');
   const [tracking, setTracking] = useState(sale.trackingCode || '');
   const [forecast, setForecast] = useState(sale.deliveryForecast?.slice(0, 10) || '');
@@ -181,13 +185,13 @@ function CollectionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
   const submit = async () => {
     if (byCode && !code.trim()) { toast.error('Informe seu código de funcionário'); return; }
     try {
-      const freightCents = freight ? Math.round(parseFloat(freight.replace(',', '.')) * 100) : undefined;
       await collect.mutateAsync({ id: sale.id, data: {
         driverName: driver || undefined,
         collectionCarrierVolumes: volumes,
         employeeCode: code.trim() || undefined,
         carrierId: carrierId || undefined,
-        shippingCost: freightCents,
+        shippingCost: freightValue || undefined,
+        freightCurrency,
         freightMode: freightMode || undefined,
         trackingCode: tracking || undefined,
         deliveryForecast: forecast || undefined,
@@ -228,8 +232,24 @@ function CollectionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Valor do frete</label>
-            <input value={freight} onChange={(e) => setFreight(e.target.value)} placeholder="0,00" className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none" />
+            <label className="block text-xs font-medium text-slate-500 mb-1">Moeda do frete</label>
+            <select
+              value={freightCurrency}
+              onChange={(e) => { setFreightCurrency(e.target.value as Currency); setFreightValue(0); }}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none"
+            >
+              {(['BRL', 'PYG', 'USD'] as Currency[]).map((c) => (
+                <option key={c} value={c}>{CURRENCY_CONFIG[c].symbol} — {CURRENCY_CONFIG[c].label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <CurrencyInput
+              label="Valor do frete"
+              value={freightValue}
+              currency={freightCurrency}
+              onChange={(v) => setFreightValue(v)}
+            />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Modalidade (frete)</label>

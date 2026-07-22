@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useSale, useUpdateSale, useUpdatePayment, useInvoiceSale, useUploadSaleFile } from '../hooks/useSales';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { generateSalePDF } from '../utils/salePdfGenerator';
 import { InvoiceModal } from '../components/InvoiceModal';
@@ -295,7 +295,7 @@ export function SaleDetailPage() {
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
             {sale.nfNumber && <div><span className="text-gray-400">NF:</span> <span className="font-medium">{sale.nfNumber}</span></div>}
             {sale.carrier?.name && <div><span className="text-gray-400">Transportadora:</span> <span className="font-medium">{sale.carrier.name}</span></div>}
-            {typeof sale.shippingCost === 'number' && sale.shippingCost > 0 && <div><span className="text-gray-400">Valor do frete:</span> <span className="font-medium">{formatPrice(sale.shippingCost)}</span></div>}
+            {typeof sale.shippingCost === 'number' && sale.shippingCost > 0 && <div><span className="text-gray-400">Valor do frete:</span> <span className="font-medium">{formatPriceValue(sale.shippingCost, sale.freightCurrency || defaultCurrency)}</span></div>}
             {sale.freightMode && <div><span className="text-gray-400">Modalidade:</span> <span className="font-medium">{sale.freightMode}</span></div>}
             {sale.trackingCode && <div><span className="text-gray-400">Rastreio:</span> <span className="font-medium">{sale.trackingCode}</span></div>}
             {sale.deliveryForecast && <div><span className="text-gray-400">Previsão de entrega:</span> <span className="font-medium">{brDate(sale.deliveryForecast)}</span></div>}

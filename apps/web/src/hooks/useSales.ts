@@ -204,7 +204,7 @@ export function useExpeditionSale() {
 export function useCollectSale() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { driverName?: string; collectionCarrierVolumes?: number; employeeCode?: string; carrierId?: string; shippingCost?: number; freightMode?: string; trackingCode?: string; deliveryForecast?: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { driverName?: string; collectionCarrierVolumes?: number; employeeCode?: string; carrierId?: string; shippingCost?: number; freightCurrency?: string; freightMode?: string; trackingCode?: string; deliveryForecast?: string } }) => {
       const res = await api.post(`/sales/${id}/collect`, data);
       return res.data.data as Sale;
     },

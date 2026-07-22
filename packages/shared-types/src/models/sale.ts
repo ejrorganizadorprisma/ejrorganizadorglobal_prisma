@@ -147,6 +147,7 @@ export interface Sale {
   collectionReceiptName?: string;
   // Frete (registrado na coleta) — transportadora=carrierId, valor=shippingCost, rastreio=trackingCode
   freightMode?: 'CIF' | 'FOB';   // CIF = remetente paga; FOB = destinatário paga
+  freightCurrency?: 'BRL' | 'PYG' | 'USD'; // moeda que paga o frete (valor em shippingCost, no formato dela)
   deliveryForecast?: string;     // previsão de entrega ao cliente
   createdBy?: string;
   createdAt: string;
@@ -259,7 +260,8 @@ export interface CollectSaleDTO {
   employeeCode?: string;
   // Frete informado na coleta
   carrierId?: string;
-  shippingCost?: number;         // centavos (valor do frete)
+  shippingCost?: number;         // valor do frete no formato da moeda (PYG inteiro; BRL/USD centavos)
+  freightCurrency?: 'BRL' | 'PYG' | 'USD';
   freightMode?: 'CIF' | 'FOB';
   trackingCode?: string;
   deliveryForecast?: string;     // YYYY-MM-DD
