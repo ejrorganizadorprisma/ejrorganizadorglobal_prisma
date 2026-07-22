@@ -138,16 +138,14 @@ export class SalesOrdersService {
       throw new BadRequestError('Vendedor não pode criar pedido em nome de outro vendedor');
     }
 
-    // Pedido criado pela web (admin/owner/manager/etc) já entra como APPROVED —
-    // não precisa do passo intermediário de aprovação. SALESPERSON (mobile)
-    // continua como PENDING para que admin revise antes de faturar.
-    const initialStatus = isMobileSeller
-      ? SalesOrderStatus.PENDING
-      : SalesOrderStatus.APPROVED;
+    // Todo pedido nasce como "Pedido de Venda" (PENDING) — web e mobile — e passa
+    // pelo fluxo de recebimento (Confirmar Recebimento → Pedido Recebido) antes de
+    // ser liberado para a separação.
+    const initialStatus = SalesOrderStatus.PENDING;
 
     const created = await this.repository.create(data, userId, sellerIdOverride, {
       initialStatus,
-      approvedBy: isMobileSeller ? null : userId,
+      approvedBy: null,
     });
 
     // Push fire-and-forget: notifica admins sobre novo pedido
