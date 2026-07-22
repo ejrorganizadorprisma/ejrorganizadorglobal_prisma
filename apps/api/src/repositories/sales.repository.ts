@@ -871,26 +871,6 @@ export class SalesRepository {
    * client is already held by the transaction → pool.connect() deadlocks for
    * 10s and throws "timeout exceeded when trying to connect".
    */
-  /**
-   * Gera o próximo número de NF de saída (NF-AAAA-NNNN) por varredura do maior
-   * número do ano — mesmo padrão de generateSaleNumber. NFs com número manual
-   * fora do padrão são ignoradas na sequência automática.
-   */
-  async generateNfNumber(client?: any): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `NF-${year}-`;
-    const query = `SELECT nf_number FROM sales WHERE nf_number LIKE $1 ORDER BY nf_number DESC LIMIT 1`;
-    const result = client
-      ? await client.query(query, [`${prefix}%`])
-      : await db.query(query, [`${prefix}%`]);
-    let nextNumber = 1;
-    if (result.rows.length > 0 && result.rows[0].nf_number) {
-      const n = parseInt(String(result.rows[0].nf_number).split('-')[2], 10);
-      if (!isNaN(n)) nextNumber = n + 1;
-    }
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
-  }
-
   private async generateSaleNumber(client?: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `VND-${year}-`;
