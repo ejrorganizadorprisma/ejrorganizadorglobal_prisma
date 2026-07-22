@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   Save,
   ShieldOff,
+  PackageCheck,
 } from 'lucide-react';
 
 type FormItem = {
@@ -94,6 +95,7 @@ export function SalesOrderFormPage() {
     customerId: '',
     sellerId: '',
     orderDate: new Date().toISOString().split('T')[0],
+    separationForecastDate: '',
     discount: 0,
     notes: '',
     internalNotes: '',
@@ -321,6 +323,7 @@ export function SalesOrderFormPage() {
         customerId: formData.customerId,
         sellerId: formData.sellerId || undefined,
         orderDate: new Date(formData.orderDate).toISOString(),
+        separationForecastDate: formData.separationForecastDate || null,
         discount: formData.discount,
         notes: formData.notes || undefined,
         internalNotes: formData.internalNotes || undefined,
@@ -479,6 +482,22 @@ export function SalesOrderFormPage() {
                     Vendedor do cadastro do cliente (pode ser alterado)
                   </p>
                 )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 flex items-center gap-1.5">
+                <PackageCheck className="w-4 h-4 text-amber-500" />
+                Previsão Separação
+              </label>
+              <input
+                type="date"
+                value={formData.separationForecastDate}
+                onChange={(e) => setFormData({ ...formData, separationForecastDate: e.target.value })}
+                className="w-full px-3 py-2 border rounded"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Opcional. Data estimada para ir à separação — prioriza o pedido na lista quando chega.
+              </p>
             </div>
 
             <div className="md:col-span-3">

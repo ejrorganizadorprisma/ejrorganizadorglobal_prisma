@@ -27,6 +27,8 @@ import {
   FileText,
   FileDown,
   Ban,
+  CalendarClock,
+  AlertTriangle,
 } from 'lucide-react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { AppPage } from '@ejr/shared-types';
@@ -49,6 +51,68 @@ const statusConfig: Record<string, { label: string; bg: string; text: string; ic
   COMPLETED: { label: 'Venda concluída', bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle },
   CANCELLED: { label: 'Cancelado', bg: 'bg-red-50', text: 'text-red-600', icon: XCircle },
 };
+
+type ForecastState = 'overdue' | 'today' | 'upcoming' | 'inflow';
+
+/**
+ * Interpreta a Previsão de Separação do pedido em relação a hoje.
+ * - overdue: previsão venceu e o pedido ainda não foi liberado → prioridade máxima
+ * - today: previsão é hoje
+ * - upcoming: previsão no futuro
+ * - inflow: já saiu do estágio de pedido (em separação/faturado) → informativo
+ * Faz o parse por string (YYYY-MM-DD) para evitar deslocamento de fuso.
+ */
+function getForecastMeta(order: any): { state: ForecastState; days: number; label: string } | null {
+  if (!order.separationForecastDate) return null;
+  const s = String(order.separationForecastDate).slice(0, 10);
+  const [y, m, d] = s.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const fd = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((fd.getTime() - today.getTime()) / 86400000);
+  const actionable = order.status === 'PENDING' || order.status === 'APPROVED' || order.status === 'RECEIVED';
+  let state: ForecastState;
+  if (!actionable) state = 'inflow';
+  else if (days < 0) state = 'overdue';
+  else if (days === 0) state = 'today';
+  else state = 'upcoming';
+  return { state, days, label: fd.toLocaleDateString('pt-BR') };
+}
+
+function ForecastBadge({ meta }: { meta: { state: ForecastState; days: number; label: string } }) {
+  const { state, days, label } = meta;
+  if (state === 'overdue') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
+        <AlertTriangle className="w-3 h-3" />
+        Separar · atrasado {Math.abs(days)}d
+      </span>
+    );
+  }
+  if (state === 'today') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700">
+        <CalendarClock className="w-3 h-3" />
+        Separar hoje
+      </span>
+    );
+  }
+  if (state === 'upcoming') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-600">
+        <CalendarClock className="w-3 h-3" />
+        Prev: {label}{days <= 3 ? ` · ${days}d` : ''}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-400">
+      <CalendarClock className="w-3 h-3" />
+      Prev: {label}
+    </span>
+  );
+}
 
 export function SalesOrdersPage() {
   const navigate = useNavigate();
@@ -98,7 +162,9 @@ export function SalesOrdersPage() {
   // Próxima etapa do workflow conforme o status
   const nextStep = (order: any): { label: string; color: string; run: () => void } | null => {
     const s = order.status;
-    if (s === 'PENDING' || s === 'APPROVED' || s === 'RECEIVED')
+    if (s === 'PENDING')
+      return { label: 'Confirmar Recebimento', color: 'bg-sky-600 hover:bg-sky-700', run: () => navigate(`/sales-orders/${order.id}/edit`) };
+    if (s === 'APPROVED' || s === 'RECEIVED')
       return { label: 'Liberar Separação', color: 'bg-amber-600 hover:bg-amber-700', run: () => doRelease(order) };
     if (s === 'SEPARATED')
       return { label: 'Conferência OK', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
@@ -297,15 +363,23 @@ export function SalesOrdersPage() {
                 {orders.map((order: any) => {
                   const cfg = statusConfig[order.status] || statusConfig.PENDING;
                   const StatusIcon = cfg.icon;
+                  const fm = getForecastMeta(order);
+                  const rowTint =
+                    fm?.state === 'overdue' ? 'bg-red-50' : fm?.state === 'today' ? 'bg-amber-50' : '';
                   return (
-                    <tr key={order.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <tr key={order.id} className={`transition-colors ${rowTint} hover:bg-indigo-50/30`}>
                       <td className="px-4 py-3">
-                        <span className="font-semibold text-gray-900">{order.orderNumber}</span>
-                        {order.sale && (
-                          <span className="ml-2 text-xs text-emerald-600">
-                            → {order.sale.saleNumber}
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          <div>
+                            <span className="font-semibold text-gray-900">{order.orderNumber}</span>
+                            {order.sale && (
+                              <span className="ml-2 text-xs text-emerald-600">
+                                → {order.sale.saleNumber}
+                              </span>
+                            )}
+                          </div>
+                          {fm && <div><ForecastBadge meta={fm} /></div>}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-gray-700">{order.customer?.name || '-'}</td>
                       <td className="px-4 py-3 text-gray-500">{order.seller?.name || '-'}</td>
@@ -383,12 +457,20 @@ export function SalesOrdersPage() {
             {orders.map((order: any) => {
               const cfg = statusConfig[order.status] || statusConfig.PENDING;
               const StatusIcon = cfg.icon;
+              const fm = getForecastMeta(order);
+              const cardTint =
+                fm?.state === 'overdue'
+                  ? 'border-red-200 bg-red-50'
+                  : fm?.state === 'today'
+                  ? 'border-amber-200 bg-amber-50'
+                  : '';
               return (
-                <div key={order.id} className="bg-white rounded-xl shadow-sm border p-4">
+                <div key={order.id} className={`rounded-xl shadow-sm border p-4 ${cardTint || 'bg-white'}`}>
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <span className="font-semibold text-gray-900">{order.orderNumber}</span>
                       <p className="text-sm text-gray-500">{order.customer?.name}</p>
+                      {fm && <div className="mt-1"><ForecastBadge meta={fm} /></div>}
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full ${cfg.bg} ${cfg.text}`}>
                       <StatusIcon className="w-3 h-3" />

@@ -112,7 +112,21 @@ export class SalesOrdersRepository {
       LEFT JOIN users     scu ON so.separation_claimed_by = scu.id
       LEFT JOIN sales     s ON so.sale_id     = s.id
       ${whereClause}
-      ORDER BY so.created_at DESC
+      ORDER BY
+        -- Prioridade inteligente para a operação:
+        --   0 = "no ponto de separar" (previsão chegou/venceu e ainda não liberado)
+        --   1 = tem previsão futura, ainda a caminho da separação
+        --   2 = demais (sem previsão ou já em fluxo) → mais recente no topo
+        CASE
+          WHEN so.status IN ('PENDING','APPROVED','RECEIVED')
+               AND so.separation_forecast_date IS NOT NULL
+               AND so.separation_forecast_date <= CURRENT_DATE THEN 0
+          WHEN so.status IN ('PENDING','APPROVED','RECEIVED')
+               AND so.separation_forecast_date IS NOT NULL THEN 1
+          ELSE 2
+        END ASC,
+        so.separation_forecast_date ASC NULLS LAST,
+        so.created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
@@ -260,8 +274,9 @@ export class SalesOrdersRepository {
         `INSERT INTO sales_orders (
           id, order_number, customer_id, quote_id, seller_id, status,
           order_date, subtotal, discount, total, notes, internal_notes,
-          latitude, longitude, created_by, approved_at, approved_by
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,${approvedAtSql},$16)`,
+          latitude, longitude, created_by, approved_at, approved_by,
+          separation_forecast_date
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,${approvedAtSql},$16,$17)`,
         [
           id,
           orderNumber,
@@ -279,6 +294,7 @@ export class SalesOrdersRepository {
           dto.longitude ?? null,
           createdBy,
           approvedBy,
+          dto.separationForecastDate || null,
         ]
       );
 
@@ -344,6 +360,10 @@ export class SalesOrdersRepository {
       if (dto.orderDate !== undefined) {
         updates.push(`order_date = $${paramIndex++}`);
         values.push(dto.orderDate);
+      }
+      if (dto.separationForecastDate !== undefined) {
+        updates.push(`separation_forecast_date = $${paramIndex++}`);
+        values.push(dto.separationForecastDate || null);
       }
       if (dto.status !== undefined) {
         updates.push(`status = $${paramIndex++}`);
@@ -915,6 +935,7 @@ export class SalesOrdersRepository {
       sellerId: row.seller_id,
       status: row.status as SalesOrderStatus,
       orderDate: row.order_date,
+      separationForecastDate: row.separation_forecast_date || undefined,
       subtotal: row.subtotal,
       discount: row.discount,
       total: row.total,

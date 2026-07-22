@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSalesOrder, useUpdateSalesOrder } from '../hooks/useSalesOrders';
+import { useSalesOrder, useUpdateSalesOrder, useReleaseSeparation, useReceiveSalesOrder } from '../hooks/useSalesOrders';
 import { useCustomers } from '../hooks/useCustomers';
 import { useProducts } from '../hooks/useProducts';
 import { useServices } from '../hooks/useServices';
@@ -31,6 +31,8 @@ import {
   ArrowRightCircle,
   FileDown,
   Printer,
+  PackageCheck,
+  ClipboardCheck,
 } from 'lucide-react';
 
 type FormItem = {
@@ -66,6 +68,8 @@ export function SalesOrderEditPage() {
   // Dados
   const { data: order, isLoading: loadingOrder } = useSalesOrder(id || '', { enabled: !!id });
   const updateOrder = useUpdateSalesOrder();
+  const releaseSeparation = useReleaseSeparation();
+  const receiveOrder = useReceiveSalesOrder();
   const { data: customersData } = useCustomers({ page: 1, limit: 500 });
   const { data: servicesData } = useServices({ page: 1, limit: 100, isActive: true });
   const { data: systemSettings } = useSystemSettings();
@@ -125,6 +129,7 @@ export function SalesOrderEditPage() {
   const [formData, setFormData] = useState({
     customerId: '',
     orderDate: '',
+    separationForecastDate: '',
     discount: 0,
     notes: '',
     internalNotes: '',
@@ -137,6 +142,9 @@ export function SalesOrderEditPage() {
       setFormData({
         customerId: order.customerId,
         orderDate: new Date(order.orderDate).toISOString().split('T')[0],
+        separationForecastDate: order.separationForecastDate
+          ? new Date(order.separationForecastDate).toISOString().split('T')[0]
+          : '',
         discount: order.discount,
         notes: order.notes || '',
         internalNotes: order.internalNotes || '',
@@ -378,6 +386,7 @@ export function SalesOrderEditPage() {
       const payload = {
         customerId: formData.customerId,
         orderDate: new Date(formData.orderDate).toISOString(),
+        separationForecastDate: formData.separationForecastDate || null,
         discount: formData.discount,
         notes: formData.notes || null,
         internalNotes: formData.internalNotes || null,
@@ -396,6 +405,39 @@ export function SalesOrderEditPage() {
       setJustSaved(true);
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || error.response?.data?.message || 'Erro ao salvar');
+    }
+  };
+
+  // Confirmar Recebimento: pedido de venda (PENDING) → recebido (RECEIVED).
+  // Só depois disso o pedido pode ser liberado para separação.
+  const canReceive = order.status === 'PENDING';
+
+  const handleReceive = async () => {
+    if (!id) return;
+    try {
+      await receiveOrder.mutateAsync({ id, body: {} });
+      // Permanece na página: a query é invalidada, o status vira RECEIVED e o
+      // botão "Liberar Separação" passa a aparecer automaticamente.
+      toast.success('Pedido recebido! Agora você pode liberar para separação.');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || e.response?.data?.error?.message || 'Erro ao confirmar recebimento');
+    }
+  };
+
+  // Liberar Separação: manda o pedido para a fila do estoque.
+  // Aparece só após o recebimento (RECEIVED) ou para pedidos já autorizados (APPROVED).
+  const canRelease =
+    order.status === 'APPROVED' ||
+    order.status === 'RECEIVED';
+
+  const handleRelease = async () => {
+    if (!id) return;
+    try {
+      await releaseSeparation.mutateAsync({ id, body: {} });
+      toast.success('Pedido liberado para o estoque separar!');
+      navigate('/sales-orders');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || e.response?.data?.error?.message || 'Erro ao liberar separação');
     }
   };
 
@@ -513,6 +555,23 @@ export function SalesOrderEditPage() {
                 disabled
                 className="w-full px-3 py-2 border rounded bg-gray-100 text-gray-500"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 flex items-center gap-1.5">
+                <PackageCheck className="w-4 h-4 text-amber-500" />
+                Previsão Separação
+              </label>
+              <input
+                type="date"
+                value={formData.separationForecastDate}
+                onChange={(e) => setFormData({ ...formData, separationForecastDate: e.target.value })}
+                disabled={isReadOnly}
+                className="w-full px-3 py-2 border rounded disabled:bg-gray-100"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Data estimada para encaminhar à separação. Quando a data chega, o pedido é priorizado na lista.
+              </p>
             </div>
 
             <div className="md:col-span-3">
@@ -917,6 +976,48 @@ export function SalesOrderEditPage() {
                 </>
               )}
             </button>
+            {canReceive && (
+              <button
+                type="button"
+                onClick={handleReceive}
+                disabled={receiveOrder.isPending}
+                className="w-full sm:w-auto bg-sky-600 text-white px-6 py-2 min-h-[44px] rounded-lg hover:bg-sky-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                title="Confirmar que o pedido foi recebido e conferido pela administração"
+              >
+                {receiveOrder.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Confirmando...
+                  </>
+                ) : (
+                  <>
+                    <ClipboardCheck className="w-4 h-4" />
+                    Pedido Recebido
+                  </>
+                )}
+              </button>
+            )}
+            {canRelease && (
+              <button
+                type="button"
+                onClick={handleRelease}
+                disabled={releaseSeparation.isPending}
+                className="w-full sm:w-auto bg-amber-600 text-white px-6 py-2 min-h-[44px] rounded-lg hover:bg-amber-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                title="Enviar este pedido para a fila de separação do estoque"
+              >
+                {releaseSeparation.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Liberando...
+                  </>
+                ) : (
+                  <>
+                    <PackageCheck className="w-4 h-4" />
+                    Liberar Separação
+                  </>
+                )}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => navigate('/sales-orders')}
