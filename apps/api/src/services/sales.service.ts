@@ -423,6 +423,24 @@ export class SalesService {
     return { url: `/uploads/nf/${filename}`, name: file.originalname || filename };
   }
 
+  /**
+   * Sugere o próximo número de NF: pega o último usado e incrementa o último
+   * grupo de dígitos (preservando prefixo/sufixo e zeros à esquerda). Retorna ''
+   * quando nunca houve NF (usuário lança o primeiro manualmente).
+   */
+  async suggestNextNfNumber(): Promise<string> {
+    const last = await this.repository.getLastNfNumber();
+    if (!last) return '';
+    const s = String(last);
+    const m = s.match(/(\d+)(\D*)$/);
+    if (!m || m.index === undefined) return '';
+    const digits = m[1];
+    const suffix = m[2];
+    const prefix = s.slice(0, m.index);
+    const next = (parseInt(digits, 10) + 1).toString().padStart(digits.length, '0');
+    return `${prefix}${next}${suffix}`;
+  }
+
   /** Faturamento: lança a NF de saída (+ transportadora opcional) → Em Expedição. */
   async invoice(id: string, userId: string, dto: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
     const sale = await this.repository.findById(id);

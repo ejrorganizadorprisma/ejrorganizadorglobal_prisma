@@ -149,7 +149,21 @@ export function useExpeditionQueue(options?: { refetchInterval?: number }) {
 function invalidateSalesQueues(qc: ReturnType<typeof useQueryClient>, id?: string) {
   qc.invalidateQueries({ queryKey: ['sales'] });
   qc.invalidateQueries({ queryKey: ['expedition-queue'] });
+  qc.invalidateQueries({ queryKey: ['next-nf-number'] });
   if (id) qc.invalidateQueries({ queryKey: ['sales', id] });
+}
+
+/** Sugere o próximo número de NF (último usado + 1). '' quando nunca houve. */
+export function useNextNfNumber(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['next-nf-number'],
+    queryFn: async () => {
+      const { data } = await api.get('/sales/next-nf-number');
+      return (data?.data?.suggested ?? '') as string;
+    },
+    staleTime: 0,
+    enabled: options?.enabled ?? true,
+  });
 }
 
 export function useInvoiceSale() {

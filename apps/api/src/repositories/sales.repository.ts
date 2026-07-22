@@ -871,6 +871,20 @@ export class SalesRepository {
    * client is already held by the transaction → pool.connect() deadlocks for
    * 10s and throws "timeout exceeded when trying to connect".
    */
+  /**
+   * Último número de NF de saída efetivamente usado (por data de faturamento),
+   * para sugerir o próximo na tela de faturamento. Retorna null se nunca houve.
+   */
+  async getLastNfNumber(): Promise<string | null> {
+    const r = await db.query(
+      `SELECT nf_number FROM sales
+        WHERE nf_number IS NOT NULL AND nf_number <> ''
+        ORDER BY invoiced_at DESC NULLS LAST, updated_at DESC
+        LIMIT 1`
+    );
+    return r.rows[0]?.nf_number ?? null;
+  }
+
   private async generateSaleNumber(client?: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `VND-${year}-`;

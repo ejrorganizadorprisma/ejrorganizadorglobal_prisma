@@ -234,6 +234,13 @@ export class SalesController {
 
   // ==================== FATURAMENTO / EXPEDIÇÃO / COLETA ====================
 
+  nextNfNumber = async (_req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const suggested = await this.service.suggestNextNfNumber();
+      res.json({ success: true, data: { suggested } });
+    } catch (error) { next(error); }
+  };
+
   invoice = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const sale = await this.service.invoice(req.params.id, req.user!.id, req.body || {});

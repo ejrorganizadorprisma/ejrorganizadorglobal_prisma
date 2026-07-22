@@ -15,6 +15,9 @@ router.use(authenticate);
 // GET /api/v1/sales/stats - deve vir antes de /:id
 router.get('/stats', controller.getSaleStats);
 
+// GET /api/v1/sales/next-nf-number - sugere o próximo número da NF (antes de /:id)
+router.get('/next-nf-number', controller.nextNfNumber);
+
 // GET /api/v1/sales
 router.get('/', controller.getSales);
 
