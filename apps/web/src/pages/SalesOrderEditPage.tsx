@@ -8,14 +8,12 @@ import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice } from '../hooks/useFormatPrice';
-import { useAuth } from '../hooks/useAuth';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { generateSalesOrderPDF } from '../utils/salesOrderPdfGenerator';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
 import { SalesOrderAuditBlock } from '../components/SalesOrderAuditBlock';
-import { ApproveSalesOrderModal } from '../components/ApproveSalesOrderModal';
 import { ConversionHistoryBlock } from '../components/ConversionHistoryBlock';
 import {
   Search,
@@ -27,7 +25,6 @@ import {
   ArrowLeft,
   Save,
   ShieldOff,
-  ThumbsUp,
   ArrowRightCircle,
   FileDown,
   Printer,
@@ -57,12 +54,7 @@ export function SalesOrderEditPage() {
   });
   const { hasActionPermission } = usePagePermissions();
   const canEdit = hasActionPermission(AppPage.SALES, 'edit');
-  const userRole = useAuth((state) => state.user?.role);
-  // ADMIN não existe no enum UserRole hoje; tratamos OWNER/DIRECTOR/MANAGER como aprovadores.
-  const canApprove = !!userRole && (['OWNER', 'ADMIN', 'DIRECTOR', 'MANAGER'] as string[]).includes(userRole);
 
-  // Estado do modal de aprovação
-  const [showApproveModal, setShowApproveModal] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
 
   // Dados
@@ -477,16 +469,6 @@ export function SalesOrderEditPage() {
               <Printer className="w-4 h-4" />
               PDF Impressao
             </button>
-            {canApprove && order.status === 'PENDING' && (
-              <button
-                type="button"
-                onClick={() => setShowApproveModal(true)}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-sm"
-              >
-                <ThumbsUp className="w-4 h-4" />
-                Aprovar pedido
-              </button>
-            )}
           </div>
         </div>
         {isReadOnly && (
@@ -1042,14 +1024,6 @@ export function SalesOrderEditPage() {
           </div>
         )}
       </form>
-
-      {/* Modal de aprovação */}
-      <ApproveSalesOrderModal
-        isOpen={showApproveModal}
-        orderId={id || null}
-        orderNumber={order.orderNumber}
-        onClose={() => setShowApproveModal(false)}
-      />
     </div>
   );
 }
