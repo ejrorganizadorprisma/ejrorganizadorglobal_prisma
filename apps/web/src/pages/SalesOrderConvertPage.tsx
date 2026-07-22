@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useSalesOrder, useConvertOrderToSale, type ConvertToSaleFromOrderDTO } from '../hooks/useSalesOrders';
+import { useSalesOrder, useConvertOrderToSale, useReturnToSeparation, type ConvertToSaleFromOrderDTO } from '../hooks/useSalesOrders';
 import { useInvoiceSale, useUploadSaleFile } from '../hooks/useSales';
 import { InvoiceModal, type NfData } from '../components/InvoiceModal';
 import { useFormatPrice } from '../hooks/useFormatPrice';
@@ -51,6 +51,7 @@ export function SalesOrderConvertPage() {
   const convertMutation = useConvertOrderToSale();
   const invoiceMutation = useInvoiceSale();
   const uploadMutation = useUploadSaleFile();
+  const returnMutation = useReturnToSeparation();
   const [nfOpen, setNfOpen] = useState(false);
   const { formatPrice } = useFormatPrice();
 
@@ -202,6 +203,19 @@ export function SalesOrderConvertPage() {
         : 'Pedido faturado e NF lançada. Enviado para expedição.'
     );
     navigate(sale?.id ? `/sales/${sale.id}` : `/sales-orders/${order.id}/edit`);
+  };
+
+  // Conferência reprovada: devolve o pedido para a separação (ex.: faltou item que existe em outro local).
+  const handleReturn = async () => {
+    const note = window.prompt('Devolver este pedido para a separação.\nMotivo (opcional):');
+    if (note === null) return;
+    try {
+      await returnMutation.mutateAsync({ id: order.id, body: { note: note || undefined } });
+      toast.success('Pedido devolvido para a separação!');
+      navigate('/sales-orders');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || e.response?.data?.error?.message || 'Erro ao devolver para separação');
+    }
   };
 
   return (
@@ -574,6 +588,17 @@ export function SalesOrderConvertPage() {
             )}
             {isPartialConversion ? 'Faturar parcialmente' : 'Faturar Pedido'}
           </button>
+
+          {order.status === 'SEPARATED' && (
+            <button
+              onClick={handleReturn}
+              disabled={returnMutation.isPending}
+              className="w-full mt-2 bg-orange-500 text-white px-6 py-2.5 rounded-xl hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 font-medium disabled:opacity-50"
+              title="Conferência reprovada: devolver para o estoque re-separar"
+            >
+              ↩ Devolver para separação
+            </button>
+          )}
 
           {order.notes && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">

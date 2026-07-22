@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder, useReceiveSalesOrder, useToDeliverSalesOrder, useCompleteSalesOrder, useReleaseSeparation } from '../hooks/useSalesOrders';
+import { useSalesOrders, useCancelSalesOrder, useDeleteSalesOrder, useReceiveSalesOrder, useToDeliverSalesOrder, useCompleteSalesOrder, useReleaseSeparation, useReturnToSeparation } from '../hooks/useSalesOrders';
 import { SeparationModal } from '../components/sales-order/SeparationModal';
 import { DeliveryModal } from '../components/sales-order/DeliveryModal';
 import { useFormatPrice } from '../hooks/useFormatPrice';
@@ -169,6 +169,7 @@ export function SalesOrdersPage() {
   const toDeliverOrder = useToDeliverSalesOrder();
   const completeOrder = useCompleteSalesOrder();
   const releaseSeparation = useReleaseSeparation();
+  const returnToSeparation = useReturnToSeparation();
 
   const doRelease = async (order: any) => {
     try {
@@ -176,6 +177,18 @@ export function SalesOrdersPage() {
       toast.success('Pedido liberado para o estoque separar!');
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Erro ao liberar separação');
+    }
+  };
+
+  // Conferência reprovada pelo ADM: devolve o pedido separado para a fila de separação.
+  const doReturnToSeparation = async (order: any) => {
+    const note = window.prompt(`Devolver o pedido ${order.orderNumber} para separação.\nMotivo (opcional):`);
+    if (note === null) return; // cancelou
+    try {
+      await returnToSeparation.mutateAsync({ id: order.id, body: { note: note || undefined } });
+      toast.success('Pedido devolvido para a separação!');
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || 'Erro ao devolver para separação');
     }
   };
 
@@ -457,6 +470,15 @@ export function SalesOrdersPage() {
                               Abrir Venda →
                             </button>
                           )}
+                          {order.status === 'SEPARATED' && (
+                            <button
+                              onClick={() => doReturnToSeparation(order)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 transition-colors"
+                              title="Conferência reprovada: devolver para o estoque re-separar"
+                            >
+                              ↩ Devolver
+                            </button>
+                          )}
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => handleCancel(order.id, order.orderNumber)}
@@ -552,6 +574,14 @@ export function SalesOrdersPage() {
                           className="px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg"
                         >
                           Abrir Venda →
+                        </button>
+                      )}
+                      {order.status === 'SEPARATED' && (
+                        <button
+                          onClick={() => doReturnToSeparation(order)}
+                          className="px-3 py-1.5 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-lg"
+                        >
+                          ↩ Devolver
                         </button>
                       )}
                       {(order.status === 'DRAFT' ||

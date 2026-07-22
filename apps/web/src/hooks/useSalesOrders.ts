@@ -266,6 +266,7 @@ function useSeparationMutation(action: string) {
 export const useReleaseSeparation = () => useSeparationMutation('release-separation');
 export const useClaimSeparation = () => useSeparationMutation('claim-separation');
 export const usePostponeSeparation = () => useSeparationMutation('postpone-separation');
+export const useReturnToSeparation = () => useSeparationMutation('return-to-separation');
 
 export function useSeparationEvents(id: string, options?: { enabled?: boolean }) {
   return useQuery({

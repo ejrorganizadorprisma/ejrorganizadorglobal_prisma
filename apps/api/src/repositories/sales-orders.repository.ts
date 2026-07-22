@@ -934,6 +934,29 @@ export class SalesOrdersRepository {
     });
   }
 
+  /**
+   * Conferência do ADM reprovada: devolve o pedido SEPARADO para a fila de
+   * separação (SEPARATED → AWAITING_SEPARATION), liberando o claim para que o
+   * estoque re-separe. Registra evento RETURNED (com motivo opcional).
+   */
+  async returnToSeparation(id: string, userId: string, note?: string | null): Promise<boolean> {
+    const upd = await db.query(
+      `UPDATE sales_orders
+          SET status = 'AWAITING_SEPARATION',
+              separation_claimed_by = NULL,
+              separation_claimed_at = NULL,
+              released_for_separation_at = NOW(),
+              released_by = $1,
+              updated_at = NOW()
+        WHERE id = $2 AND status = 'SEPARATED'
+        RETURNING id`,
+      [userId, id]
+    );
+    if (upd.rowCount === 0) return false;
+    await this.addSeparationEvent(id, userId, 'RETURNED', note || null);
+    return true;
+  }
+
   async toDeliver(id: string): Promise<void> {
     await db.query(
       `UPDATE sales_orders SET status='TO_DELIVER', updated_at=NOW()

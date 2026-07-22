@@ -237,6 +237,13 @@ export class SalesOrdersController {
     } catch (error) { next(error); }
   };
 
+  returnToSeparation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      const order = await this.service.returnToSeparation(req.params.id, req.user!.id, req.user!.role, req.body?.note);
+      res.json({ success: true, data: order, message: 'Pedido devolvido para separação' });
+    } catch (error) { next(error); }
+  };
+
   separationEvents = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const data = await this.service.getSeparationEvents(req.params.id);

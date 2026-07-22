@@ -709,6 +709,28 @@ export class SalesOrdersService {
     return this.repository.findById(id);
   }
 
+  /**
+   * Conferência do ADM: devolve um pedido SEPARADO para a fila de separação
+   * quando a conferência aponta erro (ex.: itens que faltaram, mas existem em
+   * outro local do depósito). SEPARATED → AWAITING_SEPARATION.
+   */
+  async returnToSeparation(id: string, userId: string, userRole?: string, note?: string) {
+    if (!isAdminRole(userRole) && userRole !== 'STOCK') {
+      throw new ForbiddenError('Você não tem permissão para devolver pedidos à separação');
+    }
+    const o = await this.repository.findById(id);
+    if (!o) throw new NotFoundError('Pedido não encontrado');
+    if (o.status === SalesOrderStatus.AWAITING_SEPARATION || o.status === SalesOrderStatus.SEPARATING) {
+      return o; // já está na separação — idempotente
+    }
+    if (o.status !== SalesOrderStatus.SEPARATED) {
+      throw new BadRequestError(`Só pedidos separados podem ser devolvidos para separação (atual: ${o.status})`);
+    }
+    const ok = await this.repository.returnToSeparation(id, userId, note);
+    if (!ok) throw new BadRequestError('Não foi possível devolver o pedido (o status mudou).');
+    return this.repository.findById(id);
+  }
+
   /** Histórico de eventos de separação (avaliação de funcionários). */
   async getSeparationEvents(id: string) {
     const o = await this.repository.findById(id);

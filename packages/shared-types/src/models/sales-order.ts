@@ -109,7 +109,7 @@ export interface SeparationEvent {
   id: string;
   salesOrderId: string;
   userId?: string;
-  action: 'CLAIMED' | 'POSTPONED' | 'COMPLETED' | 'CONFERRED' | 'RELEASED';
+  action: 'CLAIMED' | 'POSTPONED' | 'COMPLETED' | 'CONFERRED' | 'RELEASED' | 'RETURNED';
   note?: string;
   createdAt: string;
   // Populated

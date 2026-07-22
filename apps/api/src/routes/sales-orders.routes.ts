@@ -18,6 +18,7 @@ router.post('/:id/release-separation', controller.releaseSeparation);
 router.post('/:id/claim-separation', controller.claimSeparation);
 router.post('/:id/postpone-separation', controller.postponeSeparation);
 router.post('/:id/separate', controller.separate);
+router.post('/:id/return-to-separation', controller.returnToSeparation);
 router.get('/:id/separation-events', controller.separationEvents);
 router.post('/:id/approve', controller.approve);
 router.post('/:id/to-deliver', controller.toDeliver);
