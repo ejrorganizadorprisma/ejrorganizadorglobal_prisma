@@ -14,6 +14,7 @@ import {
   type PaymentMethod,
   type ShippingMethod,
   type DeliveryAddress,
+  type FulfillmentStatus,
 } from '@ejr/shared-types';
 
 // Roles administrativos que podem cancelar/deletar qualquer pedido e faturar.
@@ -489,19 +490,19 @@ export class SalesOrdersService {
         trackingCode: dto.trackingCode,
         deliveryAddress: dto.deliveryAddress,
         shippingNotes: dto.shippingNotes,
+        // Conferência OK: a venda já nasce com fulfillment "Conferido" —
+        // gravado ATOMICAMENTE no INSERT da venda (não mais best-effort pós-criação),
+        // garantindo que toda venda vinda de pedido tenha fulfillment_status válido.
+        fulfillmentStatus: 'CONFERRED' as FulfillmentStatus,
       };
 
       const sale = await this.salesService.create(saleData, userId, userRole);
 
-      // Conferência OK: a venda nasce com estágio de fulfillment "Conferido".
+      // Evento de histórico da conferência é best-effort (não crítico ao fluxo).
       try {
-        await db.query(
-          `UPDATE sales SET fulfillment_status = 'CONFERRED', updated_at = NOW() WHERE id = $1`,
-          [sale.id]
-        );
         await this.repository.addSeparationEvent(order.id, userId, 'CONFERRED');
-      } catch (confErr) {
-        console.error('[convertToSale] Falha ao marcar fulfillment CONFERRED:', confErr);
+      } catch (evErr) {
+        console.error('[convertToSale] Falha ao registrar evento CONFERRED:', evErr);
       }
 
       // Fechar o ciclo: total ou parcial.

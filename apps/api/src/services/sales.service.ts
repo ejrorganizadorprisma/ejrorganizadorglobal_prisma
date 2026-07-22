@@ -427,8 +427,12 @@ export class SalesService {
   async invoice(id: string, userId: string, dto: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
     const sale = await this.repository.findById(id);
     if (!sale) throw new NotFoundError('Venda não encontrada');
-    if (sale.fulfillmentStatus && sale.fulfillmentStatus !== 'CONFERRED') {
-      throw new BadRequestError(`Esta venda não está pronta para faturamento (situação: ${sale.fulfillmentStatus})`);
+    if (sale.fulfillmentStatus !== 'CONFERRED') {
+      throw new BadRequestError(
+        sale.fulfillmentStatus
+          ? `Esta venda não está pronta para faturamento (situação: ${sale.fulfillmentStatus})`
+          : 'Esta venda não passou pela conferência e não pode ser faturada.'
+      );
     }
     if (!dto.nfNumber || !dto.nfNumber.trim()) throw new BadRequestError('Número da NF é obrigatório');
     await this.repository.invoice(id, userId, {
@@ -456,6 +460,13 @@ export class SalesService {
   ) {
     const sale = await this.repository.findById(id);
     if (!sale) throw new NotFoundError('Venda não encontrada');
+    if (sale.fulfillmentStatus !== 'IN_EXPEDITION') {
+      throw new BadRequestError(
+        sale.fulfillmentStatus === 'CONFERRED'
+          ? 'Fature a venda (emita a NF) antes de enviar para a expedição.'
+          : `A venda não está em expedição (situação: ${sale.fulfillmentStatus || 'sem conferência'}).`
+      );
+    }
     if (!dto.carrierId) throw new BadRequestError('Selecione a transportadora para fechar a expedição');
     if (!dto.volumesCount || dto.volumesCount < 1) throw new BadRequestError('Informe a quantidade de volumes');
     const responsible = await this.resolveResponsible(userId, dto.employeeCode);

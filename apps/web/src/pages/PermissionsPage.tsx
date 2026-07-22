@@ -44,6 +44,13 @@ const pageLabels: Record<AppPage, string> = {
   backup: 'Backup',
   digital_fabrication: 'Fabricação Digital',
   purchase_budgets: 'Orç. de Compra',
+  sellers: 'Vendedores',
+  collections: 'Cobranças',
+  commissions: 'Comissões',
+  gps_log: 'Registro de GPS',
+  separation: 'Separação (Estoque)',
+  expedition: 'Expedição',
+  carriers: 'Transportadoras',
 };
 
 const actionLabels: Record<PageAction, string> = {
@@ -57,7 +64,7 @@ const actionLabels: Record<PageAction, string> = {
 };
 
 const allPages: AppPage[] = Object.keys(pageLabels) as AppPage[];
-const allActions: PageAction[] = ['view', 'create', 'edit', 'delete', 'convert'];
+const allActions: PageAction[] = ['view', 'create', 'edit', 'delete', 'convert', 'approve', 'purchase'];
 
 export function PermissionsPage() {
   const permissionCheck = useRequirePermission({

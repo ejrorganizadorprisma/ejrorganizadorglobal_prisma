@@ -210,6 +210,9 @@ export interface CreateSaleDTO {
   deliveryAddress?: DeliveryAddress;
   deliveryStatus?: DeliveryStatus;
   shippingNotes?: string;
+  // Estágio de fulfillment inicial (ex.: 'CONFERRED' quando a venda nasce de um
+  // pedido já conferido). Gravado atomicamente no INSERT da venda.
+  fulfillmentStatus?: FulfillmentStatus;
 }
 
 export interface UpdateSaleDTO {

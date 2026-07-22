@@ -284,14 +284,16 @@ export class SalesRepository {
           subtotal, discount, total, total_paid, total_pending, installments,
           notes, internal_notes, created_by,
           shipping_method, shipping_cost, carrier_name, tracking_code,
-          delivery_address, delivery_status, shipping_notes
+          delivery_address, delivery_status, shipping_notes,
+          fulfillment_status
         ) VALUES (
           $1, $2, $3, $4, $5, $6,
           $7, $8, $9,
           $10, $11, $12, $13, $14, $15,
           $16, $17, $18,
           $19, $20, $21, $22,
-          $23, $24, $25
+          $23, $24, $25,
+          $26
         )
         RETURNING *
       `;
@@ -322,6 +324,7 @@ export class SalesRepository {
         saleData.deliveryAddress ? JSON.stringify(saleData.deliveryAddress) : null,
         saleData.deliveryStatus || null,
         saleData.shippingNotes || null,
+        saleData.fulfillmentStatus || null,
       ]);
 
       const createdSale = saleResult.rows[0];
