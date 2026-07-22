@@ -33,6 +33,7 @@ import {
   Search,
   Sparkles,
   type LucideIcon,
+  LifeBuoy,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -65,6 +66,12 @@ const menuSections: MenuSection[] = [
         path: '/dashboard',
         icon: LayoutDashboard,
         page: 'dashboard' as AppPage,
+      },
+      {
+        // Resolve — Central de Demandas. Sem `page`: visível para todos os logados.
+        name: 'Resolve',
+        path: '/resolve',
+        icon: LifeBuoy,
       },
       {
         name: 'Visão Geral',

@@ -44,6 +44,7 @@ import collectionsRoutes from './collections.routes';
 import commissionsRoutes from './commissions.routes';
 import gpsRoutes from './gps.routes';
 import pushTokensRoutes from './push-tokens.routes';
+import resolveRoutes from './resolve.routes';
 
 const router = Router();
 
@@ -108,5 +109,6 @@ router.use('/collections', collectionsRoutes);
 router.use('/commissions', commissionsRoutes);
 router.use('/gps', gpsRoutes);
 router.use('/push-tokens', pushTokensRoutes);
+router.use('/resolve', resolveRoutes);
 
 export default router;

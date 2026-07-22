@@ -88,6 +88,14 @@ import CarriersPage from './pages/CarriersPage';
 import { SalesOrderConvertPage } from './pages/SalesOrderConvertPage';
 import { SalesOrderEditPage } from './pages/SalesOrderEditPage';
 import { SalesOrderFormPage } from './pages/SalesOrderFormPage';
+import { ResolveHome } from './pages/resolve/ResolveHome';
+import { NewTicketPage } from './pages/resolve/NewTicketPage';
+import { MyTicketsPage } from './pages/resolve/MyTicketsPage';
+import { MuralPage } from './pages/resolve/MuralPage';
+import { TeamQueuePage } from './pages/resolve/TeamQueuePage';
+import { HistoryPage as ResolveHistoryPage } from './pages/resolve/HistoryPage';
+import { AdminPage as ResolveAdminPage } from './pages/resolve/AdminPage';
+import { TicketDetailPage } from './pages/resolve/TicketDetailPage';
 
 // Collections, Commissions
 import { CollectionsPage } from './pages/CollectionsPage';
@@ -397,6 +405,19 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {/* Resolve — Central de Demandas (acessível a todos os logados) */}
+      {([
+        { p: '/resolve', el: <ResolveHome /> },
+        { p: '/resolve/novo', el: <NewTicketPage /> },
+        { p: '/resolve/meus', el: <MyTicketsPage /> },
+        { p: '/resolve/mural', el: <MuralPage /> },
+        { p: '/resolve/equipe', el: <TeamQueuePage /> },
+        { p: '/resolve/historico', el: <ResolveHistoryPage /> },
+        { p: '/resolve/admin', el: <ResolveAdminPage /> },
+        { p: '/resolve/t/:id', el: <TicketDetailPage /> },
+      ] as const).map(({ p, el }) => (
+        <Route key={p} path={p} element={<ProtectedRoute><MainLayout>{el}</MainLayout></ProtectedRoute>} />
+      ))}
       <Route
         path="/sales/new"
         element={
