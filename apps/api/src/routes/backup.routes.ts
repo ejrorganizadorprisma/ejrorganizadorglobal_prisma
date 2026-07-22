@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { BackupController } from '../controllers/backup.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 
 const router = Router();
 const backupController = new BackupController();
 
 // All routes require authentication
 router.use(authenticate);
+// Backup expõe dump completo do banco e restore (SQL arbitrário) — só OWNER/DIRECTOR.
+router.use(authorize(['OWNER', 'DIRECTOR']));
 
 // Schedule settings
 router.get('/settings', (req, res, next) => backupController.getSettings(req, res, next));

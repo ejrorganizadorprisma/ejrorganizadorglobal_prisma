@@ -411,6 +411,17 @@ export class SalesOrdersService {
       );
     }
 
+    // Idempotência: se JÁ existe uma venda vinculada a este pedido (ex.: retentativa
+    // após uma falha parcial que deixou a venda criada mas o pedido não-marcado),
+    // não faturar de novo — evita venda/baixa de estoque/comissão DUPLICADAS.
+    const existingSale = await db.query(
+      'SELECT id FROM sales WHERE sales_order_id = $1 LIMIT 1',
+      [salesOrderId]
+    );
+    if (existingSale.rows.length > 0) {
+      throw new BadRequestError('Este pedido já possui uma venda gerada. Recarregue a página.');
+    }
+
     // Cliente precisa estar APROVADO (regra global — vale também para admin).
     const customer = await this.customersRepository.findById(order.customerId);
     if (!customer) {

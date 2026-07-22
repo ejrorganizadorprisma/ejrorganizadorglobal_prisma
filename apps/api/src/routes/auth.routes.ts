@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { AuthController } from '../controllers/auth.controller';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 import { LoginSchema, CreateUserSchema } from '@ejr/shared-types';
 import { z } from 'zod';
 
@@ -79,9 +80,12 @@ router.post(
 // POST /api/v1/auth/refresh
 router.post('/refresh', refreshLimiter, authController.refresh.bind(authController));
 
-// POST /api/v1/auth/register
+// POST /api/v1/auth/register — SOMENTE admins podem criar usuários (fecha
+// escalada anônima: antes qualquer um criava um usuário OWNER sem login).
 router.post(
   '/register',
+  authenticate,
+  authorize(['OWNER', 'DIRECTOR', 'MANAGER']),
   registerLimiter,
   validateRequest(z.object({ body: CreateUserSchema })),
   authController.register.bind(authController)

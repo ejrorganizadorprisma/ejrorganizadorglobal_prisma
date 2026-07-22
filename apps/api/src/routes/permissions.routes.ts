@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PermissionsController } from '../controllers/permissions.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 
 const router = Router();
 const controller = new PermissionsController();
@@ -11,7 +12,7 @@ router.use(authenticate);
 // Get all permissions configuration
 router.get('/', controller.getPermissions);
 
-// Update permissions configuration
-router.put('/', controller.updatePermissions);
+// Update permissions configuration — só admins (evita que qualquer um reescreva a matriz)
+router.put('/', authorize(['OWNER', 'DIRECTOR', 'MANAGER']), controller.updatePermissions);
 
 export default router;

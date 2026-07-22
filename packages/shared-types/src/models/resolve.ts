@@ -162,7 +162,9 @@ export const createTicketSchema = z.object({
   title: z.string().trim().min(5, 'Título muito curto').max(160),
   description: z.string().trim().min(10, 'Descreva com mais detalhes'),
   platform: z.string().trim().min(1),
-  url: z.string().trim().url().optional().or(z.literal('')).transform((v) => (v ? v : undefined)),
+  url: z.string().trim().optional()
+    .transform((v) => (v ? v : undefined))
+    .refine((v) => !v || /^https?:\/\//i.test(v), 'A URL deve começar com http:// ou https://'),
   severity: z.enum(['BLOCKING', 'ANNOYING', 'MINOR']).optional(),
 });
 export type CreateTicketDTO = z.infer<typeof createTicketSchema>;

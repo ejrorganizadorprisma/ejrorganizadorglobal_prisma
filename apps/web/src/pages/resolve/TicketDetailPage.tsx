@@ -8,6 +8,7 @@ import {
   formatTicketCode, platformLabel, severityLabel, TICKET_STATUS_META, EVENT_ACTION_LABELS,
 } from '@ejr/shared-types';
 import { ArrowLeft, ExternalLink, Send, Lock } from 'lucide-react';
+import { safeUrl } from '../../lib/safeUrl';
 
 const PRIORITIES = ['P1', 'P2', 'P3', 'P4'];
 
@@ -63,7 +64,7 @@ export function TicketDetailPage() {
           {t.severity && <span>Gravidade: {severityLabel(t.severity)}</span>}
           {t.assignee && <span>Responsável: {t.assignee.name}</span>}
           {t.resolvedBy && <span>Resolvido por: {t.resolvedBy.name}</span>}
-          {t.url && <a href={t.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Abrir local</a>}
+          {safeUrl(t.url) && <a href={safeUrl(t.url)} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline flex items-center gap-1"><ExternalLink className="w-3 h-3" /> Abrir local</a>}
         </div>
         <p className="mt-4 text-sm text-gray-800 whitespace-pre-wrap">{t.description}</p>
       </div>

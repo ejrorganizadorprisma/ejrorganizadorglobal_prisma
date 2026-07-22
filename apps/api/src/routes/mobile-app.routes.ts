@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 import { db } from '../config/database';
 import { randomUUID } from 'crypto';
 import path from 'path';
@@ -49,9 +50,12 @@ router.get('/download', (_req: Request, res: Response) => {
 
 // Protected routes
 router.use(authenticate);
+// Config do app mobile e tokens de vendedores — só admins (o /settings expõe os
+// mobile_app_token de todos os vendedores). /sync-done fica aberto (o app usa).
+const mobileAdmin = authorize(['OWNER', 'DIRECTOR', 'MANAGER']);
 
 // GET /settings - returns global status + sellers list with mobile info + download info
-router.get('/settings', async (_req: Request, res: Response) => {
+router.get('/settings', mobileAdmin, async (_req: Request, res: Response) => {
   try {
     const settingsResult = await db.query('SELECT mobile_app_enabled FROM system_settings LIMIT 1');
     const globalEnabled = settingsResult.rows[0]?.mobile_app_enabled ?? false;
@@ -109,7 +113,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
 });
 
 // PATCH /settings - toggle global enable
-router.patch('/settings', async (req: Request, res: Response) => {
+router.patch('/settings', mobileAdmin, async (req: Request, res: Response) => {
   try {
     const { enabled } = req.body;
     if (enabled !== undefined) {
@@ -123,7 +127,7 @@ router.patch('/settings', async (req: Request, res: Response) => {
 });
 
 // PATCH /sellers/:id/authorize - authorize/deauthorize a seller
-router.patch('/sellers/:id/authorize', async (req: Request, res: Response) => {
+router.patch('/sellers/:id/authorize', mobileAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { authorized } = req.body;
@@ -148,7 +152,7 @@ router.patch('/sellers/:id/authorize', async (req: Request, res: Response) => {
 });
 
 // PATCH /sellers/:id/permissions - set seller permissions
-router.patch('/sellers/:id/permissions', async (req: Request, res: Response) => {
+router.patch('/sellers/:id/permissions', mobileAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const permissions = req.body; // { customers, quotes, sales, products }
@@ -160,7 +164,7 @@ router.patch('/sellers/:id/permissions', async (req: Request, res: Response) => 
 });
 
 // POST /sellers/:id/regenerate-token
-router.post('/sellers/:id/regenerate-token', async (req: Request, res: Response) => {
+router.post('/sellers/:id/regenerate-token', mobileAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const newToken = randomUUID();

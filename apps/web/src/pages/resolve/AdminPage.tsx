@@ -30,6 +30,10 @@ export function AdminPage() {
     try { await addMember.mutateAsync({ userId, role }); toast.success('Adicionado à equipe'); setResults([]); setQ(''); }
     catch (e: any) { toast.error(e.response?.data?.message || 'Erro'); }
   };
+  const change = async (patch: { memberId: string; role?: string; active?: boolean }) => {
+    try { await updateMember.mutateAsync(patch); }
+    catch (e: any) { toast.error(e.response?.data?.message || 'Erro ao atualizar membro'); }
+  };
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-5xl">
@@ -99,8 +103,8 @@ export function AdminPage() {
             <div className="flex items-center gap-2"><span className="font-medium">{m.user.name}</span><span className="text-xs text-gray-400">{m.user.email}</span></div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400">{m.user.openAssigned || 0} em aberto</span>
-              <select value={m.role} onChange={(e) => updateMember.mutate({ memberId: m.id, role: e.target.value })} className="text-xs px-2 py-1 border border-gray-200 rounded"><option value="DEV">Dev</option><option value="ADMIN">Admin</option></select>
-              <button onClick={() => updateMember.mutate({ memberId: m.id, active: !m.active })} className={`text-xs px-2 py-1 rounded ${m.active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>{m.active ? 'Desativar' : 'Reativar'}</button>
+              <select value={m.role} onChange={(e) => change({ memberId: m.id, role: e.target.value })} className="text-xs px-2 py-1 border border-gray-200 rounded"><option value="DEV">Dev</option><option value="ADMIN">Admin</option></select>
+              <button onClick={() => change({ memberId: m.id, active: !m.active })} className={`text-xs px-2 py-1 rounded ${m.active ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>{m.active ? 'Desativar' : 'Reativar'}</button>
             </div>
           </div>
         ))}

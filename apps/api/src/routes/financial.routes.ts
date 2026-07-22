@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { FinancialController } from '../controllers/financial.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 
 const router = Router();
 const controller = new FinancialController();
 
 // Aplicar autenticação em todas as rotas
 router.use(authenticate);
+// Dados financeiros (faturamento, contas, inadimplentes) — só gestores.
+router.use(authorize(['OWNER', 'DIRECTOR', 'MANAGER']));
 
 // GET /api/v1/financial/summary
 router.get('/summary', controller.getSummary);

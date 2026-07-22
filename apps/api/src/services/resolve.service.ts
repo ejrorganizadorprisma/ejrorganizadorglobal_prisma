@@ -86,7 +86,8 @@ export class ResolveService {
       case 'REOPEN': {
         if (!isReporter && !isTeam) throw new ForbiddenError('Sem permissão para reabrir');
         if (!['AWAITING_CONFIRMATION', 'RESOLVED', 'CLOSED'].includes(core.status)) throw new BadRequestError('Só é possível reabrir demandas resolvidas/encerradas');
-        fields.status = 'REOPENED'; fields.confirmed_at = null;
+        // Limpa resolved_at para não inflar as métricas de tempo médio/resolvidas.
+        fields.status = 'REOPENED'; fields.confirmed_at = null; fields.resolved_at = null;
         action = 'REOPENED'; toValue = 'REOPENED';
         break;
       }

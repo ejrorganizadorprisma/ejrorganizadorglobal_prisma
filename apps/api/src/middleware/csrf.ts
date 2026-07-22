@@ -27,15 +27,11 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction) 
     (req.headers['x-xsrf-token'] as string);
 
   // Modo migração: usuários com sessão legada (cookie 'token' antigo) ainda
-  // não têm o cookie csrfToken. Pulamos a checagem para esses — o middleware
-  // authenticate emite o cookie csrfToken na próxima request, então em até
-  // duas requisições o cliente já estará protegido. Sessões novas (com cookie
-  // csrfToken presente) seguem o fluxo estrito.
-  if (!cookieToken) {
-    return next();
-  }
-
-  if (!headerToken || cookieToken !== headerToken) {
+  // Estrito: mutation SEM cookie csrfToken é bloqueada (o middleware authenticate
+  // emite o cookie a cada request GET, então clientes legítimos já o possuem).
+  // O bypass anterior (return next() quando faltava o cookie) permitia CSRF em
+  // sessões legadas — removido.
+  if (!headerToken || !cookieToken || cookieToken !== headerToken) {
     return res.status(403).json({
       success: false,
       error: { code: 'CSRF_INVALID', message: 'CSRF token invalido' },

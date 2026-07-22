@@ -267,7 +267,9 @@ export class SalesRepository {
       });
 
       const discount = saleData.discount || 0;
-      const total = subtotal - discount;
+      // Nunca deixar o total negativo (ex.: desconto de cabeçalho > subtotal num
+      // faturamento parcial) — geraria parcelas e total_pending negativos.
+      const total = Math.max(0, subtotal - discount);
       const installments = saleData.installments || 1;
 
       // Gerar ID único
