@@ -690,7 +690,7 @@ export class SupplierOrdersRepository {
       purchaseOrderItemId: r.purchase_order_item_id ?? null,
       quantity: r.quantity,
       quantityReceived: r.quantity_received || 0,
-      unitPrice: r.unit_price,
+      unitPrice: r.unit_price != null ? Number(r.unit_price) : 0,
       discountPercentage: r.discount_percentage || 0,
       orderStatus: r.order_status,
     };
@@ -709,7 +709,7 @@ export class SupplierOrdersRepository {
     const cur = currentResult.rows[0];
 
     const quantity = data.quantity ?? cur.quantity;
-    const unitPrice = data.unitPrice ?? cur.unit_price;
+    const unitPrice = data.unitPrice ?? Number(cur.unit_price);
     const discountPercentage = data.discountPercentage ?? cur.discount_percentage ?? 0;
     const totalPrice = this.calculateItemTotal({ productId: cur.product_id, quantity, unitPrice, discountPercentage });
 
@@ -875,9 +875,9 @@ export class SupplierOrdersRepository {
           quantity: item.quantity,
           quantityReceived: item.quantity_received || 0,
           quantityPending: item.quantity - (item.quantity_received || 0),
-          unitPrice: item.unit_price,
+          unitPrice: item.unit_price != null ? Number(item.unit_price) : 0,
           discountPercentage: item.discount_percentage || 0,
-          totalPrice: item.total_price,
+          totalPrice: item.total_price != null ? Number(item.total_price) : 0,
           expectedDeliveryDate: item.expected_delivery_date,
           notes: item.notes,
           createdAt: item.created_at,
@@ -902,9 +902,10 @@ export class SupplierOrdersRepository {
       quantityReceived: data.quantity_received || 0,
       // Usa ?? para preservar 0 (totalmente recebido). Com || , 0 caía para quantity.
       quantityPending: data.quantity_pending ?? (data.quantity - (data.quantity_received || 0)),
-      unitPrice: data.unit_price,
+      // numeric no banco → converter (ver migration 062)
+      unitPrice: data.unit_price != null ? Number(data.unit_price) : 0,
       discountPercentage: data.discount_percentage || 0,
-      totalPrice: data.total_price,
+      totalPrice: data.total_price != null ? Number(data.total_price) : 0,
       expectedDeliveryDate: data.expected_delivery_date,
       notes: data.notes,
       createdAt: data.created_at,

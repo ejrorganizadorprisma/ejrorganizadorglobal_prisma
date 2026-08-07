@@ -1,11 +1,16 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 import * as controller from '../controllers/purchase-budgets.controller';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Atos financeiros (definir valor final, lançar vencimentos, dar baixa em parcela)
+// exigem o mesmo nível de acesso do módulo Financeiro.
+const FINANCE_ROLES = ['OWNER', 'DIRECTOR', 'MANAGER'];
 
 // ==================== BUDGETS ====================
 
@@ -48,19 +53,19 @@ router.post('/:id/reject', controller.reject);
 router.post('/:id/reopen', controller.reopen);
 
 // POST /api/v1/purchase-budgets/:id/purchase - Mark as purchased (ORDERED → PURCHASED)
-router.post('/:id/purchase', controller.purchase);
+router.post('/:id/purchase', authorize(FINANCE_ROLES), controller.purchase);
 
 // POST /api/v1/purchase-budgets/:id/convert-to-order - Transformar orçamento em pedido
 router.post('/:id/convert-to-order', controller.convertToOrder);
 
 // POST /api/v1/purchase-budgets/:id/register-invoice - Registrar NF + vencimentos (Contas a Pagar)
-router.post('/:id/register-invoice', controller.registerInvoice);
+router.post('/:id/register-invoice', authorize(FINANCE_ROLES), controller.registerInvoice);
 
 // POST /api/v1/purchase-budgets/:id/cancel - Cancel budget
 router.post('/:id/cancel', controller.cancel);
 
 // PUT /api/v1/purchase-budgets/:id/installments/:installmentId/pay - Mark installment as paid
-router.put('/:id/installments/:installmentId/pay', controller.payInstallment);
+router.put('/:id/installments/:installmentId/pay', authorize(FINANCE_ROLES), controller.payInstallment);
 
 // ==================== ITEMS ====================
 

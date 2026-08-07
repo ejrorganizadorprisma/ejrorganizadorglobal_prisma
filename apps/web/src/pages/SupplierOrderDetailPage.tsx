@@ -191,7 +191,8 @@ export function SupplierOrderDetailPage() {
   const startEditItem = (item: any) => {
     setEditingItemId(item.id);
     setEditQty(String(item.quantity));
-    setEditPriceBRL((item.unitPrice / 100).toFixed(2));
+    // Digita na moeda do orçamento; internamente continua em centavos de BRL
+    setEditPriceBRL(nfMoney.toInput(item.unitPrice));
   };
 
   const cancelEditItem = () => {
@@ -202,7 +203,9 @@ export function SupplierOrderDetailPage() {
 
   const saveEditItem = async (item: any) => {
     const qty = parseInt(editQty);
-    const priceCents = Math.round(parseFloat(editPriceBRL) * 100);
+    // Sem Math.round: o câmbio gera centavos quebrados (Gs. 100 = 8,3 centavos)
+    // e arredondar aqui distorceria o preço em até alguns por cento.
+    const priceCents = nfMoney.fromInput(editPriceBRL);
     if (!qty || qty <= 0) { toast.error('Quantidade deve ser maior que zero'); return; }
     if (isNaN(priceCents) || priceCents < 0) { toast.error('Preço inválido'); return; }
     const received = item.quantityReceived || 0;
@@ -659,7 +662,7 @@ export function SupplierOrderDetailPage() {
               <div className="divide-y divide-gray-100">
                 {order.items?.map((item: any, idx: number) => {
                   const isEditing = editingItemId === item.id;
-                  const previewCents = Math.round((parseFloat(editPriceBRL) || 0) * 100);
+                  const previewCents = nfMoney.fromInput(editPriceBRL);
                   return (
                   <div key={item.id} className={`grid grid-cols-12 gap-2 px-4 py-2.5 items-center hover:bg-gray-50 ${isEditing ? 'bg-blue-50/40' : ''}`}>
                     <div className="col-span-3 flex items-center gap-2 min-w-0">
@@ -717,18 +720,18 @@ export function SupplierOrderDetailPage() {
                       {isEditing ? (
                         <div className="flex flex-col items-center gap-0.5">
                           <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-gray-500">R$</span>
+                            <span className="text-[10px] text-gray-500">{nfMoney.symbol}</span>
                             <input
                               type="number"
                               min={0}
-                              step="0.01"
+                              step={nfMoney.decimals === 0 ? '1' : '0.01'}
                               value={editPriceBRL}
                               onChange={(e) => setEditPriceBRL(e.target.value)}
                               className="w-24 px-1.5 py-1 border border-gray-300 rounded text-sm text-right"
                             />
                           </div>
-                          {currency !== 'BRL' && (
-                            <span className="text-[10px] text-gray-400">≈ {showPrice(previewCents)}</span>
+                          {previewCents > 0 && (
+                            <span className="text-[10px] text-gray-400">≈ {formatPriceValue(Math.round(previewCents), 'BRL')}</span>
                           )}
                         </div>
                       ) : (

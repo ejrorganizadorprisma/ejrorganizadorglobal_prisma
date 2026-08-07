@@ -217,10 +217,10 @@ export class SalesController {
    */
   updatePayment = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-      const { paymentId } = req.params;
+      const { id, paymentId } = req.params;
       const paymentData: UpdateSalePaymentDTO = req.body;
 
-      const payment = await this.service.updatePayment(paymentId, paymentData);
+      const payment = await this.service.updatePayment(paymentId, paymentData, id);
 
       res.json({
         success: true,

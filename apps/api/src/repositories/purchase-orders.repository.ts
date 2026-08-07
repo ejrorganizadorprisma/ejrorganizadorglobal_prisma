@@ -706,7 +706,7 @@ export class PurchaseOrdersRepository {
     const itemForCalc: CreatePurchaseOrderItemDTO = {
       productId: itemData.productId ?? currentItem.product_id,
       quantity: itemData.quantity ?? currentItem.quantity,
-      unitPrice: itemData.unitPrice ?? currentItem.unit_price,
+      unitPrice: itemData.unitPrice ?? Number(currentItem.unit_price),
       taxRate: itemData.taxRate ?? currentItem.tax_rate,
       discountPercentage: itemData.discountPercentage ?? currentItem.discount_percentage,
     };
@@ -832,10 +832,12 @@ export class PurchaseOrdersRepository {
       supplierId: data.supplier_id,
       setAsPreferredSupplier: data.set_as_preferred_supplier,
       quantity: data.quantity,
-      unitPrice: data.unit_price,
+      // numeric no banco → o driver pg devolve string; converter para não
+      // quebrar a aritmética do front (ver migration 062)
+      unitPrice: data.unit_price != null ? Number(data.unit_price) : 0,
       taxRate: data.tax_rate,
       discountPercentage: data.discount_percentage,
-      totalPrice: data.total_price,
+      totalPrice: data.total_price != null ? Number(data.total_price) : 0,
       quantityReceived: data.quantity_received,
       quantityPending: data.quantity_pending,
       expectedDeliveryDate: data.expected_delivery_date,

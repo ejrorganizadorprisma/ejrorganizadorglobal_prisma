@@ -119,11 +119,17 @@ router.get('/by-sale/:saleId', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Gestores enxergam a carteira toda; os demais só as próprias cobranças.
+const FINANCE_ROLES = ['OWNER', 'DIRECTOR', 'MANAGER'];
+const isFinanceRole = (req: AuthRequest) => FINANCE_ROLES.includes(req.user?.role || '');
+
 // GET / — listar cobranças com filtros
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const filters: CollectionFilters = {
-      sellerId: req.query.sellerId as string,
+      // Sem isto qualquer usuário logado listava as cobranças de todos
+      // (valores, clientes e vendedores da operação inteira).
+      sellerId: isFinanceRole(req) ? (req.query.sellerId as string) : req.user!.id,
       customerId: req.query.customerId as string,
       saleId: req.query.saleId as string,
       status: req.query.status as any,
@@ -148,6 +154,10 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const collection = await repo.findById(req.params.id);
     if (!collection) {
+      throw new NotFoundError('Cobrança não encontrada');
+    }
+    // Não-gestor só acessa a própria cobrança (404 para não revelar existência)
+    if (!isFinanceRole(req) && (collection as any).sellerId !== req.user!.id) {
       throw new NotFoundError('Cobrança não encontrada');
     }
     res.json({ data: collection });

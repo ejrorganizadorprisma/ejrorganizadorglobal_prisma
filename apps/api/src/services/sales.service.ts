@@ -364,7 +364,7 @@ export class SalesService {
   /**
    * Atualizar pagamento
    */
-  async updatePayment(paymentId: string, data: UpdateSalePaymentDTO) {
+  async updatePayment(paymentId: string, data: UpdateSalePaymentDTO, saleId?: string) {
     // Validar data de pagamento
     if (data.paidDate) {
       const paidDate = new Date(data.paidDate);
@@ -374,6 +374,18 @@ export class SalesService {
         throw new BadRequestError(
           'Data de pagamento não pode ser futura'
         );
+      }
+    }
+
+    // A rota é /sales/:id/payments/:paymentId — a parcela precisa ser DESSA venda.
+    // Sem isso, qualquer saleId na URL dava acesso a qualquer parcela do sistema.
+    if (saleId) {
+      const owner = await this.repository.getPaymentSaleId(paymentId);
+      if (!owner) {
+        throw new NotFoundError('Parcela não encontrada');
+      }
+      if (owner !== saleId) {
+        throw new NotFoundError('Parcela não encontrada nesta venda');
       }
     }
 

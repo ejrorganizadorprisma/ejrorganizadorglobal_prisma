@@ -23,7 +23,9 @@ const GenerateOrdersSchema = z.object({
 
 const UpdateSupplierOrderItemSchema = z.object({
   quantity: z.number().int().positive().optional(),
-  unitPrice: z.number().int().min(0).optional(),
+  // Centavos de BRL — aceita fração porque compras em Gs/US$ convertem pelo
+  // câmbio e geram centavos quebrados (Gs. 100 = 8,3 centavos). Ver migration 062.
+  unitPrice: z.number().min(0).optional(),
   discountPercentage: z.number().min(0).max(100).optional(),
   notes: z.string().optional(),
 });

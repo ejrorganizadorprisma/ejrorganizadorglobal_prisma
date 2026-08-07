@@ -697,6 +697,15 @@ export class SalesRepository {
   }
 
   /**
+   * Venda dona de uma parcela — usado para impedir que a rota
+   * /sales/:id/payments/:paymentId altere parcela de outra venda.
+   */
+  async getPaymentSaleId(paymentId: string): Promise<string | null> {
+    const result = await db.query('SELECT sale_id FROM sale_payments WHERE id = $1', [paymentId]);
+    return result.rows[0]?.sale_id ?? null;
+  }
+
+  /**
    * Atualizar pagamento
    */
   async updatePayment(

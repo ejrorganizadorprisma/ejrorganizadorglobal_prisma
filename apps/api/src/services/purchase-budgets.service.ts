@@ -766,11 +766,14 @@ export class PurchaseBudgetsService {
     const soId = `so-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const groupCode = `GRP-${po.order_number}`;
 
-    // Calculate subtotal
+    // Calculate subtotal — unit_price/total_price são numeric (migration 062) e o
+    // driver pg devolve string; sem Number() isto concatenava em vez de somar.
     let subtotal = 0;
     for (const item of itemsResult.rows) {
-      subtotal += item.total_price;
+      subtotal += Number(item.total_price) || 0;
     }
+    // supplier_orders.subtotal/total_amount continuam INTEGER
+    subtotal = Math.round(subtotal);
 
     // Create supplier order
     await db.query(

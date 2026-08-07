@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { SalesController } from '../controllers/sales.controller';
 import { authenticate } from '../middleware/auth';
+import { authorize } from '../middleware/authorize';
 
 const router = Router();
 const controller = new SalesController();
@@ -43,10 +44,14 @@ router.post('/:id/expedition', controller.expedition);
 router.post('/:id/collect', controller.collect);
 router.post('/:id/collection-receipt', upload.single('file'), controller.uploadCollectionReceipt);
 
+// Baixa de contas a receber: mesmo nível de acesso que o módulo Financeiro
+// (antes qualquer usuário logado podia quitar a parcela de um cliente).
+const FINANCE_ROLES = ['OWNER', 'DIRECTOR', 'MANAGER'];
+
 // POST /api/v1/sales/:id/payments
-router.post('/:id/payments', controller.addPayment);
+router.post('/:id/payments', authorize(FINANCE_ROLES), controller.addPayment);
 
 // PUT /api/v1/sales/:id/payments/:paymentId
-router.put('/:id/payments/:paymentId', controller.updatePayment);
+router.put('/:id/payments/:paymentId', authorize(FINANCE_ROLES), controller.updatePayment);
 
 export default router;

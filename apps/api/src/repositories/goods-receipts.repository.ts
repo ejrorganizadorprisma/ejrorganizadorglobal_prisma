@@ -820,7 +820,7 @@ export class GoodsReceiptsRepository {
       quantityReceived: data.quantity_received,
       quantityAccepted: data.quantity_accepted,
       quantityRejected: data.quantity_rejected,
-      unitPrice: data.unit_price,
+      unitPrice: data.unit_price != null ? Number(data.unit_price) : undefined,
       qualityStatus: data.quality_status,
       rejectionReason: data.rejection_reason,
       lotNumber: data.lot_number,
