@@ -32,6 +32,9 @@ import {
   Percent,
   Search,
   Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  CalendarDays,
   type LucideIcon,
   LifeBuoy,
 } from 'lucide-react';
@@ -232,18 +235,21 @@ const menuSections: MenuSection[] = [
     label: 'Financeiro',
     items: [
       {
+        // Página própria 'financial': antes usava 'sales' e o menu aparecia para
+        // vendedor, que só levava 403 ao clicar (migration 065).
         name: 'Financeiro',
         icon: Wallet,
-        page: 'sales' as AppPage,
+        page: 'financial' as AppPage,
         submenu: [
-          { name: 'Dashboard', path: '/financial', icon: Wallet, page: 'sales' as AppPage },
-          { name: 'Caixa', path: '/financial/cashbox', icon: DollarSign, page: 'sales' as AppPage },
-          { name: 'Cobrancas', path: '/collections', icon: Receipt, page: 'collections' as AppPage },
-          { name: 'Comissoes', path: '/commissions', icon: Percent, page: 'commissions' as AppPage },
-          { name: 'Devedores', path: '/financial/debtors', icon: Users, page: 'sales' as AppPage },
-          { name: 'Calendário', path: '/financial/calendar', icon: Wallet, page: 'sales' as AppPage },
-          { name: 'A Receber', path: '/financial/receivables', icon: Wallet, page: 'sales' as AppPage },
-          { name: 'A Pagar', path: '/financial/payables', icon: Wallet, page: 'sales' as AppPage },
+          { name: 'Dashboard', path: '/financial', icon: Wallet, page: 'financial' as AppPage },
+          { name: 'Caixa', path: '/financial/cashbox', icon: DollarSign, page: 'financial' as AppPage },
+          { name: 'A Receber', path: '/financial/receivables', icon: ArrowUpRight, page: 'financial' as AppPage },
+          { name: 'A Pagar', path: '/financial/payables', icon: ArrowDownRight, page: 'financial' as AppPage },
+          { name: 'Despesas', path: '/financial/expenses', icon: Receipt, page: 'financial' as AppPage },
+          { name: 'Cobranças', path: '/collections', icon: Receipt, page: 'collections' as AppPage },
+          { name: 'Comissões', path: '/commissions', icon: Percent, page: 'commissions' as AppPage },
+          { name: 'Devedores', path: '/financial/debtors', icon: Users, page: 'financial' as AppPage },
+          { name: 'Calendário', path: '/financial/calendar', icon: CalendarDays, page: 'financial' as AppPage },
         ],
       },
     ],

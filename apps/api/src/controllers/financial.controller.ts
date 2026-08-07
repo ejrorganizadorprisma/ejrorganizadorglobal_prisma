@@ -73,8 +73,9 @@ export class FinancialController {
         endDate: req.query.endDate as string,
         entityId: req.query.entityId as string,
         search: req.query.search as string,
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 20,
+        // Teto de 100: sem ele um ?limit=999999 varria a tabela inteira
+        page: Math.max(1, parseInt(req.query.page as string) || 1),
+        limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20)),
       };
 
       const result = await this.service.getReceivables(filters);
@@ -104,8 +105,9 @@ export class FinancialController {
         endDate: req.query.endDate as string,
         entityId: req.query.entityId as string,
         search: req.query.search as string,
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 20,
+        // Teto de 100: sem ele um ?limit=999999 varria a tabela inteira
+        page: Math.max(1, parseInt(req.query.page as string) || 1),
+        limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20)),
       };
 
       const result = await this.service.getPayables(filters);
@@ -135,8 +137,9 @@ export class FinancialController {
         onlyCreditExceeded: req.query.onlyCreditExceeded === 'true',
         sortBy: (req.query.sortBy as any) || 'overdue',
         sortOrder: (req.query.sortOrder as any) || 'desc',
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 20,
+        // Teto de 100: sem ele um ?limit=999999 varria a tabela inteira
+        page: Math.max(1, parseInt(req.query.page as string) || 1),
+        limit: Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20)),
       };
       const result = await this.service.getDebtors(filters);
       res.json({ success: true, ...result });

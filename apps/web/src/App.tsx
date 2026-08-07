@@ -106,6 +106,7 @@ import { FinancialDashboardPage } from './pages/FinancialDashboardPage';
 import { FinancialCalendarPage } from './pages/FinancialCalendarPage';
 import { FinancialReceivablesPage } from './pages/FinancialReceivablesPage';
 import { FinancialPayablesPage } from './pages/FinancialPayablesPage';
+import { ExpensesPage } from './pages/ExpensesPage';
 import { FinancialDebtorsPage } from './pages/FinancialDebtorsPage';
 import { CashBoxPage } from './pages/CashBoxPage';
 
@@ -537,6 +538,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <MainLayout>
               <FinancialPayablesPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/financial/expenses"
+        element={
+          <ProtectedRoute>
+            <MainLayout>
+              <ExpensesPage />
             </MainLayout>
           </ProtectedRoute>
         }

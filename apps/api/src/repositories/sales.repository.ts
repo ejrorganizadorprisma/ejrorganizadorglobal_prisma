@@ -725,6 +725,13 @@ export class SalesRepository {
       updates.push(`status = $${paramIndex}`);
       values.push(paymentData.status);
       paramIndex++;
+      // paid_amount acompanha a baixa manual, senão uma parcela marcada como PAGA
+      // continuaria "em aberto" para a baixa via cobrança (migration 063).
+      if (paymentData.status === 'PAID') {
+        updates.push(`paid_amount = amount`);
+      } else if (paymentData.status === 'PENDING' || paymentData.status === 'CANCELLED') {
+        updates.push(`paid_amount = 0`);
+      }
     }
     if (paymentData.notes !== undefined) {
       updates.push(`notes = $${paramIndex}`);
@@ -933,9 +940,11 @@ export class SalesRepository {
     const payments = paymentsResult.rows;
     if (!payments.length) return;
 
+    // Soma o que foi efetivamente quitado (baixa manual ou cobrança do vendedor),
+    // não só as parcelas 100% pagas — uma cobrança pode cobrir parte da parcela.
     const totalPaid = payments
-      .filter((p) => p.status === 'PAID')
-      .reduce((sum, p) => sum + p.amount, 0);
+      .filter((p) => p.status !== 'CANCELLED')
+      .reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
 
     const saleResult = await db.query(
       'SELECT total FROM sales WHERE id = $1',

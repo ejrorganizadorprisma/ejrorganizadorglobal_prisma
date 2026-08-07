@@ -35,6 +35,7 @@ export enum AppPage {
   SEPARATION = 'separation',   // Separação no Estoque (chão de fábrica)
   EXPEDITION = 'expedition',   // Expedição / coleta pela transportadora
   CARRIERS = 'carriers',       // Cadastro de transportadoras
+  FINANCIAL = 'financial',     // Caixa, contas a pagar/receber, despesas, devedores
 }
 
 // Available actions for each page

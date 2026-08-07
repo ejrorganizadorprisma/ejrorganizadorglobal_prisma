@@ -23,10 +23,137 @@ import type {
 } from '@ejr/shared-types';
 
 export class FinancialRepository {
+  // ════════════════════════════════════════════════════════════════════════
+  // MOEDA — o financeiro mistura duas origens com unidades DIFERENTES:
+  //   • Contas a receber (sale_payments): moeda base do sistema, no formato de
+  //     armazenamento dela (PYG = inteiro, BRL/USD = centavos).
+  //   • Contas a pagar (parcelas do orçamento de compra): SEMPRE centavos de BRL,
+  //     porque o orçamento converte pelo câmbio na entrada (ver purchaseMoney.ts).
+  // Somar os dois direto produzia saldo e projeções sem sentido (Guarani + centavo
+  // de Real no mesmo total). Aqui a conta a pagar é convertida para a moeda base
+  // antes de qualquer soma, usando o câmbio do próprio orçamento e caindo nas taxas
+  // do sistema quando o orçamento não tem taxa cadastrada.
+  // ════════════════════════════════════════════════════════════════════════
+
+  private baseCurrencyCache: { value: { currency: string; brlToPyg: number; brlToUsd: number }; at: number } | null = null;
+
+  private async getBaseCurrency(): Promise<{ currency: string; brlToPyg: number; brlToUsd: number }> {
+    if (this.baseCurrencyCache && Date.now() - this.baseCurrencyCache.at < 60_000) {
+      return this.baseCurrencyCache.value;
+    }
+    let value = { currency: 'BRL', brlToPyg: 0, brlToUsd: 0 };
+    try {
+      const r = await db.query(
+        `SELECT default_currency, exchange_rate_brl_to_pyg, exchange_rate_brl_to_usd
+         FROM system_settings LIMIT 1`
+      );
+      if (r.rows[0]) {
+        value = {
+          currency: r.rows[0].default_currency || 'BRL',
+          brlToPyg: Number(r.rows[0].exchange_rate_brl_to_pyg) || 0,
+          brlToUsd: Number(r.rows[0].exchange_rate_brl_to_usd) || 0,
+        };
+      }
+    } catch {
+      /* sem system_settings: trata tudo como BRL (formato de armazenamento) */
+    }
+    this.baseCurrencyCache = { value, at: Date.now() };
+    return value;
+  }
+
+  /**
+   * Expressão SQL que converte o valor de uma parcela de compra (centavos de BRL)
+   * para a moeda base do sistema. Espera os aliases `pb` (purchase_budgets) e
+   * `inst` (elemento de payment_installments) no escopo da query.
+   *
+   * Os números interpolados vêm de system_settings (colunas numeric) e passam por
+   * Number() — não há entrada de usuário nesta string.
+   */
+  private async payableAmountExpr(): Promise<string> {
+    const { currency, brlToPyg, brlToUsd } = await this.getBaseCurrency();
+    const cents = `(inst->>'amount')::numeric`;
+
+    if (currency === 'PYG') {
+      const fallback = Number(brlToPyg) || 0;
+      // centavos BRL → BRL → PYG (Guarani é inteiro)
+      return `ROUND(${cents} / 100 * COALESCE(NULLIF(pb.exchange_rate_1, 0), ${fallback}))`;
+    }
+    if (currency === 'USD') {
+      const fallback = Number(brlToUsd) || 0;
+      // exchange_rate_3 = 1 USD em BRL; USD fica em centavos como o BRL
+      return `ROUND(CASE
+        WHEN COALESCE(NULLIF(pb.exchange_rate_3, 0), 0) > 0 THEN ${cents} / pb.exchange_rate_3
+        ELSE ${cents} * ${fallback}
+      END)`;
+    }
+    // Base BRL: a parcela já está na unidade certa
+    return `${cents}`;
+  }
+
+  /**
+   * Fonte única de Contas a Pagar: parcelas de orçamento de compra + despesas
+   * avulsas (aluguel, salário, imposto...). Devolve o CORPO de uma CTE chamada
+   * `payables`, para que resumo, listagem, calendário, fluxo e caixa enxerguem
+   * exatamente o mesmo conjunto.
+   *
+   * `amount` já sai na moeda base do sistema nas duas origens: a parcela de
+   * compra é convertida por payableAmountExpr(); a despesa já é lançada na moeda
+   * base (não passa por câmbio).
+   */
+  private async payablesSource(): Promise<string> {
+    const payAmt = await this.payableAmountExpr();
+    return `
+      SELECT
+        (inst->>'id')::text                        AS id,
+        'PURCHASE_BUDGET'                          AS source_type,
+        pb.id::text                                AS source_id,
+        pb.budget_number                           AS source_number,
+        (inst->>'installmentNumber')::int          AS installment_number,
+        ${payAmt}::bigint                          AS amount,
+        (inst->>'dueDate')::date                   AS due_date,
+        (inst->>'paidDate')::text                  AS paid_date,
+        COALESCE(inst->>'status', 'PENDING')       AS raw_status,
+        pb.payment_method::text                    AS payment_method,
+        inst->>'notes'                             AS notes,
+        sup.id::text                               AS entity_id,
+        COALESCE(sup.name, 'Fornecedor não identificado') AS entity_name,
+        NULL::text                                 AS category
+      FROM purchase_budgets pb
+      CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
+      LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
+      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
+        AND pb.payment_installments IS NOT NULL
+        AND jsonb_array_length(pb.payment_installments) > 0
+
+      UNION ALL
+
+      SELECT
+        ei.id::text,
+        'EXPENSE',
+        e.id::text,
+        e.expense_number,
+        ei.installment_number,
+        ei.amount::bigint,
+        ei.due_date,
+        ei.paid_date::text,
+        ei.status,
+        ei.payment_method,
+        COALESCE(ei.notes, e.description),
+        sup.id::text,
+        COALESCE(sup.name, e.description),
+        e.category
+      FROM expense_installments ei
+      INNER JOIN expenses e ON e.id = ei.expense_id
+      LEFT JOIN suppliers sup ON sup.id = e.supplier_id
+      WHERE e.status <> 'CANCELLED'
+    `;
+  }
+
   /**
    * Obter resumo financeiro: totais por status, próximos vencimentos e atrasados
    */
   async getSummary(): Promise<FinancialSummary> {
+    const payablesCte = await this.payablesSource();
     // ── Contas a Receber agrupadas por status ──
     const receivableQuery = `
       SELECT
@@ -41,20 +168,17 @@ export class FinancialRepository {
       GROUP BY effective_status
     `;
 
-    // ── Contas a Pagar agrupadas por status ──
+    // ── Contas a Pagar agrupadas por status (compras + despesas) ──
     const payableQuery = `
+      WITH payables AS (${payablesCte})
       SELECT
         CASE
-          WHEN (inst->>'status') = 'PENDING' AND (inst->>'dueDate')::date < CURRENT_DATE THEN 'OVERDUE'
-          ELSE inst->>'status'
+          WHEN raw_status = 'PENDING' AND due_date < CURRENT_DATE THEN 'OVERDUE'
+          ELSE raw_status
         END AS effective_status,
         COUNT(*)::int AS count,
-        COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb,
-           jsonb_array_elements(pb.payment_installments) AS inst
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND pb.payment_installments IS NOT NULL
-        AND jsonb_array_length(pb.payment_installments) > 0
+        COALESCE(SUM(amount), 0)::bigint AS total
+      FROM payables
       GROUP BY effective_status
     `;
 
@@ -67,18 +191,15 @@ export class FinancialRepository {
     `;
 
     const dueTodayPayableQuery = `
-      SELECT COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb,
-           jsonb_array_elements(pb.payment_installments) AS inst
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND pb.payment_installments IS NOT NULL
-        AND jsonb_array_length(pb.payment_installments) > 0
-        AND (inst->>'status') = 'PENDING'
-        AND (inst->>'dueDate')::date = CURRENT_DATE
+      WITH payables AS (${payablesCte})
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total
+      FROM payables
+      WHERE raw_status = 'PENDING' AND due_date = CURRENT_DATE
     `;
 
     // ── Top 10 próximos vencimentos (PENDING, due_date >= hoje) ──
     const upcomingQuery = `
+      WITH payables AS (${payablesCte})
       (
         SELECT
           sp.id::text AS id,
@@ -106,29 +227,12 @@ export class FinancialRepository {
       UNION ALL
       (
         SELECT
-          (inst->>'id')::text AS id,
-          'PAYABLE' AS direction,
-          'PURCHASE_BUDGET' AS source_type,
-          pb.id::text AS source_id,
-          pb.budget_number AS source_number,
-          (inst->>'installmentNumber')::int AS installment_number,
-          (inst->>'amount')::bigint AS amount,
-          (inst->>'dueDate')::text AS due_date,
-          (inst->>'paidDate')::text AS paid_date,
-          'PENDING' AS status,
-          pb.payment_method::text AS payment_method,
-          inst->>'notes' AS notes,
-          sup.id::text AS entity_id,
-          COALESCE(sup.name, 'Fornecedor não identificado') AS entity_name
-        FROM purchase_budgets pb
-        CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
-        LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
-        WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-          AND pb.payment_installments IS NOT NULL
-          AND jsonb_array_length(pb.payment_installments) > 0
-          AND (inst->>'status') = 'PENDING'
-          AND (inst->>'dueDate')::date >= CURRENT_DATE
-        ORDER BY (inst->>'dueDate')::date ASC
+          id, 'PAYABLE' AS direction, source_type, source_id, source_number,
+          installment_number, amount, due_date::text AS due_date, paid_date,
+          'PENDING' AS status, payment_method, notes, entity_id, entity_name
+        FROM payables
+        WHERE raw_status = 'PENDING' AND due_date >= CURRENT_DATE
+        ORDER BY due_date ASC
         LIMIT 10
       )
       ORDER BY due_date ASC
@@ -137,6 +241,7 @@ export class FinancialRepository {
 
     // ── Top 10 atrasados (PENDING com due_date < hoje) ──
     const overdueQuery = `
+      WITH payables AS (${payablesCte})
       (
         SELECT
           sp.id::text AS id,
@@ -164,29 +269,12 @@ export class FinancialRepository {
       UNION ALL
       (
         SELECT
-          (inst->>'id')::text AS id,
-          'PAYABLE' AS direction,
-          'PURCHASE_BUDGET' AS source_type,
-          pb.id::text AS source_id,
-          pb.budget_number AS source_number,
-          (inst->>'installmentNumber')::int AS installment_number,
-          (inst->>'amount')::bigint AS amount,
-          (inst->>'dueDate')::text AS due_date,
-          (inst->>'paidDate')::text AS paid_date,
-          'OVERDUE' AS status,
-          pb.payment_method::text AS payment_method,
-          inst->>'notes' AS notes,
-          sup.id::text AS entity_id,
-          COALESCE(sup.name, 'Fornecedor não identificado') AS entity_name
-        FROM purchase_budgets pb
-        CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
-        LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
-        WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-          AND pb.payment_installments IS NOT NULL
-          AND jsonb_array_length(pb.payment_installments) > 0
-          AND (inst->>'status') = 'PENDING'
-          AND (inst->>'dueDate')::date < CURRENT_DATE
-        ORDER BY (inst->>'dueDate')::date ASC
+          id, 'PAYABLE' AS direction, source_type, source_id, source_number,
+          installment_number, amount, due_date::text AS due_date, paid_date,
+          'OVERDUE' AS status, payment_method, notes, entity_id, entity_name
+        FROM payables
+        WHERE raw_status = 'PENDING' AND due_date < CURRENT_DATE
+        ORDER BY due_date ASC
         LIMIT 10
       )
       ORDER BY due_date ASC
@@ -371,6 +459,7 @@ export class FinancialRepository {
    * Fluxo de caixa: agrupa recebimentos e pagamentos por dia nos próximos N dias
    */
   async getCashFlow(days: number): Promise<CashFlowResponse> {
+    const payablesCte = await this.payablesSource();
     // Recebíveis por dia (PENDING apenas, pois PAID já foi recebido)
     const receivableByDayQuery = `
       SELECT
@@ -384,21 +473,18 @@ export class FinancialRepository {
       ORDER BY sp.due_date::date
     `;
 
-    // Pagáveis por dia
+    // Pagáveis por dia (compras + despesas avulsas)
     const payableByDayQuery = `
+      WITH payables AS (${payablesCte})
       SELECT
-        (inst->>'dueDate')::date::text AS day,
-        COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb,
-           jsonb_array_elements(pb.payment_installments) AS inst
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND pb.payment_installments IS NOT NULL
-        AND jsonb_array_length(pb.payment_installments) > 0
-        AND (inst->>'status') = 'PENDING'
-        AND (inst->>'dueDate')::date >= CURRENT_DATE
-        AND (inst->>'dueDate')::date < CURRENT_DATE + $1::int
-      GROUP BY (inst->>'dueDate')::date
-      ORDER BY (inst->>'dueDate')::date
+        due_date::text AS day,
+        COALESCE(SUM(amount), 0)::bigint AS total
+      FROM payables
+      WHERE raw_status = 'PENDING'
+        AND due_date >= CURRENT_DATE
+        AND due_date < CURRENT_DATE + $1::int
+      GROUP BY due_date
+      ORDER BY due_date
     `;
 
     const [receivableResult, payableResult] = await Promise.all([
@@ -460,6 +546,7 @@ export class FinancialRepository {
    * Calendário financeiro: todas as parcelas de um mês, agrupadas por dia
    */
   async getCalendar(month: string): Promise<CalendarResponse> {
+    const payablesCte = await this.payablesSource();
     // month no formato "YYYY-MM"
     const startOfMonth = `${month}-01`;
 
@@ -490,34 +577,20 @@ export class FinancialRepository {
         AND sp.due_date < ($1::date + INTERVAL '1 month')
     `;
 
-    // Pagáveis do mês
+    // Pagáveis do mês (compras + despesas avulsas)
     const payableQuery = `
+      WITH payables AS (${payablesCte})
       SELECT
-        (inst->>'id')::text AS id,
-        'PAYABLE' AS direction,
-        'PURCHASE_BUDGET' AS source_type,
-        pb.id::text AS source_id,
-        pb.budget_number AS source_number,
-        (inst->>'installmentNumber')::int AS installment_number,
-        (inst->>'amount')::bigint AS amount,
-        (inst->>'dueDate')::text AS due_date,
-        (inst->>'paidDate')::text AS paid_date,
+        id, 'PAYABLE' AS direction, source_type, source_id, source_number,
+        installment_number, amount, due_date::text AS due_date, paid_date,
         CASE
-          WHEN (inst->>'status') = 'PENDING' AND (inst->>'dueDate')::date < CURRENT_DATE THEN 'OVERDUE'
-          ELSE inst->>'status'
+          WHEN raw_status = 'PENDING' AND due_date < CURRENT_DATE THEN 'OVERDUE'
+          ELSE raw_status
         END AS status,
-        pb.payment_method,
-        inst->>'notes' AS notes,
-        sup.id::text AS entity_id,
-        COALESCE(sup.name, 'Fornecedor não identificado') AS entity_name
-      FROM purchase_budgets pb
-      CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
-      LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND pb.payment_installments IS NOT NULL
-        AND jsonb_array_length(pb.payment_installments) > 0
-        AND (inst->>'dueDate')::date >= $1::date
-        AND (inst->>'dueDate')::date < ($1::date + INTERVAL '1 month')
+        payment_method, notes, entity_id, entity_name
+      FROM payables
+      WHERE due_date >= $1::date
+        AND due_date < ($1::date + INTERVAL '1 month')
     `;
 
     const [receivableResult, payableResult] = await Promise.all([
@@ -654,21 +727,8 @@ export class FinancialRepository {
     const countResult = await db.query(countQuery, queryParams);
     const total = countResult.rows[0]?.total || 0;
 
-    // Totais por status (usa os mesmos filtros, exceto status)
-    const statusConditions = conditions.filter(
-      (c) =>
-        !c.includes('sp.status') &&
-        !c.includes('sp.due_date >= CURRENT_DATE')
-    );
-    const statusParams = queryParams.filter((_, idx) => {
-      // Remover o parâmetro do status se existia
-      if (status && status !== 'OVERDUE') {
-        return idx !== 0;
-      }
-      return true;
-    });
-
-    // Para simplificar, recalcular totais sem filtro de status
+    // Totais por status: recalculados sem o filtro de status, senão os cards do
+    // topo mostrariam só a fatia filtrada em vez do panorama.
     const totalsConditions: string[] = [];
     const totalsParams: any[] = [];
     let totalsParamIndex = 1;
@@ -770,9 +830,11 @@ export class FinancialRepository {
   }
 
   /**
-   * Lista paginada de contas a pagar (purchase_budgets JSONB) com filtros e totais por status
+   * Lista paginada de Contas a Pagar: parcelas de orçamento de compra +
+   * despesas avulsas, já na moeda base do sistema (ver payablesSource).
    */
   async getPayables(filters: FinancialFilters): Promise<FinancialListResponse> {
+    const payablesCte = await this.payablesSource();
     const {
       status,
       startDate,
@@ -784,108 +846,70 @@ export class FinancialRepository {
     } = filters;
 
     const offset = (page - 1) * limit;
-    const baseConditions: string[] = [
-      `pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')`,
-      `pb.payment_installments IS NOT NULL`,
-      `jsonb_array_length(pb.payment_installments) > 0`,
-    ];
-    const conditions: string[] = [...baseConditions];
-    const queryParams: any[] = [];
-    let paramIndex = 1;
 
+    // Filtros aplicados sobre a CTE — os mesmos para contagem e listagem.
+    // Os totais por status ignoram o filtro de status (senão os cards do topo
+    // mostrariam só a fatia filtrada).
+    const listConditions: string[] = [];
+    const totalsConditions: string[] = [];
+    const params: any[] = [];
+    let i = 1;
+
+    if (startDate) {
+      const c = `due_date >= $${i}::date`;
+      listConditions.push(c); totalsConditions.push(c);
+      params.push(startDate); i++;
+    }
+    if (endDate) {
+      const c = `due_date <= $${i}::date`;
+      listConditions.push(c); totalsConditions.push(c);
+      params.push(endDate); i++;
+    }
+    if (entityId) {
+      const c = `entity_id = $${i}`;
+      listConditions.push(c); totalsConditions.push(c);
+      params.push(entityId); i++;
+    }
+    if (search) {
+      const c = `(source_number ILIKE $${i} OR entity_name ILIKE $${i} OR notes ILIKE $${i})`;
+      listConditions.push(c); totalsConditions.push(c);
+      params.push(`%${search}%`); i++;
+    }
+
+    // Status entra só na listagem
     if (status) {
       if (status === 'OVERDUE') {
-        conditions.push(`(inst->>'status') = 'PENDING' AND (inst->>'dueDate')::date < CURRENT_DATE`);
+        listConditions.push(`raw_status = 'PENDING' AND due_date < CURRENT_DATE`);
+      } else if (status === 'PENDING') {
+        listConditions.push(`raw_status = 'PENDING' AND due_date >= CURRENT_DATE`);
       } else {
-        conditions.push(`(inst->>'status') = $${paramIndex}`);
-        queryParams.push(status);
-        paramIndex++;
-        if (status === 'PENDING') {
-          conditions.push(`(inst->>'dueDate')::date >= CURRENT_DATE`);
-        }
+        listConditions.push(`raw_status = $${i}`);
+        params.push(status); i++;
       }
     }
 
-    if (startDate) {
-      conditions.push(`(inst->>'dueDate')::date >= $${paramIndex}::date`);
-      queryParams.push(startDate);
-      paramIndex++;
-    }
+    const listWhere = listConditions.length ? `WHERE ${listConditions.join(' AND ')}` : '';
+    const totalsWhere = totalsConditions.length ? `WHERE ${totalsConditions.join(' AND ')}` : '';
+    // Os parâmetros de status ficam no fim, então os totais usam só o prefixo
+    const totalsParams = params.slice(0, totalsConditions.length);
 
-    if (endDate) {
-      conditions.push(`(inst->>'dueDate')::date <= $${paramIndex}::date`);
-      queryParams.push(endDate);
-      paramIndex++;
-    }
-
-    if (entityId) {
-      conditions.push(`pb.supplier_id = $${paramIndex}`);
-      queryParams.push(entityId);
-      paramIndex++;
-    }
-
-    if (search) {
-      conditions.push(`(pb.budget_number ILIKE $${paramIndex} OR sup.name ILIKE $${paramIndex})`);
-      queryParams.push(`%${search}%`);
-      paramIndex++;
-    }
-
-    const whereClause = `WHERE ${conditions.join(' AND ')}`;
-
-    // Count
-    const countQuery = `
-      SELECT COUNT(*)::int AS total
-      FROM purchase_budgets pb
-      CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
-      LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
-      ${whereClause}
-    `;
-
-    const countResult = await db.query(countQuery, queryParams);
+    const countResult = await db.query(
+      `WITH payables AS (${payablesCte}) SELECT COUNT(*)::int AS total FROM payables ${listWhere}`,
+      params
+    );
     const total = countResult.rows[0]?.total || 0;
 
-    // Totais por status (sem filtro de status)
-    const totalsConditions: string[] = [...baseConditions];
-    const totalsParams: any[] = [];
-    let totalsParamIndex = 1;
-
-    if (startDate) {
-      totalsConditions.push(`(inst->>'dueDate')::date >= $${totalsParamIndex}::date`);
-      totalsParams.push(startDate);
-      totalsParamIndex++;
-    }
-    if (endDate) {
-      totalsConditions.push(`(inst->>'dueDate')::date <= $${totalsParamIndex}::date`);
-      totalsParams.push(endDate);
-      totalsParamIndex++;
-    }
-    if (entityId) {
-      totalsConditions.push(`pb.supplier_id = $${totalsParamIndex}`);
-      totalsParams.push(entityId);
-      totalsParamIndex++;
-    }
-    if (search) {
-      totalsConditions.push(`(pb.budget_number ILIKE $${totalsParamIndex} OR sup.name ILIKE $${totalsParamIndex})`);
-      totalsParams.push(`%${search}%`);
-      totalsParamIndex++;
-    }
-
-    const totalsWhereClause = `WHERE ${totalsConditions.join(' AND ')}`;
-
-    const totalsQuery = `
-      SELECT
-        COALESCE(SUM(CASE WHEN (inst->>'status') = 'PENDING' AND (inst->>'dueDate')::date >= CURRENT_DATE THEN (inst->>'amount')::bigint ELSE 0 END), 0)::bigint AS pending,
-        COALESCE(SUM(CASE WHEN (inst->>'status') = 'PAID' THEN (inst->>'amount')::bigint ELSE 0 END), 0)::bigint AS paid,
-        COALESCE(SUM(CASE WHEN (inst->>'status') = 'PENDING' AND (inst->>'dueDate')::date < CURRENT_DATE THEN (inst->>'amount')::bigint ELSE 0 END), 0)::bigint AS overdue,
-        COALESCE(SUM(CASE WHEN (inst->>'status') = 'CANCELLED' THEN (inst->>'amount')::bigint ELSE 0 END), 0)::bigint AS cancelled,
-        COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb
-      CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
-      LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
-      ${totalsWhereClause}
-    `;
-
-    const totalsResult = await db.query(totalsQuery, totalsParams);
+    const totalsResult = await db.query(
+      `WITH payables AS (${payablesCte})
+       SELECT
+         COALESCE(SUM(CASE WHEN raw_status = 'PENDING' AND due_date >= CURRENT_DATE THEN amount ELSE 0 END), 0)::bigint AS pending,
+         COALESCE(SUM(CASE WHEN raw_status = 'PAID' THEN amount ELSE 0 END), 0)::bigint AS paid,
+         COALESCE(SUM(CASE WHEN raw_status = 'PENDING' AND due_date < CURRENT_DATE THEN amount ELSE 0 END), 0)::bigint AS overdue,
+         COALESCE(SUM(CASE WHEN raw_status = 'CANCELLED' THEN amount ELSE 0 END), 0)::bigint AS cancelled,
+         COALESCE(SUM(amount), 0)::bigint AS total
+       FROM payables ${totalsWhere}`,
+      totalsParams
+    );
     const totals = {
       pending: Number(totalsResult.rows[0]?.pending || 0),
       paid: Number(totalsResult.rows[0]?.paid || 0),
@@ -894,39 +918,30 @@ export class FinancialRepository {
       total: Number(totalsResult.rows[0]?.total || 0),
     };
 
-    // Dados paginados
-    const dataQuery = `
-      SELECT
-        (inst->>'id')::text AS id,
-        'PAYABLE' AS direction,
-        'PURCHASE_BUDGET' AS source_type,
-        pb.id::text AS source_id,
-        pb.budget_number AS source_number,
-        (inst->>'installmentNumber')::int AS installment_number,
-        (inst->>'amount')::bigint AS amount,
-        (inst->>'dueDate')::text AS due_date,
-        (inst->>'paidDate')::text AS paid_date,
-        CASE
-          WHEN (inst->>'status') = 'PENDING' AND (inst->>'dueDate')::date < CURRENT_DATE THEN 'OVERDUE'
-          ELSE inst->>'status'
-        END AS status,
-        pb.payment_method,
-        inst->>'notes' AS notes,
-        sup.id::text AS entity_id,
-        COALESCE(sup.name, 'Fornecedor não identificado') AS entity_name
-      FROM purchase_budgets pb
-      CROSS JOIN LATERAL jsonb_array_elements(pb.payment_installments) AS inst
-      LEFT JOIN suppliers sup ON sup.id = pb.supplier_id
-      ${whereClause}
-      ORDER BY (inst->>'dueDate')::date ASC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `;
-
-    queryParams.push(limit, offset);
-    const dataResult = await db.query(dataQuery, queryParams);
+    const dataParams = [...params, limit, offset];
+    const dataResult = await db.query(
+      `WITH payables AS (${payablesCte})
+       SELECT
+         id, 'PAYABLE' AS direction, source_type, source_id, source_number,
+         installment_number, amount, due_date::text AS due_date, paid_date,
+         CASE
+           WHEN raw_status = 'PENDING' AND due_date < CURRENT_DATE THEN 'OVERDUE'
+           ELSE raw_status
+         END AS status,
+         payment_method, notes, entity_id, entity_name, category
+       FROM payables
+       ${listWhere}
+       ORDER BY due_date ASC
+       LIMIT $${i} OFFSET $${i + 1}`,
+      dataParams
+    );
 
     return {
-      data: dataResult.rows.map(this.mapRowToEntry),
+      data: dataResult.rows.map((row: any) => ({
+        ...this.mapRowToEntry(row),
+        // categoria só existe em despesa avulsa — a tela usa para o rótulo
+        category: row.category || undefined,
+      })) as FinancialEntry[],
       total,
       totals,
     };
@@ -1051,6 +1066,7 @@ export class FinancialRepository {
    * Caixa: saldo atual, projeções, fluxo diário, alertas e métricas de saúde
    */
   async getCashBox(): Promise<CashBoxResponse> {
+    const payablesCte = await this.payablesSource();
     // ── Helper: query table that may not exist (42P01) ──
     const safeQuery = async (sql: string, params?: any[]): Promise<any[]> => {
       try {
@@ -1073,11 +1089,8 @@ export class FinancialRepository {
     `;
 
     const totalPaidQuery = `
-      SELECT COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb, jsonb_array_elements(pb.payment_installments) AS inst
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND pb.payment_installments IS NOT NULL AND jsonb_array_length(pb.payment_installments) > 0
-        AND (inst->>'status') = 'PAID'
+      WITH payables AS (${payablesCte})
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total FROM payables WHERE raw_status = 'PAID'
     `;
 
     const collectionsDepositedQuery = `
@@ -1104,7 +1117,11 @@ export class FinancialRepository {
     const totalPaid = Number(paidRows[0]?.total || 0);
     const collectionsDeposited = Number(collectionsDepositedRows[0]?.total || 0);
     const commissionsPaid = Number(commissionsPaidRows[0]?.total || 0);
-    const estimatedBalance = totalReceived + collectionsDeposited - totalPaid - commissionsPaid;
+    // A cobrança aprovada JÁ baixa a parcela da venda (migration 063), então o
+    // dinheiro dela entra em `totalReceived`. Somar `collectionsDeposited` aqui
+    // contaria o mesmo recebimento duas vezes — o campo continua na resposta só
+    // como informação de quanto veio por cobrança em campo.
+    const estimatedBalance = totalReceived - totalPaid - commissionsPaid;
 
     const currentBalance: CashBoxCurrentBalance = {
       totalReceived,
@@ -1124,12 +1141,11 @@ export class FinancialRepository {
     `;
 
     const expectedExpensesQuery = `
-      SELECT COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb, jsonb_array_elements(pb.payment_installments) AS inst
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND (inst->>'status') = 'PENDING'
-        AND (inst->>'dueDate')::date >= CURRENT_DATE
-        AND (inst->>'dueDate')::date < CURRENT_DATE + $1::int
+      WITH payables AS (${payablesCte})
+      SELECT COALESCE(SUM(amount), 0)::bigint AS total FROM payables
+      WHERE raw_status = 'PENDING'
+        AND due_date >= CURRENT_DATE
+        AND due_date < CURRENT_DATE + $1::int
     `;
 
     const pendingCollectionsQuery = `
@@ -1171,8 +1187,11 @@ export class FinancialRepository {
     ): CashBoxProjection => {
       const expectedIncome = Number(incomeRows[0]?.total || 0);
       const expectedExpenses = Number(expenseRows[0]?.total || 0);
+      // `pendingCollections` (cobrança aprovada aguardando depósito) não entra na
+      // projeção: a parcela correspondente já foi baixada e o valor está no saldo
+      // atual. Continua exposto para a tela mostrar o dinheiro em trânsito.
       const projectedBalance =
-        estimatedBalance + expectedIncome + pendingCollections - expectedExpenses - pendingCommissions;
+        estimatedBalance + expectedIncome - expectedExpenses - pendingCommissions;
       return {
         period,
         expectedIncome,
@@ -1206,19 +1225,16 @@ export class FinancialRepository {
     `;
 
     const payableByDayQuery = `
+      WITH payables AS (${payablesCte})
       SELECT
-        (inst->>'dueDate')::date::text AS day,
-        COALESCE(SUM((inst->>'amount')::bigint), 0)::bigint AS total
-      FROM purchase_budgets pb,
-           jsonb_array_elements(pb.payment_installments) AS inst
-      WHERE pb.status NOT IN ('CANCELLED', 'DRAFT', 'REJECTED')
-        AND pb.payment_installments IS NOT NULL
-        AND jsonb_array_length(pb.payment_installments) > 0
-        AND (inst->>'status') = 'PENDING'
-        AND (inst->>'dueDate')::date >= CURRENT_DATE
-        AND (inst->>'dueDate')::date < CURRENT_DATE + 30
-      GROUP BY (inst->>'dueDate')::date
-      ORDER BY (inst->>'dueDate')::date
+        due_date::text AS day,
+        COALESCE(SUM(amount), 0)::bigint AS total
+      FROM payables
+      WHERE raw_status = 'PENDING'
+        AND due_date >= CURRENT_DATE
+        AND due_date < CURRENT_DATE + 30
+      GROUP BY due_date
+      ORDER BY due_date
     `;
 
     const [receivableDayResult, payableDayResult] = await Promise.all([

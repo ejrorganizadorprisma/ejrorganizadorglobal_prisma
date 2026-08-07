@@ -13,6 +13,8 @@ import {
   Clock,
   ChevronRight,
   Users,
+  Receipt,
+  DollarSign,
 } from 'lucide-react';
 import type { FinancialEntry } from '@ejr/shared-types';
 
@@ -226,6 +228,20 @@ export function FinancialDashboardPage() {
           >
             <ArrowDownRight className="w-4 h-4" />
             A Pagar
+          </Link>
+          <Link
+            to="/financial/expenses"
+            className="flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 text-sm text-rose-700"
+          >
+            <Receipt className="w-4 h-4" />
+            Despesas
+          </Link>
+          <Link
+            to="/financial/cashbox"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 text-sm text-blue-700"
+          >
+            <DollarSign className="w-4 h-4" />
+            Caixa
           </Link>
           <Link
             to="/financial/debtors"

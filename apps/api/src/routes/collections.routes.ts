@@ -222,6 +222,36 @@ router.patch('/:id/reject', authorize(['OWNER', 'DIRECTOR', 'MANAGER']), async (
   }
 });
 
+// PATCH /:id/revert — estornar cobrança já aprovada/depositada
+// (cheque devolvido, lançamento errado). Devolve as parcelas que ela quitou.
+router.patch('/:id/revert', authorize(['OWNER', 'DIRECTOR', 'MANAGER']), async (req: AuthRequest, res: Response) => {
+  try {
+    const { reason } = req.body;
+    if (!reason) {
+      throw new ValidationError('Motivo do estorno é obrigatório');
+    }
+
+    const existing = await repo.findById(req.params.id);
+    if (!existing) {
+      throw new NotFoundError('Cobrança não encontrada');
+    }
+    if (existing.status !== 'APPROVED' && existing.status !== 'DEPOSITED') {
+      throw new ValidationError('Só é possível estornar cobrança aprovada ou depositada');
+    }
+
+    const collection = await repo.revert(req.params.id, req.user!.id, reason);
+    res.json({ data: collection });
+  } catch (error) {
+    if (error instanceof NotFoundError) {
+      return res.status(404).json({ error: error.message });
+    }
+    if (error instanceof ValidationError) {
+      return res.status(400).json({ error: error.message });
+    }
+    throw error;
+  }
+});
+
 // PATCH /:id/deposit — marcar como depositada
 router.patch('/:id/deposit', authorize(['OWNER', 'DIRECTOR', 'MANAGER']), async (req: AuthRequest, res: Response) => {
   try {

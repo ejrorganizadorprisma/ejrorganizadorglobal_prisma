@@ -238,15 +238,144 @@ export class CollectionsRepository {
    * client/session. Previously used db.query('BEGIN') which hangs on Supabase
    * transaction-mode pgbouncer because each pool.query() may bind a different backend.
    */
+  /**
+   * Abate o valor da cobrança nas parcelas em aberto da venda, da mais antiga para
+   * a mais nova, e registra cada abatimento em collection_allocations.
+   *
+   * Roda DENTRO da transação de aprovação (usa `client`, nunca db.query — o pool
+   * de produção é pgbouncer em transaction mode com max:1).
+   */
+  private async settleInstallments(client: any, collectionId: string): Promise<void> {
+    const colRes = await client.query(
+      'SELECT sale_id, amount FROM collections WHERE id = $1',
+      [collectionId]
+    );
+    const col = colRes.rows[0];
+    if (!col?.sale_id) return;
+
+    let remaining = Number(col.amount) || 0;
+    if (remaining <= 0) return;
+
+    // Bloqueia as parcelas para não haver duas cobranças abatendo a mesma
+    const paymentsRes = await client.query(
+      `SELECT id, amount, COALESCE(paid_amount, 0) AS paid_amount
+       FROM sale_payments
+       WHERE sale_id = $1 AND status <> 'CANCELLED' AND COALESCE(paid_amount, 0) < amount
+       ORDER BY due_date ASC, installment_number ASC
+       FOR UPDATE`,
+      [col.sale_id]
+    );
+
+    for (const p of paymentsRes.rows) {
+      if (remaining <= 0) break;
+      const open = Number(p.amount) - Number(p.paid_amount);
+      if (open <= 0) continue;
+
+      const applied = Math.min(open, remaining);
+      const newPaid = Number(p.paid_amount) + applied;
+      const fullyPaid = newPaid >= Number(p.amount);
+
+      await client.query(
+        `UPDATE sale_payments
+         SET paid_amount = $1::int,
+             status = CASE WHEN $2::boolean THEN 'PAID' ELSE status END,
+             paid_date = CASE WHEN $2::boolean THEN COALESCE(paid_date, CURRENT_DATE) ELSE paid_date END
+         WHERE id = $3`,
+        [newPaid, fullyPaid, p.id]
+      );
+
+      await client.query(
+        `INSERT INTO collection_allocations (collection_id, sale_payment_id, amount)
+         VALUES ($1, $2, $3)`,
+        [collectionId, p.id, applied]
+      );
+
+      remaining -= applied;
+    }
+
+    // Sobra (cliente adiantou mais do que devia) fica sem alocação — aparece no
+    // saldo da venda e não some: o gestor decide o que fazer.
+    await this.recalcSaleTotals(client, col.sale_id);
+  }
+
+  /**
+   * Desfaz o que a cobrança abateu (rejeição/estorno de uma cobrança já aprovada).
+   */
+  private async unsettleInstallments(client: any, collectionId: string): Promise<void> {
+    const allocRes = await client.query(
+      'SELECT sale_payment_id, amount FROM collection_allocations WHERE collection_id = $1',
+      [collectionId]
+    );
+    if (allocRes.rows.length === 0) return;
+
+    for (const a of allocRes.rows) {
+      // $1::int explícito: sem o cast o Postgres não resolve o tipo de
+      // GREATEST(integer - unknown, 0) e recusa a atribuição (42804).
+      await client.query(
+        `UPDATE sale_payments
+         SET paid_amount = GREATEST(COALESCE(paid_amount, 0) - $1::int, 0),
+             status = CASE
+               WHEN GREATEST(COALESCE(paid_amount, 0) - $1::int, 0) < amount AND status = 'PAID'
+                 THEN 'PENDING' ELSE status END,
+             paid_date = CASE
+               WHEN GREATEST(COALESCE(paid_amount, 0) - $1::int, 0) = 0 THEN NULL ELSE paid_date END
+         WHERE id = $2`,
+        [Number(a.amount), a.sale_payment_id]
+      );
+    }
+
+    await client.query('DELETE FROM collection_allocations WHERE collection_id = $1', [collectionId]);
+
+    const saleRes = await client.query('SELECT sale_id FROM collections WHERE id = $1', [collectionId]);
+    if (saleRes.rows[0]?.sale_id) {
+      await this.recalcSaleTotals(client, saleRes.rows[0].sale_id);
+    }
+  }
+
+  /** total_paid / total_pending / status da venda a partir do que foi quitado */
+  private async recalcSaleTotals(client: any, saleId: string): Promise<void> {
+    await client.query(
+      `UPDATE sales s
+       SET total_paid = COALESCE(t.paid, 0),
+           total_pending = GREATEST(s.total - COALESCE(t.paid, 0), 0),
+           -- sales.status é o enum "SaleStatus"; sem o cast o Postgres recusa text
+           status = (CASE
+             WHEN COALESCE(t.paid, 0) >= s.total THEN 'PAID'
+             WHEN COALESCE(t.paid, 0) > 0        THEN 'PARTIAL'
+             WHEN t.has_overdue                  THEN 'OVERDUE'
+             ELSE 'PENDING'
+           END)::"SaleStatus"
+       FROM (
+         SELECT
+           COALESCE(SUM(COALESCE(paid_amount, 0)), 0)::int AS paid,
+           BOOL_OR(status = 'PENDING' AND due_date::date < CURRENT_DATE) AS has_overdue
+         FROM sale_payments WHERE sale_id = $1 AND status <> 'CANCELLED'
+       ) t
+       WHERE s.id = $1`,
+      [saleId]
+    );
+  }
+
   async approve(id: string, approvedBy: string): Promise<Collection> {
     await db.transaction(async (client) => {
-      // Atualizar status
-      await client.query(
+      // Só aprova o que está aguardando aprovação — evita aprovar duas vezes e
+      // abater o valor em dobro nas parcelas.
+      const upd = await client.query(
         `UPDATE collections
          SET status = 'APPROVED', approved_by = $1, approved_at = NOW(), updated_at = NOW()
-         WHERE id = $2`,
+         WHERE id = $2 AND status = 'PENDING_APPROVAL'
+         RETURNING id`,
         [approvedBy, id]
       );
+      if (upd.rowCount === 0) {
+        throw Object.assign(new Error('Cobrança não está aguardando aprovação'), {
+          statusCode: 400,
+          code: 'INVALID_STATUS',
+        });
+      }
+
+      // Baixa das parcelas da venda (o motivo de existir a cobrança)
+      await this.settleInstallments(client, id);
 
       // Verificar se vendedor tem config de comissão sobre cobranças
       const configResult = await client.query(
@@ -271,8 +400,11 @@ export class CollectionsRepository {
             const collection = collectionResult.rows[0];
 
             await client.query(
+              // Casts explícitos: sem eles o Postgres via `unknown * unknown` e
+              // recusava o INSERT ("operator is not unique"), quebrando a aprovação
+              // de qualquer cobrança de vendedor com comissão configurada.
               `INSERT INTO commission_entries (seller_id, source_type, source_id, base_amount, commission_rate, commission_amount, calculation_mode, status)
-               VALUES ($1, 'COLLECTION', $2, $3, $4, ROUND($3 * $4 / 100), 'COLLECTION', 'PENDING')`,
+               VALUES ($1, 'COLLECTION', $2, $3::int, $4::numeric, ROUND($3::numeric * $4::numeric / 100), 'COLLECTION', 'PENDING')`,
               [collection.seller_id, id, collection.amount, rate]
             );
           }
@@ -290,13 +422,56 @@ export class CollectionsRepository {
   /**
    * Rejeitar cobrança
    */
+  /**
+   * Estorna uma cobrança já aprovada/depositada: devolve as parcelas que ela
+   * quitou, cancela a comissão gerada e marca como rejeitada.
+   */
+  async revert(id: string, userId: string, reason: string): Promise<Collection> {
+    await db.transaction(async (client) => {
+      await this.unsettleInstallments(client, id);
+
+      // A comissão sobre a cobrança deixa de existir — só se ainda não foi paga
+      await client.query(
+        `DELETE FROM commission_entries
+         WHERE source_type = 'COLLECTION' AND source_id = $1 AND status = 'PENDING'`,
+        [id]
+      );
+
+      const upd = await client.query(
+        `UPDATE collections
+         SET status = 'REJECTED', approved_by = $1, rejected_reason = $2, updated_at = NOW()
+         WHERE id = $3 AND status IN ('APPROVED', 'DEPOSITED')
+         RETURNING id`,
+        [userId, `Estorno: ${reason}`, id]
+      );
+      if (upd.rowCount === 0) {
+        throw Object.assign(new Error('Cobrança não está aprovada nem depositada'), {
+          statusCode: 400,
+          code: 'INVALID_STATUS',
+        });
+      }
+    });
+
+    const updated = await this.findById(id);
+    if (!updated) {
+      throw new Error('Cobrança não encontrada após estorno');
+    }
+    return updated;
+  }
+
   async reject(id: string, approvedBy: string, reason: string): Promise<Collection> {
-    await db.query(
-      `UPDATE collections
-       SET status = 'REJECTED', approved_by = $1, rejected_reason = $2, updated_at = NOW()
-       WHERE id = $3`,
-      [approvedBy, reason, id]
-    );
+    await db.transaction(async (client) => {
+      // Rejeitar uma cobrança JÁ aprovada é um estorno: devolve as parcelas
+      // que ela quitou ao estado anterior antes de mudar o status.
+      await this.unsettleInstallments(client, id);
+
+      await client.query(
+        `UPDATE collections
+         SET status = 'REJECTED', approved_by = $1, rejected_reason = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [approvedBy, reason, id]
+      );
+    });
 
     const updated = await this.findById(id);
     if (!updated) {

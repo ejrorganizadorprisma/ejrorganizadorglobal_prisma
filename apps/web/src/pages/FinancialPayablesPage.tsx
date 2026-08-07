@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePayables, usePayInstallment } from '../hooks/useFinancial';
+import { usePayExpenseInstallment, categoryIcon, categoryLabel } from '../hooks/useExpenses';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -44,6 +45,7 @@ export function FinancialPayablesPage() {
 
   const { data, isLoading } = usePayables(filters);
   const payInstallment = usePayInstallment();
+  const payExpense = usePayExpenseInstallment();
   const queryClient = useQueryClient();
 
   const entries = data?.data || [];
@@ -60,19 +62,28 @@ export function FinancialPayablesPage() {
     setPaidDate(new Date().toISOString().split('T')[0]);
   };
 
+  const isExpense = (e: FinancialEntry | null) => (e as any)?.sourceType === 'EXPENSE';
+
   const confirmMarkPaid = async () => {
     if (!payingEntry) return;
     try {
-      await payInstallment.mutateAsync({
-        budgetId: payingEntry.sourceId,
-        installmentId: payingEntry.id,
-        paidDate,
-      });
+      // Contas a Pagar tem duas origens: parcela de orçamento de compra e
+      // despesa avulsa. Cada uma tem seu endpoint de baixa.
+      if (isExpense(payingEntry)) {
+        await payExpense.mutateAsync({ installmentId: payingEntry.id, paidDate });
+      } else {
+        await payInstallment.mutateAsync({
+          budgetId: payingEntry.sourceId,
+          installmentId: payingEntry.id,
+          paidDate,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['financial'] });
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
       toast.success('Parcela marcada como paga');
       setPayingEntry(null);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Erro ao marcar como pago');
+      toast.error(err.response?.data?.error?.message || err.response?.data?.message || 'Erro ao marcar como pago');
     }
   };
 
@@ -191,11 +202,27 @@ export function FinancialPayablesPage() {
                 return (
                   <tr key={entry.id} className={`border-b hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
                     <td className="px-4 py-3">
-                      <Link to={`/purchase-budgets/${entry.sourceId}`} className="text-sm text-blue-600 hover:underline font-medium">
-                        {entry.sourceNumber}
-                      </Link>
+                      {(entry as any).sourceType === 'EXPENSE' ? (
+                        <Link to="/financial/expenses" className="text-sm text-rose-600 hover:underline font-medium">
+                          {entry.sourceNumber}
+                        </Link>
+                      ) : (
+                        <Link to={`/purchase-budgets/${entry.sourceId}`} className="text-sm text-blue-600 hover:underline font-medium">
+                          {entry.sourceNumber}
+                        </Link>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-sm">{entry.entityName}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-1.5">
+                        {(entry as any).sourceType === 'EXPENSE' && (
+                          <span title={categoryLabel((entry as any).category)}>{categoryIcon((entry as any).category)}</span>
+                        )}
+                        <span className="truncate">{entry.entityName}</span>
+                      </div>
+                      <span className={`text-[10px] font-medium ${(entry as any).sourceType === 'EXPENSE' ? 'text-rose-500' : 'text-blue-500'}`}>
+                        {(entry as any).sourceType === 'EXPENSE' ? categoryLabel((entry as any).category) : 'Compra'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 text-sm text-center">{entry.installmentNumber}</td>
                     <td className="px-4 py-3 text-sm text-right font-medium text-red-700">
                       {formatPrice(entry.amount)}

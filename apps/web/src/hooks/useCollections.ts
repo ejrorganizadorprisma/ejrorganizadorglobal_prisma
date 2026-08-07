@@ -93,6 +93,8 @@ export function useApproveCollection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       queryClient.invalidateQueries({ queryKey: ['financial'] });
+      // Aprovar dá baixa nas parcelas da venda (migration 063)
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
     },
   });
 }
@@ -107,6 +109,26 @@ export function useRejectCollection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['collections'] });
       queryClient.invalidateQueries({ queryKey: ['financial'] });
+    },
+  });
+}
+
+/**
+ * Estorna uma cobrança já aprovada/depositada (cheque devolvido, lançamento
+ * errado): devolve as parcelas da venda que ela havia quitado.
+ */
+export function useRevertCollection() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+      const response = await api.patch(`/collections/${id}/revert`, { reason });
+      return response.data.data as Collection;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['financial'] });
+      // A baixa mexeu nas parcelas da venda
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
     },
   });
 }

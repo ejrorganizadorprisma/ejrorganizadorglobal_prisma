@@ -8,6 +8,7 @@ import {
   useApproveCollection,
   useRejectCollection,
   useDepositCollection,
+  useRevertCollection,
 } from '../hooks/useCollections';
 import type { Collection } from '../hooks/useCollections';
 import { useSellerStats } from '../hooks/useSellers';
@@ -96,6 +97,9 @@ function CollectionsPageContent() {
   const approveCollection = useApproveCollection();
   const rejectCollection = useRejectCollection();
   const depositCollection = useDepositCollection();
+  const revertCollection = useRevertCollection();
+  const [revertModalId, setRevertModalId] = useState<string | null>(null);
+  const [revertReason, setRevertReason] = useState('');
 
   const collections = data?.data || [];
   const pagination = data?.pagination;
@@ -132,6 +136,23 @@ function CollectionsPageContent() {
       setRejectReason('');
     } catch (error: any) {
       toast.error(error.response?.data?.error?.message || 'Erro ao rejeitar cobranca');
+    }
+  };
+
+  // Estorno: a aprovação baixou parcelas da venda, então desfazer precisa
+  // devolvê-las — não basta mudar o status da cobrança.
+  const handleRevert = async () => {
+    if (!revertModalId || !revertReason.trim()) {
+      toast.error('Informe o motivo do estorno');
+      return;
+    }
+    try {
+      await revertCollection.mutateAsync({ id: revertModalId, reason: revertReason.trim() });
+      toast.success('Cobrança estornada. As parcelas voltaram a ficar em aberto.');
+      setRevertModalId(null);
+      setRevertReason('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error?.message || error.response?.data?.error || 'Erro ao estornar');
     }
   };
 
@@ -329,6 +350,7 @@ function CollectionsPageContent() {
                         onApprove={() => handleApprove(c.id)}
                         onReject={() => { setRejectModalId(c.id); setRejectReason(''); }}
                         onDeposit={() => handleDeposit(c.id)}
+                        onRevert={() => { setRevertModalId(c.id); setRevertReason(''); }}
                         onGeneratePdf={(mode) => handleGeneratePdf(c, mode)}
                         isPdfLoading={pdfLoadingId === c.id}
                         isApproving={approveCollection.isPending}
@@ -366,6 +388,44 @@ function CollectionsPageContent() {
             </div>
           )}
         </>
+      )}
+
+      {/* Revert Modal — estorno de cobrança já aprovada/depositada */}
+      {revertModalId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Estornar Cobrança</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              As parcelas da venda que esta cobrança quitou voltam a ficar em aberto,
+              e a comissão gerada por ela é cancelada.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Motivo do estorno</label>
+              <textarea
+                value={revertReason}
+                onChange={(e) => setRevertReason(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none"
+                placeholder="Ex: cheque devolvido, lançamento em duplicidade..."
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setRevertModalId(null); setRevertReason(''); }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleRevert}
+                disabled={revertCollection.isPending || !revertReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                {revertCollection.isPending ? 'Estornando...' : 'Estornar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Reject Modal */}
@@ -414,6 +474,7 @@ interface CollectionRowProps {
   onApprove: () => void;
   onReject: () => void;
   onDeposit: () => void;
+  onRevert: () => void;
   onGeneratePdf: (mode: CollectionPdfMode) => void;
   isPdfLoading: boolean;
   isApproving: boolean;
@@ -429,6 +490,7 @@ function CollectionRow({
   onApprove,
   onReject,
   onDeposit,
+  onRevert,
   onGeneratePdf,
   isPdfLoading,
   isApproving,
@@ -529,6 +591,15 @@ function CollectionRow({
                 className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
                 Depositado
+              </button>
+            )}
+            {(c.status === 'APPROVED' || c.status === 'DEPOSITED') && (
+              <button
+                onClick={onRevert}
+                title="Estornar: devolve as parcelas da venda que esta cobrança quitou"
+                className="px-2.5 py-1 text-xs font-medium text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                Estornar
               </button>
             )}
           </div>
