@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useSupplierOrders,
@@ -10,7 +10,7 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2, Pencil, MapPin, Truck, Clock } from 'lucide-react';
+import { PackageCheck, Receipt, Eye, FileText, Check, Ban, Trash2, Pencil, MapPin, Truck, Clock, MoreHorizontal } from 'lucide-react';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 
@@ -156,6 +156,59 @@ export function SupplierOrdersPage() {
   const queryClient = useQueryClient();
   const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
   const [uploadingNf, setUploadingNf] = useState<string | null>(null);
+  // Menu "⋯" das ações secundárias — mantém a coluna estreita para o Status não
+  // ficar escondido embaixo da coluna fixa de ações em telas menores.
+  // Posição fixa (como o tooltip de logística) p/ não ser cortado pelo overflow da tabela.
+  const [actionMenu, setActionMenu] = useState<{ x: number; y: number; order: any } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Chip de status — fica ao lado do nome do pedido. A cor acompanha a etapa da
+  // logística enquanto o pedido está em andamento; hover abre o tooltip de rastreio.
+  const statusChip = (order: any) => {
+    const inProgress = !['RECEIVED', 'CANCELLED'].includes(order.status);
+    const lg = inProgress ? logisticsStyle(order.lastTracking?.location) : null;
+    return (
+      <span
+        onMouseEnter={(e) => {
+          if (!inProgress) return;
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          setTrackTip({ x: r.left, y: r.bottom + 6, order });
+        }}
+        onMouseLeave={() => setTrackTip(null)}
+        title={lg ? order.lastTracking?.location : undefined}
+        className={`shrink-0 px-2 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full whitespace-nowrap ${inProgress ? 'cursor-help ' : ''}${
+          lg ? lg.chip : (STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800')
+        }`}
+      >
+        {STATUS_LABELS[order.status] || order.status}
+      </span>
+    );
+  };
+
+  const toggleActionMenu = (e: React.MouseEvent, order: any) => {
+    if (actionMenu?.order.id === order.id) { setActionMenu(null); return; }
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setActionMenu({ x: r.right, y: r.bottom + 4, order });
+  };
+
+  useEffect(() => {
+    if (!actionMenu) return;
+    const close = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      // O próprio "⋯" não fecha aqui — deixa o onClick fazer o toggle
+      if (t.closest('[data-action-menu-trigger]')) return;
+      if (menuRef.current && !menuRef.current.contains(t)) setActionMenu(null);
+    };
+    const onScrollOrResize = () => setActionMenu(null);
+    document.addEventListener('mousedown', close);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    window.addEventListener('resize', onScrollOrResize);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+      window.removeEventListener('resize', onScrollOrResize);
+    };
+  }, [actionMenu]);
 
   const handleUploadNf = async (orderId: string, file?: File | null) => {
     if (!file) return;
@@ -266,22 +319,19 @@ export function SupplierOrdersPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Pedido
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Fornecedor
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Data
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="hidden xl:table-cell px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total
                       </th>
-                      <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                      <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
                         Ações
                       </th>
                     </tr>
@@ -289,9 +339,14 @@ export function SupplierOrdersPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {data?.data.map((order: any) => (
                       <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 truncate max-w-[220px]" title={order.budget?.title || order.orderNumber}>
-                            {order.budget?.title || order.orderNumber}
+                        <td className="px-2 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium text-gray-900 truncate max-w-[180px]" title={order.budget?.title || order.orderNumber}>
+                              {order.budget?.title || order.orderNumber}
+                            </div>
+                            {/* Status junto do pedido: a coluna própria ficava escondida
+                                embaixo da coluna fixa de ações em telas menores. */}
+                            {statusChip(order)}
                           </div>
                           <div className="text-xs text-gray-500">
                             {order.orderNumber}
@@ -299,18 +354,26 @@ export function SupplierOrdersPage() {
                               <span className="ml-1 text-gray-400">· {order.budget.budgetNumber}</span>
                             )}
                           </div>
+                          {/* Sem espaço para a coluna Total: mostra o valor aqui
+                              (só a moeda do orçamento — as conversões ficam no title) */}
+                          <div
+                            className="xl:hidden text-xs font-semibold text-gray-800 mt-0.5"
+                            title={formatOrderSecondaries(order) || undefined}
+                          >
+                            {formatOrderValue(order)}
+                          </div>
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {order.supplier?.name || '-'}
                           </div>
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td className="px-2 py-3 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
                             {formatDate(order.orderDate)}
                           </div>
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
+                        <td className="hidden xl:table-cell px-2 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {formatOrderValue(order)}
                           </div>
@@ -318,36 +381,12 @@ export function SupplierOrdersPage() {
                             <div className="text-[10px] text-gray-400">{formatOrderSecondaries(order)}</div>
                           )}
                         </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          {(() => {
-                            const inProgress = !['RECEIVED', 'CANCELLED'].includes(order.status);
-                            // A cor de fundo do status muda conforme a localidade da logística
-                            const lg = inProgress ? logisticsStyle(order.lastTracking?.location) : null;
-                            const showTip = (e: React.MouseEvent) => {
-                              if (!inProgress) return;
-                              const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                              setTrackTip({ x: r.left, y: r.bottom + 6, order });
-                            };
-                            return (
-                              <span
-                                onMouseEnter={showTip}
-                                onMouseLeave={() => setTrackTip(null)}
-                                title={lg ? order.lastTracking?.location : undefined}
-                                className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full whitespace-nowrap ${inProgress ? 'cursor-help ' : ''}${
-                                  lg ? lg.chip : (STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-800')
-                                }`}
-                              >
-                                {STATUS_LABELS[order.status] || order.status}
-                              </span>
-                            );
-                          })()}
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
-                          <div className="flex justify-end gap-1.5 items-center">
+                        <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                          <div className="flex justify-end gap-1 items-center">
                             {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
                               <button
                                 onClick={() => setReceivingOrderId(order.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs font-semibold shadow-sm"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs font-semibold shadow-sm"
                                 title="Receber pedido — conferência e entrada no estoque"
                               >
                                 <PackageCheck className="w-3.5 h-3.5" /> Receber
@@ -360,14 +399,14 @@ export function SupplierOrdersPage() {
                                   href={order.invoiceFileUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-xs font-semibold"
+                                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-xs font-semibold"
                                   title="Ver Nota Fiscal anexada"
                                 >
                                   <Receipt className="w-3.5 h-3.5" /> NF ✓
                                 </a>
                               ) : (
                                 <label
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2 py-1 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold cursor-pointer"
                                   title="Anexar Nota Fiscal (PDF ou foto)"
                                 >
                                   <Receipt className="w-3.5 h-3.5" /> {uploadingNf === order.id ? '…' : 'NF'}
@@ -389,53 +428,16 @@ export function SupplierOrdersPage() {
                               <Eye className="w-4 h-4" />
                             </button>
 
-                            {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
-                              <button
-                                onClick={() => navigate(`/supplier-orders/${order.id}?edit=1`)}
-                                className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
-                                title="Editar pedido (itens, valores, observações)"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-                            )}
-
+                            {/* Ações secundárias no menu "⋯" — sem ele a coluna
+                                fixa ficava larga e cobria a coluna Status. */}
                             <button
-                              onClick={() => handleGeneratePdf(order.id)}
-                              className="p-1.5 text-gray-500 hover:bg-gray-100 rounded"
-                              title="Gerar PDF do pedido"
+                              data-action-menu-trigger
+                              onClick={(e) => toggleActionMenu(e, order)}
+                              className={`p-1.5 rounded ${actionMenu?.order.id === order.id ? 'bg-gray-200 text-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                              title="Mais ações"
                             >
-                              <FileText className="w-4 h-4" />
+                              <MoreHorizontal className="w-4 h-4" />
                             </button>
-
-                            {order.status === 'SENT' && (
-                              <button
-                                onClick={() => handleConfirm(order.id)}
-                                className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                                title="Confirmar recebimento"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {(order.status === 'PENDING' || order.status === 'SENT') && (
-                              <button
-                                onClick={() => handleCancel(order.id)}
-                                className="p-1.5 text-orange-600 hover:bg-orange-50 rounded"
-                                title="Cancelar pedido"
-                              >
-                                <Ban className="w-4 h-4" />
-                              </button>
-                            )}
-
-                            {order.status === 'PENDING' && isAdmin && (
-                              <button
-                                onClick={() => handleDelete(order.id)}
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded"
-                                title="Excluir"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -489,6 +491,47 @@ export function SupplierOrdersPage() {
           }}
         />
       )}
+
+      {/* Menu de ações secundárias — posição fixa para não ser cortado pelo overflow da tabela */}
+      {actionMenu && (() => {
+        const order = actionMenu.order;
+        const canEdit = ['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status);
+        const item = 'w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 text-left';
+        return (
+          <div
+            ref={menuRef}
+            className="fixed z-[80] w-56 max-w-[calc(100vw-1rem)] py-1 bg-white rounded-lg shadow-2xl ring-1 ring-black/5"
+            style={{ left: Math.max(8, Math.min(actionMenu.x - 224, window.innerWidth - 232)), top: actionMenu.y }}
+          >
+            {canEdit && (
+              <button onClick={() => { setActionMenu(null); navigate(`/supplier-orders/${order.id}?edit=1`); }} className={item}>
+                <Pencil className="w-4 h-4 text-yellow-600" /> Editar pedido
+              </button>
+            )}
+            <button onClick={() => { setActionMenu(null); handleGeneratePdf(order.id); }} className={item}>
+              <FileText className="w-4 h-4 text-gray-500" /> Gerar PDF
+            </button>
+            {order.status === 'SENT' && (
+              <button onClick={() => { setActionMenu(null); handleConfirm(order.id); }} className={item}>
+                <Check className="w-4 h-4 text-green-600" /> Confirmar pelo fornecedor
+              </button>
+            )}
+            {(order.status === 'PENDING' || order.status === 'SENT') && (
+              <button onClick={() => { setActionMenu(null); handleCancel(order.id); }} className={item}>
+                <Ban className="w-4 h-4 text-orange-600" /> Cancelar pedido
+              </button>
+            )}
+            {order.status === 'PENDING' && isAdmin && (
+              <button
+                onClick={() => { setActionMenu(null); handleDelete(order.id); }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 text-left border-t border-gray-100"
+              >
+                <Trash2 className="w-4 h-4" /> Excluir
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Tooltip de logística — última atualização do pedido (posição fixa) */}
       {trackTip && (
