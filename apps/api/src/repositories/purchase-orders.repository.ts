@@ -169,19 +169,20 @@ export class PurchaseOrdersRepository {
     let paramIndex = 1;
 
     if (search) {
-      conditions.push(`(order_number ILIKE $${paramIndex} OR name ILIKE $${paramIndex} OR notes ILIKE $${paramIndex})`);
+      // `name` não existe na tabela (a busca por texto quebrava com 42703) — só nº e observações
+      conditions.push(`(po.order_number ILIKE $${paramIndex} OR po.notes ILIKE $${paramIndex})`);
       queryParams.push(`%${search}%`);
       paramIndex++;
     }
 
     if (status) {
-      conditions.push(`status = $${paramIndex}`);
+      conditions.push(`po.status = $${paramIndex}`);
       queryParams.push(status);
       paramIndex++;
     }
 
     if (supplierId) {
-      conditions.push(`supplier_id = $${paramIndex}`);
+      conditions.push(`po.supplier_id = $${paramIndex}`);
       queryParams.push(supplierId);
       paramIndex++;
     }
@@ -190,7 +191,7 @@ export class PurchaseOrdersRepository {
 
     // Get total count
     const countResult = await db.query(
-      `SELECT COUNT(*) as count FROM purchase_orders ${whereClause}`,
+      `SELECT COUNT(*) as count FROM purchase_orders po ${whereClause}`,
       queryParams
     );
     const total = parseInt(countResult.rows[0].count);
@@ -199,8 +200,18 @@ export class PurchaseOrdersRepository {
     const offset = (page - 1) * limit;
     queryParams.push(limit, offset);
 
+    // Traz a moeda/câmbio do orçamento de origem: os valores da OC ficam em
+    // centavos de BRL e a listagem precisa exibi-los na moeda do orçamento.
     const result = await db.query(
-      `SELECT * FROM purchase_orders ${whereClause} ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      `SELECT po.*,
+              pb.id AS budget_id, pb.budget_number AS budget_number, pb.title AS budget_title,
+              pb.currency AS budget_currency,
+              pb.exchange_rate_1 AS budget_rate1, pb.exchange_rate_2 AS budget_rate2,
+              pb.exchange_rate_3 AS budget_rate3, pb.additional_costs AS budget_additional_costs
+       FROM purchase_orders po
+       LEFT JOIN purchase_budgets pb ON pb.id = po.purchase_budget_id
+       ${whereClause}
+       ORDER BY po.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       queryParams
     );
 
@@ -226,7 +237,21 @@ export class PurchaseOrdersRepository {
           purchaseRequest = requestResult.rows[0] || null;
         }
 
-        return { ...order, supplier, purchase_request: purchaseRequest };
+        return {
+          ...order,
+          supplier,
+          purchase_request: purchaseRequest,
+          budget: order.budget_id ? {
+            id: order.budget_id,
+            budget_number: order.budget_number,
+            title: order.budget_title,
+            currency: order.budget_currency,
+            exchange_rate_1: order.budget_rate1,
+            exchange_rate_2: order.budget_rate2,
+            exchange_rate_3: order.budget_rate3,
+            additional_costs: order.budget_additional_costs,
+          } : null,
+        };
       })
     );
 
@@ -268,7 +293,21 @@ export class PurchaseOrdersRepository {
       purchaseRequest = requestResult.rows[0] || null;
     }
 
-    return this.mapToDTO({ ...data, supplier, purchase_request: purchaseRequest });
+    // Orçamento de origem: moeda + taxas de câmbio + custos adicionais.
+    // Os valores da OC ficam em centavos de BRL; a tela precisa disso para
+    // exibir na mesma moeda do orçamento (ver apps/web/src/lib/purchaseMoney.ts).
+    let budget = null;
+    if (data.purchase_budget_id) {
+      const budgetResult = await db.query(
+        `SELECT id, budget_number, title, currency,
+                exchange_rate_1, exchange_rate_2, exchange_rate_3, additional_costs
+         FROM purchase_budgets WHERE id = $1`,
+        [data.purchase_budget_id]
+      );
+      budget = budgetResult.rows[0] || null;
+    }
+
+    return this.mapToDTO({ ...data, supplier, purchase_request: purchaseRequest, budget });
   }
 
   async findByOrderNumber(orderNumber: string): Promise<PurchaseOrder | null> {
@@ -769,6 +808,18 @@ export class PurchaseOrdersRepository {
         id: data.purchase_request.id,
         requestNumber: data.purchase_request.request_number,
         title: data.purchase_request.title,
+      } : undefined,
+      // Orçamento de compra de origem (moeda de exibição + câmbio + custos adicionais)
+      purchaseBudgetId: data.purchase_budget_id || undefined,
+      budget: data.budget ? {
+        id: data.budget.id,
+        budgetNumber: data.budget.budget_number,
+        title: data.budget.title,
+        currency: data.budget.currency || 'BRL',
+        exchangeRate1: parseFloat(data.budget.exchange_rate_1) || 0,
+        exchangeRate2: parseFloat(data.budget.exchange_rate_2) || 0,
+        exchangeRate3: parseFloat(data.budget.exchange_rate_3) || 0,
+        additionalCosts: data.budget.additional_costs || [],
       } : undefined,
     } as any;
   }

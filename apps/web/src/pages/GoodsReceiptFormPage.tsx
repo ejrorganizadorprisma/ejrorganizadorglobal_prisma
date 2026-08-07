@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCreateGoodsReceipt, useGoodsReceipt, useApproveGoodsReceipt } from '../hooks/useGoodsReceipts';
 import { useSupplierOrder, useSupplierOrderItems } from '../hooks/useSupplierOrders';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { toast } from 'sonner';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, XCircle,
@@ -31,7 +31,6 @@ export function GoodsReceiptFormPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const isEditing = !!id;
-  const { formatPrice: formatCurrency } = useFormatPrice();
 
   const supplierOrderIdFromUrl = searchParams.get('supplierOrderId');
 
@@ -40,6 +39,9 @@ export function GoodsReceiptFormPage() {
   const approveReceipt = useApproveGoodsReceipt();
 
   const { data: supplierOrder, isLoading } = useSupplierOrder(supplierOrderIdFromUrl || undefined);
+  // Valores gravados em centavos de BRL — exibidos na moeda do orçamento de origem
+  const money = buildPurchaseMoney((supplierOrder as any)?.budget);
+  const formatCurrency = (centsBRL: number) => money.fmt(centsBRL);
   const { data: supplierOrderItems } = useSupplierOrderItems(supplierOrderIdFromUrl || undefined);
 
   const [conferenceItems, setConferenceItems] = useState<ConferenceItem[]>([]);
@@ -56,7 +58,7 @@ export function GoodsReceiptFormPage() {
       setReceiptDate(new Date(receipt.receiptDate).toISOString().split('T')[0]);
       setInvoiceNumber(receipt.invoiceNumber || '');
       setInvoiceDate(receipt.invoiceDate ? new Date(receipt.invoiceDate).toISOString().split('T')[0] : '');
-      setInvoiceAmount(receipt.invoiceAmount ? String(receipt.invoiceAmount / 100) : '');
+      setInvoiceAmount(receipt.invoiceAmount ? money.toInput(receipt.invoiceAmount) : '');
       setGeneralNotes(receipt.notes || '');
     }
   }, [receipt, isEditing]);
@@ -152,7 +154,7 @@ export function GoodsReceiptFormPage() {
         receiptDate,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
-        invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        invoiceAmount: money.fromInput(invoiceAmount) ? Math.round(money.fromInput(invoiceAmount)) : undefined,
         notes: generalNotes || undefined,
         items: conferenceItems.map(item => ({
           supplierOrderItemId: item.supplierOrderItemId,
@@ -190,7 +192,7 @@ export function GoodsReceiptFormPage() {
         receiptDate,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
-        invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        invoiceAmount: money.fromInput(invoiceAmount) ? Math.round(money.fromInput(invoiceAmount)) : undefined,
         notes: generalNotes || undefined,
         items: conferenceItems.map(item => ({
           supplierOrderItemId: item.supplierOrderItemId,
@@ -340,10 +342,10 @@ export function GoodsReceiptFormPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Valor NF</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Valor NF ({money.symbol})</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step={money.decimals === 0 ? '1' : '0.01'}
                   value={invoiceAmount}
                   onChange={(e) => setInvoiceAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"

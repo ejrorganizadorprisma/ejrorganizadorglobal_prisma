@@ -18,6 +18,8 @@ import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { toast } from 'sonner';
 import { generateSupplierOrderPdf, type DocumentSettingsForPdf } from '../services/supplierOrderPdf';
 import { LogisticsTracking } from '../components/LogisticsTracking';
+import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendente',
@@ -55,7 +57,8 @@ export function SupplierOrderDetailPage() {
   const [invoiceDate, setInvoiceDate] = useState('');
   const [invoiceAmount, setInvoiceAmount] = useState('');
   const [uploadingNf, setUploadingNf] = useState(false);
-
+  // Recebimento com preços (custo/margens/venda) — mesmo modal de Pedidos por Fornecedor
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
   // Edição inline de item (quantidade / preço unitário em R$)
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
@@ -63,6 +66,8 @@ export function SupplierOrderDetailPage() {
 
   const queryClient = useQueryClient();
   const { data: order, isLoading } = useSupplierOrder(id);
+  // Valores gravados em centavos de BRL; NF digitada na moeda do orçamento
+  const nfMoney = buildPurchaseMoney((order as any)?.budget);
   const { data: documentSettings } = useDefaultDocumentSettings();
   const sendOrder = useSendSupplierOrder();
   const confirmOrder = useConfirmSupplierOrder();
@@ -132,7 +137,7 @@ export function SupplierOrderDetailPage() {
     setExpectedDeliveryDate(order?.expectedDeliveryDate?.split('T')[0] || '');
     setInvoiceNumber(order?.invoiceNumber || '');
     setInvoiceDate(order?.invoiceDate ? String(order.invoiceDate).slice(0, 10) : '');
-    setInvoiceAmount(order?.invoiceAmount != null ? (order.invoiceAmount / 100).toFixed(2) : '');
+    setInvoiceAmount(order?.invoiceAmount != null ? nfMoney.toInput(order.invoiceAmount) : '');
     setIsEditing(true);
   };
 
@@ -147,7 +152,7 @@ export function SupplierOrderDetailPage() {
           expectedDeliveryDate: expectedDeliveryDate || undefined,
           invoiceNumber: invoiceNumber || undefined,
           invoiceDate: invoiceDate || undefined,
-          invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+          invoiceAmount: nfMoney.fromInput(invoiceAmount) ? Math.round(nfMoney.fromInput(invoiceAmount)) : undefined,
         } as any,
       });
       toast.success('Pedido atualizado!');
@@ -391,7 +396,7 @@ export function SupplierOrderDetailPage() {
 
               {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
                 <button
-                  onClick={() => navigate(`/goods-receipts/new?supplierOrderId=${id}`)}
+                  onClick={() => setShowReceiveModal(true)}
                   className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700"
                 >
                   Registrar Recebimento
@@ -545,10 +550,10 @@ export function SupplierOrderDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Valor da NF (R$)</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Valor da NF ({nfMoney.symbol})</label>
                     <input
                       type="number"
-                      step="0.01"
+                      step={nfMoney.decimals === 0 ? '1' : '0.01'}
                       value={invoiceAmount}
                       onChange={(e) => setInvoiceAmount(e.target.value)}
                       placeholder="0,00"
@@ -812,6 +817,19 @@ export function SupplierOrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {showReceiveModal && id && (
+        <ReceiveOrderModal
+          orderId={id}
+          onClose={() => setShowReceiveModal(false)}
+          onDone={() => {
+            setShowReceiveModal(false);
+            queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['supplier-order', id] });
+            queryClient.invalidateQueries({ queryKey: ['goods-receipts'] });
+          }}
+        />
+      )}
     </div>
   );
 }

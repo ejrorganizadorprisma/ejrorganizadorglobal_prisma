@@ -14,7 +14,10 @@ import { useActiveDelegations } from '../hooks/useApprovalDelegations';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { generatePurchaseBudgetPdf, generatePurchaseBudgetFullPdf } from '../services/purchaseBudgetPdf';
-import { formatPriceValue } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
+import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
+import { useSupplierOrdersByPurchaseOrder } from '../hooks/useSupplierOrders';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   ArrowLeft, CheckCircle, XCircle, RotateCcw,
@@ -90,6 +93,12 @@ export function PurchaseBudgetDetailPage() {
   const purchaseAction = usePurchaseBudgetAction();
   const cancelBudget = useCancelBudget();
 
+  // Recebimento: usa o mesmo modal dos Pedidos por Fornecedor (com custo, margens e
+  // preços de venda), em vez da conferência simples que só dá entrada no estoque.
+  const queryClient = useQueryClient();
+  const { data: budgetSupplierOrders = [] } = useSupplierOrdersByPurchaseOrder(budget?.purchaseOrder?.id);
+  const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null);
+
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
@@ -124,51 +133,25 @@ export function PurchaseBudgetDetailPage() {
     dateStr ? new Date(dateStr).toLocaleDateString('pt-BR') : '-';
 
   // ==================== Multi-currency ====================
-  const budgetCurrency = (budget.currency || 'BRL') as 'BRL' | 'USD' | 'PYG';
-  const formatCurrency = (value: number) => formatPriceValue(value, budgetCurrency);
-  const rate1 = budget.exchangeRate1 || 0;
-  const rate2 = budget.exchangeRate2 || 0;
-  const othersMap: Record<string, ['BRL' | 'USD' | 'PYG', 'BRL' | 'USD' | 'PYG']> = {
-    BRL: ['USD', 'PYG'], USD: ['BRL', 'PYG'], PYG: ['BRL', 'USD'],
-  };
-  const [other1, other2] = othersMap[budgetCurrency];
-  const hasRates = rate1 > 0 && rate2 > 0;
-
-  const fmtBRL = (cents: number) => formatPriceValue(cents, 'BRL');
-  const fmtUSD = (cents: number) => formatPriceValue(cents, 'USD');
-  const fmtPYG = (value: number) => formatPriceValue(value, 'PYG');
-  const fmtAmount = (amount: number, cur: string) => {
-    if (cur === 'PYG') return fmtPYG(Math.round(amount));
-    if (cur === 'USD') return fmtUSD(Math.round(amount * 100));
-    return fmtBRL(Math.round(amount * 100));
-  };
-
-  const brlCentsToRef = (centsBRL: number) => {
-    if (budgetCurrency === 'BRL') return centsBRL / 100;
-    return rate1 > 0 ? (centsBRL / 100) / rate1 : 0;
-  };
-  const brlCentsTo = (centsBRL: number, target: string) => {
-    const ref = brlCentsToRef(centsBRL);
-    if (target === budgetCurrency) return ref;
-    if (target === other1) return ref * rate1;
-    return ref * rate2;
-  };
-
-  const secondaryPrices = (centsBRL: number): string | null => {
-    if (!hasRates) return null;
-    return `${fmtAmount(brlCentsTo(centsBRL, other1), other1)} · ${fmtAmount(brlCentsTo(centsBRL, other2), other2)}`;
-  };
+  // Os valores do orçamento são gravados em centavos de BRL (ver purchaseMoney.ts).
+  // `money` converte para a moeda escolhida no orçamento na hora de exibir/digitar.
+  const money = buildPurchaseMoney(budget);
+  const budgetCurrency = money.currency;
+  const formatCurrency = (centsBRL: number) => money.fmt(centsBRL);
+  const secondaryPrices = (centsBRL: number) => money.fmtSecondary(centsBRL);
 
   // ==================== Installment helpers ====================
+  // Os inputs de valor final / parcelas são digitados na moeda do orçamento;
+  // internamente tudo continua em centavos de BRL.
 
   const getTotalCents = () => {
-    const fa = parseFloat(finalAmount);
-    if (fa > 0) return Math.round(fa * 100);
+    const fa = money.fromInput(finalAmount);
+    if (fa > 0) return fa;
     return budget.totalAmount;
   };
 
   const getInstallmentsTotalCents = () => {
-    return installments.reduce((sum, inst) => sum + Math.round((parseFloat(inst.amount) || 0) * 100), 0);
+    return installments.reduce((sum, inst) => sum + money.fromInput(inst.amount), 0);
   };
 
   // Parseia o padrão de dias (ex: "28/35/42") em array de números
@@ -211,16 +194,20 @@ export function PurchaseBudgetDetailPage() {
     const totalCents = getTotalCents();
     if (totalCents <= 0) { toast.error('Informe o valor final antes de dividir.'); return; }
 
-    const baseAmount = Math.floor(totalCents / n);
-    const remainder = totalCents - baseAmount * n;
+    // Divide na MOEDA DE EXIBIÇÃO (₲ não tem centavos) para que a soma das
+    // parcelas feche exatamente com o valor final mostrado ao usuário.
+    const factor = money.decimals === 0 ? 1 : 100;
+    const totalUnits = Math.round(money.toDisplay(totalCents) * factor);
+    const baseAmount = Math.floor(totalUnits / n);
+    const remainder = totalUnits - baseAmount * n;
 
     const newInstallments: InstallmentForm[] = [];
     for (let i = 0; i < n; i++) {
       const dueDate = getDueDate(i);
-      const amount = baseAmount + (i < remainder ? 1 : 0);
+      const units = baseAmount + (i < remainder ? 1 : 0);
       newInstallments.push({
         installmentNumber: i + 1,
-        amount: (amount / 100).toFixed(2),
+        amount: (units / factor).toFixed(money.decimals),
         dueDate: dueDate.toISOString().split('T')[0],
         notes: '',
       });
@@ -297,6 +284,22 @@ export function PurchaseBudgetDetailPage() {
     }
   };
 
+  // Abre a conferência de recebimento. Preferimos o pedido do fornecedor
+  // (modal com custo/margem/preços que atualiza o cadastro do produto).
+  // Só cai na conferência simples da OC quando não há pedido por fornecedor.
+  const handleOpenReceipt = () => {
+    const pending = budgetSupplierOrders.filter((so: any) => so.status !== 'CANCELLED');
+    if (pending.length === 1) {
+      setReceivingOrderId(pending[0].id);
+      return;
+    }
+    if (pending.length > 1) {
+      navigate(`/supplier-orders?purchaseOrderId=${budget.purchaseOrder!.id}`);
+      return;
+    }
+    navigate(`/purchase-orders/${budget.purchaseOrder!.id}/conference`);
+  };
+
   const handleReopen = async () => {
     try {
       await reopenBudget.mutateAsync(id!);
@@ -320,7 +323,7 @@ export function PurchaseBudgetDetailPage() {
           toast.error('Todas as parcelas precisam ter data de vencimento.');
           return;
         }
-        if (!parseFloat(inst.amount)) {
+        if (!money.fromInput(inst.amount)) {
           toast.error('Todas as parcelas precisam ter valor.');
           return;
         }
@@ -331,12 +334,14 @@ export function PurchaseBudgetDetailPage() {
       await purchaseAction.mutateAsync({
         id: id!,
         invoiceNumber: invoiceNumber || undefined,
-        finalAmount: finalAmount ? Math.round(parseFloat(finalAmount) * 100) : undefined,
+        // final_amount e o amount das parcelas são colunas/casts inteiros no banco
+        // (financial usa (inst->>'amount')::bigint) — sempre arredondar.
+        finalAmount: Math.round(money.fromInput(finalAmount)) || undefined,
         paymentMethod: installments.length > 0 ? paymentMethod : undefined,
         installments: installments.length > 0
           ? installments.map((inst) => ({
               installmentNumber: inst.installmentNumber,
-              amount: Math.round((parseFloat(inst.amount) || 0) * 100),
+              amount: Math.round(money.fromInput(inst.amount)),
               dueDate: inst.dueDate,
               notes: inst.notes || undefined,
             }))
@@ -469,7 +474,7 @@ export function PurchaseBudgetDetailPage() {
             </button>
           )}
           {budget.status === 'PURCHASED' && budget.purchaseOrder && (
-            <button onClick={() => navigate(`/purchase-orders/${budget.purchaseOrder!.id}/conference`)} className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
+            <button onClick={handleOpenReceipt} className="flex items-center gap-1 px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm">
               <Package className="w-4 h-4" /> Recebimento
             </button>
           )}
@@ -533,15 +538,18 @@ export function PurchaseBudgetDetailPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-green-700 mb-1">Valor Final (R$)</label>
+                <label className="block text-sm font-medium text-green-700 mb-1">Valor Final ({money.symbol})</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step={money.decimals === 0 ? '1' : '0.01'}
                   value={finalAmount}
                   onChange={(e) => setFinalAmount(e.target.value)}
-                  placeholder={`Estimado: ${(budget.totalAmount / 100).toFixed(2)}`}
+                  placeholder={`Estimado: ${money.toInput(budget.totalAmount)}`}
                   className="w-full px-3 py-2 border border-green-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
+                {money.hasRates && money.fromInput(finalAmount) > 0 && (
+                  <span className="text-[10px] text-gray-400 block mt-0.5">{secondaryPrices(money.fromInput(finalAmount))}</span>
+                )}
               </div>
             </div>
 
@@ -623,7 +631,7 @@ export function PurchaseBudgetDetailPage() {
                     {/* Header */}
                     <div className="grid grid-cols-12 gap-2 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                       <div className="col-span-1">#</div>
-                      <div className="col-span-3">Valor (R$)</div>
+                      <div className="col-span-3">Valor ({money.symbol})</div>
                       <div className="col-span-3">Vencimento</div>
                       <div className="col-span-3">Notas</div>
                       <div className="col-span-2 text-center">Ações</div>
@@ -642,16 +650,16 @@ export function PurchaseBudgetDetailPage() {
                         <div className="col-span-3">
                           <input
                             type="number"
-                            step="0.01"
+                            step={money.decimals === 0 ? '1' : '0.01'}
                             min="0"
                             value={inst.amount}
                             onChange={(e) => handleUpdateInstallment(idx, 'amount', e.target.value)}
                             onFocus={(e) => e.target.select()}
                             className="w-full px-2 py-1.5 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           />
-                          {hasRates && parseFloat(inst.amount) > 0 && (
+                          {money.hasRates && money.fromInput(inst.amount) > 0 && (
                             <span className="text-[10px] text-gray-400 leading-tight block mt-0.5">
-                              {secondaryPrices(Math.round(parseFloat(inst.amount) * 100))}
+                              {secondaryPrices(money.fromInput(inst.amount))}
                             </span>
                           )}
                         </div>
@@ -706,7 +714,7 @@ export function PurchaseBudgetDetailPage() {
                           </span>
                         )}
                       </div>
-                      {hasRates && getInstallmentsTotalCents() > 0 && (
+                      {money.hasRates && getInstallmentsTotalCents() > 0 && (
                         <div className="text-[10px] opacity-75 mt-0.5">
                           {secondaryPrices(getInstallmentsTotalCents())}
                         </div>
@@ -995,6 +1003,20 @@ export function PurchaseBudgetDetailPage() {
         <div className="mt-6">
           <BudgetHistoryPanel budgetId={id} />
         </div>
+      )}
+
+      {receivingOrderId && (
+        <ReceiveOrderModal
+          orderId={receivingOrderId}
+          onClose={() => setReceivingOrderId(null)}
+          onDone={() => {
+            setReceivingOrderId(null);
+            queryClient.invalidateQueries({ queryKey: ['purchase-budgets'] });
+            queryClient.invalidateQueries({ queryKey: ['supplier-orders'] });
+            queryClient.invalidateQueries({ queryKey: ['supplier-orders-by-po'] });
+            queryClient.invalidateQueries({ queryKey: ['goods-receipts'] });
+          }}
+        />
       )}
     </div>
   );

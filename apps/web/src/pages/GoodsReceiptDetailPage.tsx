@@ -6,7 +6,8 @@ import {
   useRejectGoodsReceipt,
   useDeleteGoodsReceipt,
 } from '../hooks/useGoodsReceipts';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { useSupplierOrder } from '../hooks/useSupplierOrders';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { toast } from 'sonner';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -83,7 +84,9 @@ export function GoodsReceiptDetailPage() {
     }
   };
 
-  const { formatPrice } = useFormatPrice();
+  // Valores em centavos de BRL — exibidos na moeda do orçamento de origem
+  const { data: linkedOrder } = useSupplierOrder((receipt as any)?.supplierOrderId);
+  const formatPrice = (centsBRL: number) => buildPurchaseMoney((linkedOrder as any)?.budget).fmt(centsBRL);
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { X, PackageCheck, Check, AlertTriangle, Ban, Receipt, CalendarDays, Plus, Trash2, History } from 'lucide-react';
 import { formatPriceValue } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 
 type ConfStatus = 'CONFORME' | 'DIVERGENCIA' | 'REJEITADO';
 
@@ -43,7 +44,6 @@ interface ReceiveOrderModalProps {
   onDone: () => void;
 }
 
-const brl = (cents: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((cents || 0) / 100);
 // Data local em YYYY-MM-DD (evita off-by-one do toISOString em UTC)
 const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -102,6 +102,9 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
   // Os preços do pedido ficam em centavos de BRL; aqui custo/venda são exibidos
   // em Guaraní (com R$/US$ abaixo) quando o orçamento tem câmbio cadastrado.
   const budgetData: any = (order as any)?.budget;
+  // Moeda do orçamento de origem — usada na NF/boletos e nos totais, para que os
+  // valores confiram com o que aparece na tela do Orçamento de Compra.
+  const money = buildPurchaseMoney(budgetData);
   const cr1 = budgetData?.exchangeRate1 || 0; // 1 BRL = X PYG
   const cr2 = budgetData?.exchangeRate2 || 0; // 1 USD = X PYG
   const cr3 = budgetData?.exchangeRate3 || 0; // 1 USD = X BRL
@@ -201,8 +204,8 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
       if (o.invoiceNumber && !invoiceNumber) setInvoiceNumber(o.invoiceNumber);
       if (o.invoiceDate && !invoiceDate) setInvoiceDate(String(o.invoiceDate).slice(0, 10));
       if (!finalAmount) {
-        if (o.invoiceAmount != null) setFinalAmount((o.invoiceAmount / 100).toFixed(2));
-        else if (o.totalAmount) setFinalAmount((o.totalAmount / 100).toFixed(2));
+        if (o.invoiceAmount != null) setFinalAmount(money.toInput(o.invoiceAmount));
+        else if (o.totalAmount) setFinalAmount(money.toInput(o.totalAmount));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -251,8 +254,19 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     rejeitados: items.filter((i) => i.status === 'REJEITADO').length,
   }), [items]);
 
-  const totalCents = Math.round((parseFloat(finalAmount) || 0) * 100);
-  const boletosTotalCents = boletos.reduce((s, b) => s + Math.round((parseFloat(b.amount) || 0) * 100), 0);
+  // Conferência de valores (tudo em centavos BRL, exibido na moeda do orçamento).
+  // `addPct` = custos adicionais do orçamento (impostos/frete) — o total do
+  // orçamento inclui esse percentual, o total do pedido/NF não.
+  const addPct = ((order as any)?.budget?.additionalCosts || []).reduce((s: number, c: any) => s + (c?.percentage || 0), 0);
+  const orderTotalCents = (order as any)?.totalAmount || 0;
+  const orderTotalWithCosts = Math.round(orderTotalCents * (1 + addPct / 100));
+  const receivingTotalCents = items.reduce(
+    (s, i) => s + (i.status === 'REJEITADO' ? 0 : (i.quantityReceived || 0) * i.unitPrice), 0
+  );
+
+  // Internamente tudo continua em centavos de BRL; os inputs são na moeda do orçamento.
+  const totalCents = Math.round(money.fromInput(finalAmount));
+  const boletosTotalCents = boletos.reduce((s, b) => s + Math.round(money.fromInput(b.amount)), 0);
 
   const updateItem = (idx: number, field: keyof ConfItem, value: any) => {
     setItems((prev) => {
@@ -289,12 +303,15 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
     const n = parseInt(splitCount, 10); const days = parseInt(intervalDays, 10) || 30;
     if (!n || n < 1) { toast.error('Informe a quantidade de boletos.'); return; }
     if (totalCents <= 0) { toast.error('Informe o valor total da NF.'); return; }
-    const base = Math.floor(totalCents / n); const rest = totalCents - base * n;
+    // Divide na moeda de exibição (₲ não tem centavos) p/ a soma fechar com a NF
+    const factor = money.decimals === 0 ? 1 : 100;
+    const totalUnits = Math.round(money.toDisplay(totalCents) * factor);
+    const base = Math.floor(totalUnits / n); const rest = totalUnits - base * n;
     const today = new Date(); const list: Boleto[] = [];
     for (let i = 0; i < n; i++) {
       const d = new Date(today); d.setDate(d.getDate() + days * (i + 1));
-      const cents = base + (i < rest ? 1 : 0);
-      list.push({ amount: (cents / 100).toFixed(2), dueDate: localDate(d), notes: `Boleto ${i + 1}/${n}` });
+      const units = base + (i < rest ? 1 : 0);
+      list.push({ amount: (units / factor).toFixed(money.decimals), dueDate: localDate(d), notes: `Boleto ${i + 1}/${n}` });
     }
     setBoletos(list);
   };
@@ -311,7 +328,7 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
       toast.error('Preencha o motivo dos itens com divergência ou recusados.'); return;
     }
     if (boletos.length > 0) {
-      if (boletos.some((b) => !b.dueDate || !b.amount || parseFloat(b.amount) <= 0)) {
+      if (boletos.some((b) => !b.dueDate || !b.amount || money.fromInput(b.amount) <= 0)) {
         toast.error('Preencha valor e vencimento de todos os boletos.'); return;
       }
     }
@@ -363,7 +380,8 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
           paymentMethod,
           installments: boletos.map((b, i) => ({
             installmentNumber: i + 1,
-            amount: Math.round((parseFloat(b.amount) || 0) * 100),
+            // coluna/cast inteiro no banco ((inst->>'amount')::bigint) — arredonda
+            amount: Math.round(money.fromInput(b.amount)),
             dueDate: b.dueDate, notes: b.notes || undefined,
           })),
         });
@@ -451,6 +469,21 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                     <Check className="w-3.5 h-3.5" /> Marcar todos conforme
                   </button>
                 </div>
+              </div>
+
+              {/* Conferência de valores com o orçamento de origem */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[11px]">
+                <span className="text-slate-500">
+                  Pedido: <strong className="text-slate-800">{money.fmt(orderTotalCents)}</strong>
+                </span>
+                {addPct > 0 && (
+                  <span className="text-slate-500">
+                    Com adicionais ({addPct}%): <strong className="text-slate-800">{money.fmt(orderTotalWithCosts)}</strong>
+                  </span>
+                )}
+                <span className="ml-auto text-slate-500">
+                  Recebendo agora: <strong className="text-emerald-700">{money.fmt(receivingTotalCents)}</strong>
+                </span>
               </div>
 
               {/* Itens — layout compacto (2 linhas por item) */}
@@ -577,8 +610,11 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                         <input type="date" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm" />
                       </div>
                       <div>
-                        <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Valor total NF (R$)</label>
-                        <input type="number" step="0.01" value={finalAmount} onChange={(e) => setFinalAmount(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-right" placeholder="0,00" />
+                        <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Valor total NF ({money.symbol})</label>
+                        <input type="number" step={money.decimals === 0 ? '1' : '0.01'} value={finalAmount} onChange={(e) => setFinalAmount(e.target.value)} className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-sm text-right" placeholder="0,00" />
+                        {money.hasRates && totalCents > 0 && (
+                          <span className="text-[10px] text-slate-400 block mt-0.5 text-right">{money.fmtSecondary(totalCents)}</span>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[11px] font-medium text-slate-500 mb-0.5">Forma de pagamento</label>
@@ -599,14 +635,14 @@ export function ReceiveOrderModal({ orderId, onClose, onDone }: ReceiveOrderModa
                         {boletos.map((b, i) => (
                           <div key={i} className="flex items-center gap-2">
                             <span className="text-xs text-slate-400 w-4">{i + 1}.</span>
-                            <input type="number" step="0.01" value={b.amount} onChange={(e) => updateBoleto(i, 'amount', e.target.value)} placeholder="R$" className="w-24 px-2 py-1 border border-slate-300 rounded text-sm text-right" />
+                            <input type="number" step={money.decimals === 0 ? '1' : '0.01'} value={b.amount} onChange={(e) => updateBoleto(i, 'amount', e.target.value)} placeholder={money.symbol} className="w-24 px-2 py-1 border border-slate-300 rounded text-sm text-right" />
                             <input type="date" value={b.dueDate} onChange={(e) => updateBoleto(i, 'dueDate', e.target.value)} className="px-2 py-1 border border-slate-300 rounded text-sm" />
                             <input type="text" value={b.notes} onChange={(e) => updateBoleto(i, 'notes', e.target.value)} placeholder="Obs." className="flex-1 px-2 py-1 border border-slate-300 rounded text-sm" />
                             <button onClick={() => removeBoleto(i)} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         ))}
                         <p className={`text-xs text-right ${Math.abs(boletosTotalCents - totalCents) > 1 ? 'text-amber-600' : 'text-slate-500'}`}>
-                          Boletos: <strong>{brl(boletosTotalCents)}</strong> / NF: <strong>{brl(totalCents)}</strong>
+                          Boletos: <strong>{money.fmt(boletosTotalCents)}</strong> / NF: <strong>{money.fmt(totalCents)}</strong>
                         </p>
                       </div>
                     )}

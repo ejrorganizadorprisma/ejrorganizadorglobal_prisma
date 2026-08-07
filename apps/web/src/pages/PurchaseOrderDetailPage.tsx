@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePurchaseOrder, useSendPurchaseOrder, useConfirmPurchaseOrder, useCancelPurchaseOrder, useUpdatePurchaseOrderItem, useDeletePurchaseOrderItem } from '../hooks/usePurchaseOrders';
 import { useGenerateSupplierOrders, useSupplierOrdersByPurchaseOrder } from '../hooks/useSupplierOrders';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { toast } from 'sonner';
 
 // Status em que os itens do pedido ainda podem ser ajustados (espelha o backend)
@@ -29,8 +29,10 @@ const STATUS_COLORS = {
 export function PurchaseOrderDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { formatPrice } = useFormatPrice();
   const { data: order, isLoading } = usePurchaseOrder(id);
+  // Valores gravados em centavos de BRL — exibidos/digitados na moeda do orçamento
+  const money = buildPurchaseMoney((order as any)?.budget);
+  const formatPrice = (centsBRL: number) => money.fmt(centsBRL);
   const { data: supplierOrders } = useSupplierOrdersByPurchaseOrder(id);
   const sendPO = useSendPurchaseOrder();
   const confirmPO = useConfirmPurchaseOrder();
@@ -49,7 +51,7 @@ export function PurchaseOrderDetailPage() {
   const startEditItem = (item: any) => {
     setEditingItemId(item.id);
     setEditQty(String(item.quantity));
-    setEditPrice((item.unitPrice / 100).toFixed(2));
+    setEditPrice(money.toInput(item.unitPrice));
   };
 
   const cancelEditItem = () => {
@@ -60,7 +62,7 @@ export function PurchaseOrderDetailPage() {
 
   const saveEditItem = async (item: any) => {
     const qty = parseInt(editQty);
-    const priceCents = Math.round(parseFloat(editPrice) * 100);
+    const priceCents = Math.round(money.fromInput(editPrice));
     if (!qty || qty <= 0) { toast.error('Quantidade deve ser maior que zero'); return; }
     if (isNaN(priceCents) || priceCents < 0) { toast.error('Preço inválido'); return; }
     const received = item.quantityReceived || 0;
@@ -352,7 +354,7 @@ export function PurchaseOrderDetailPage() {
                       <input
                         type="number"
                         min={0}
-                        step="0.01"
+                        step={money.decimals === 0 ? '1' : '0.01'}
                         value={editPrice}
                         onChange={(e) => setEditPrice(e.target.value)}
                         className="w-28 px-2 py-1 border border-gray-300 rounded text-sm"

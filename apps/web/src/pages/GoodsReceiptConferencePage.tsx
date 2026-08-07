@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePurchaseOrder } from '../hooks/usePurchaseOrders';
 import { useCreateGoodsReceipt, useApproveGoodsReceipt } from '../hooks/useGoodsReceipts';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { toast } from 'sonner';
 import {
   ArrowLeft, CheckCircle, AlertTriangle, XCircle,
@@ -28,9 +28,11 @@ interface ConferenceItem {
 export function GoodsReceiptConferencePage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { formatPrice: formatCurrency } = useFormatPrice();
-
   const { data: purchaseOrder, isLoading } = usePurchaseOrder(id);
+  // Os valores da OC ficam em centavos de BRL — exibe na moeda do orçamento de
+  // origem para conferir com a tela do Orçamento de Compra (ver purchaseMoney.ts).
+  const money = buildPurchaseMoney((purchaseOrder as any)?.budget);
+  const formatCurrency = (centsBRL: number) => money.fmt(centsBRL);
   const createReceipt = useCreateGoodsReceipt();
   const approveReceipt = useApproveGoodsReceipt();
 
@@ -124,7 +126,7 @@ export function GoodsReceiptConferencePage() {
         receiptDate,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
-        invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        invoiceAmount: money.fromInput(invoiceAmount) ? Math.round(money.fromInput(invoiceAmount)) : undefined,
         notes: generalNotes || undefined,
         items: conferenceItems.map(item => ({
           purchaseOrderItemId: item.purchaseOrderItemId,
@@ -159,7 +161,7 @@ export function GoodsReceiptConferencePage() {
         receiptDate,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
-        invoiceAmount: invoiceAmount ? Math.round(parseFloat(invoiceAmount) * 100) : undefined,
+        invoiceAmount: money.fromInput(invoiceAmount) ? Math.round(money.fromInput(invoiceAmount)) : undefined,
         notes: generalNotes || undefined,
         items: conferenceItems.map(item => ({
           purchaseOrderItemId: item.purchaseOrderItemId,
@@ -296,10 +298,10 @@ export function GoodsReceiptConferencePage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Valor NF (R$)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Valor NF ({money.symbol})</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step={money.decimals === 0 ? '1' : '0.01'}
                   value={invoiceAmount}
                   onChange={(e) => setInvoiceAmount(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"

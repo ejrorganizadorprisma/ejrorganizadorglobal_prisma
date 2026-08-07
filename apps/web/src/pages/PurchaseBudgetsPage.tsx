@@ -4,7 +4,7 @@ import { usePurchaseBudgets, useDeletePurchaseBudget, useConvertToOrder } from '
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { useRequirePermission } from '../hooks/useRequirePermission';
 import { toast } from 'sonner';
-import { formatPriceValue } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { Plus, Eye, Pencil, Trash2, ShoppingCart, Truck } from 'lucide-react';
 import { AppPage, type PurchaseBudgetStatus, type BudgetPriority } from '@ejr/shared-types';
 
@@ -98,8 +98,10 @@ export function PurchaseBudgetsPage() {
     }
   };
 
-  const formatCurrency = (value: number, currency: string = 'BRL') =>
-    formatPriceValue(value, (currency || 'BRL') as 'BRL' | 'USD' | 'PYG');
+  // Valores gravados em centavos de BRL — converte para a moeda do orçamento
+  // usando as taxas do próprio orçamento (ver lib/purchaseMoney.ts).
+  const formatCurrency = (centsBRL: number, budget?: any) =>
+    buildPurchaseMoney(budget).fmt(centsBRL);
 
   // Total SEM os custos adicionais (subtotal). totalAmount já inclui o % de custos.
   const subtotalOf = (budget: any): number => {
@@ -231,7 +233,7 @@ export function PurchaseBudgetsPage() {
                         {budget.supplierName || '-'}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">
-                        {formatCurrency(subtotalOf(budget), budget.currency)}
+                        {formatCurrency(subtotalOf(budget), budget)}
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         <span className={`px-2 py-0.5 inline-flex text-xs font-semibold rounded-full ${STATUS_COLORS[budget.status as PurchaseBudgetStatus]}`}>

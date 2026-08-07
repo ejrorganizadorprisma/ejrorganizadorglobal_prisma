@@ -9,7 +9,7 @@ import {
 } from '../hooks/useGoodsReceipts';
 import { useSupplierOrders } from '../hooks/useSupplierOrders';
 import { useSuppliers } from '../hooks/useSuppliers';
-import { useFormatPrice } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { ReceiveOrderModal } from '../components/ReceiveOrderModal';
 import { PackageCheck, MapPin, Receipt } from 'lucide-react';
 import { logisticsStyle } from '../lib/logisticsStatus';
@@ -140,7 +140,6 @@ export function GoodsReceiptsPage() {
     }
   };
 
-  const { formatPrice } = useFormatPrice();
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('pt-BR');
@@ -285,7 +284,7 @@ export function GoodsReceiptsPage() {
                         )}
                         <div className="flex justify-between">
                           <span>Valor Total:</span>
-                          <span className="font-medium text-gray-700">{formatPrice(order.totalAmount)}</span>
+                          <span className="font-medium text-gray-700">{buildPurchaseMoney((order as any).budget).fmt(order.totalAmount)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Itens:</span>
@@ -323,7 +322,7 @@ export function GoodsReceiptsPage() {
                           <Receipt className="w-3.5 h-3.5 shrink-0" />
                           <span className="min-w-0 truncate">
                             <span className="font-semibold">NF {order.invoiceNumber || '—'}</span>
-                            {order.invoiceAmount != null && <span> · {formatPrice(order.invoiceAmount)}</span>}
+                            {order.invoiceAmount != null && <span> · {buildPurchaseMoney((order as any).budget).fmt(order.invoiceAmount)}</span>}
                             {order.invoiceDate && <span className="opacity-60"> · {shortDate(order.invoiceDate)}</span>}
                           </span>
                           {order.invoiceFileUrl && (

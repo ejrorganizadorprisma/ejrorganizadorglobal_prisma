@@ -10,6 +10,7 @@ import { useSuppliers } from '../hooks/useSuppliers';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { useAuth } from '../hooks/useAuth';
 import { useFormatPrice } from '../hooks/useFormatPrice';
+import { buildPurchaseMoney } from '../lib/purchaseMoney';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { generatePurchaseOrderPdf } from '../services/purchaseOrderPdf';
@@ -36,7 +37,7 @@ const STATUS_COLORS = {
 export function PurchaseOrdersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { formatPrice, defaultCurrency } = useFormatPrice();
+  const { defaultCurrency } = useFormatPrice();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -281,7 +282,7 @@ export function PurchaseOrdersPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {formatPrice(order.totalAmount)}
+                            {buildPurchaseMoney((order as any).budget).fmt(order.totalAmount)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
