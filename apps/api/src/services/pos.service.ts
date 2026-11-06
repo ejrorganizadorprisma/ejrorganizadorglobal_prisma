@@ -201,6 +201,44 @@ export class PosService {
     return { ...mapSession(await this.getSessionRow(sessionId)), totals };
   }
 
+  /**
+   * Busca exata por código de barras ou código interno (leitura do scanner).
+   * Retorna o produto no mesmo formato da API de produtos.
+   */
+  async lookupProduct(code: string) {
+    const c = String(code || '').trim();
+    if (!c) throw new BadRequestError('Código vazio');
+    const r = await db.query(
+      `SELECT id, name, code, barcode, unit, sale_price, wholesale_price, sale_price_currency, current_stock, status
+         FROM products
+        WHERE (barcode = $1 OR LOWER(code) = LOWER($1) OR LOWER(factory_code) = LOWER($1))
+        ORDER BY (barcode = $1) DESC, (status = 'ACTIVE') DESC
+        LIMIT 1`,
+      [c]
+    );
+    const p = r.rows[0];
+    if (!p) return null;
+    return {
+      id: p.id, name: p.name, code: p.code, barcode: p.barcode || undefined, unit: p.unit,
+      salePrice: int(p.sale_price), wholesalePrice: int(p.wholesale_price), salePriceCurrency: p.sale_price_currency,
+      currentStock: int(p.current_stock), status: p.status,
+    };
+  }
+
+  /** Vincula um código de barras lido pela câmera a um produto (gerentes). */
+  async setBarcode(user: User, productId: string, barcode: string) {
+    if (!MANAGER_ROLES.includes(user.role)) {
+      throw new ForbiddenError('Somente gerente/administrador pode cadastrar código de barras');
+    }
+    const code = String(barcode || '').trim();
+    if (!/^[0-9A-Za-z\-.]{4,64}$/.test(code)) throw new BadRequestError('Código de barras inválido');
+    const other = await db.query(`SELECT id, name FROM products WHERE barcode = $1 AND id <> $2 LIMIT 1`, [code, productId]);
+    if (other.rows[0]) throw new ConflictError(`Este código já pertence a: ${other.rows[0].name}`);
+    const r = await db.query(`UPDATE products SET barcode = $1, updated_at = NOW() WHERE id = $2 RETURNING id`, [code, productId]);
+    if (!r.rows[0]) throw new NotFoundError('Produto não encontrado');
+    return this.lookupProduct(code);
+  }
+
   /** Histórico de turnos (gerentes veem todos; operador vê os seus). */
   async listSessions(user: User, limit = 30) {
     const all = MANAGER_ROLES.includes(user.role);

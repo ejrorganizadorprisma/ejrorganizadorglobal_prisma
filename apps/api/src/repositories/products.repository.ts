@@ -271,6 +271,7 @@ export class ProductsRepository {
       spaceId: data.space_id,
       shelfId: data.shelf_id,
       factoryCode: data.factory_code,
+      barcode: data.barcode ?? null,
       warrantyExpirationDate: data.warranty_expiration_date,
       observations: data.observations,
       quantityPerBox: data.quantity_per_box ?? 1,
@@ -324,6 +325,7 @@ export class ProductsRepository {
       spaceId: data.space_id,
       shelfId: data.shelf_id,
       factoryCode: data.factory_code,
+      barcode: data.barcode ?? null,
       warrantyExpirationDate: data.warranty_expiration_date,
       observations: data.observations,
       quantityPerBox: data.quantity_per_box ?? 1,
@@ -393,9 +395,9 @@ export class ProductsRepository {
         wholesale_price, wholesale_price_currency, image_urls,
         is_assembly, is_part, assembly_cost, unit,
         factory_code, warranty_expiration_date, observations, quantity_per_box,
-        space_id, shelf_id, section_id, manufacturer_id, brand, brand_id, supplier_id
+        space_id, shelf_id, section_id, manufacturer_id, brand, brand_id, supplier_id, barcode
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
       RETURNING *
     `;
 
@@ -435,6 +437,7 @@ export class ProductsRepository {
       (productData as any).brand || null,
       brandId,
       (productData as any).supplierId || null,
+      (productData as any).barcode || null,
     ];
 
     try {
@@ -473,6 +476,7 @@ export class ProductsRepository {
         assemblyCost: data.assembly_cost,
         unit: data.unit,
         factoryCode: data.factory_code,
+      barcode: data.barcode ?? null,
         warrantyExpirationDate: data.warranty_expiration_date,
         observations: data.observations,
         quantityPerBox: data.quantity_per_box ?? 1,
@@ -630,6 +634,10 @@ export class ProductsRepository {
       setClauses.push(`factory_code = $${paramIndex++}`);
       values.push((productData as any).factoryCode || null);
     }
+    if ((productData as any).barcode !== undefined) {
+      setClauses.push(`barcode = $${paramIndex++}`);
+      values.push((productData as any).barcode || null);
+    }
     if ((productData as any).warrantyExpirationDate !== undefined) {
       setClauses.push(`warranty_expiration_date = $${paramIndex++}`);
       values.push((productData as any).warrantyExpirationDate || null);
@@ -696,6 +704,7 @@ export class ProductsRepository {
       spaceId: data.space_id,
       shelfId: data.shelf_id,
       factoryCode: data.factory_code,
+      barcode: data.barcode ?? null,
       warrantyExpirationDate: data.warranty_expiration_date,
       observations: data.observations,
       quantityPerBox: data.quantity_per_box ?? 1,
@@ -791,6 +800,7 @@ export class ProductsRepository {
       spaceId: product.space_id,
       shelfId: product.shelf_id,
       factoryCode: product.factory_code,
+      barcode: product.barcode ?? null,
       warrantyExpirationDate: product.warranty_expiration_date,
       observations: product.observations,
       quantityPerBox: product.quantity_per_box ?? 1,
@@ -845,6 +855,7 @@ export class ProductsRepository {
       spaceId: product.space_id,
       shelfId: product.shelf_id,
       factoryCode: product.factory_code,
+      barcode: product.barcode ?? null,
       warrantyExpirationDate: product.warranty_expiration_date,
       observations: product.observations,
       quantityPerBox: product.quantity_per_box ?? 1,

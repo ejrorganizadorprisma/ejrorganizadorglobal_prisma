@@ -70,6 +70,17 @@ export class ProductsService {
     return product;
   }
 
+  /** Código de barras não pode repetir entre produtos. */
+  private async assertBarcodeFree(barcode?: string | null, exceptId?: string) {
+    const code = (barcode || '').trim();
+    if (!code) return;
+    const r = await db.query(
+      `SELECT id, name FROM products WHERE barcode = $1 ${exceptId ? 'AND id <> $2' : ''} LIMIT 1`,
+      exceptId ? [code, exceptId] : [code]
+    );
+    if (r.rows[0]) throw new AppError(`Código de barras já usado em: ${r.rows[0].name}`, 409, 'DUPLICATE_BARCODE');
+  }
+
   async create(data: CreateProductDTO) {
     // Verificar se já existe produto com o mesmo código
     // (code é opcional — quando vazio, o repository auto-gera PROD-XXXX)
@@ -79,6 +90,8 @@ export class ProductsService {
     if (existingProduct) {
       throw new AppError('Já existe um produto com este código', 409, 'DUPLICATE_CODE');
     }
+
+    await this.assertBarcodeFree((data as any).barcode);
 
     // Validar preços
     if (data.costPrice < 0 || data.salePrice < 0) {
@@ -103,6 +116,8 @@ export class ProductsService {
     if (!existingProduct) {
       throw new AppError('Produto não encontrado', 404, 'PRODUCT_NOT_FOUND');
     }
+
+    await this.assertBarcodeFree((data as any).barcode, id);
 
     // Se código foi alterado, verificar se já existe outro produto com o novo código
     if (data.code && data.code !== existingProduct.code) {

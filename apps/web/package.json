@@ -12,6 +12,8 @@
   "dependencies": {
     "@ejr/shared-types": "workspace:*",
     "@tanstack/react-query": "^5.12.0",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "axios": "^1.7.9",
     "date-fns": "^4.1.0",
     "jspdf": "^3.0.4",

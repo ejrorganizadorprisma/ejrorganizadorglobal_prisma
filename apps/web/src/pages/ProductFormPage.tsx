@@ -103,6 +103,7 @@ export function ProductFormPage() {
     assemblyCost: 0,
     unit: ProductUnit.UNIT,
     factoryCode: '',
+    barcode: '',
     warrantyExpirationDate: '',
     observations: '',
     quantityPerBox: 1,
@@ -153,6 +154,7 @@ export function ProductFormPage() {
         assemblyCost: product.assemblyCost || 0,
         unit: product.unit || ProductUnit.UNIT,
         factoryCode: (product as any).factoryCode || '',
+        barcode: (product as any).barcode || '',
         warrantyExpirationDate: (product as any).warrantyExpirationDate ? String((product as any).warrantyExpirationDate).split('T')[0] : '',
         observations: (product as any).observations || '',
         quantityPerBox: (product as any).quantityPerBox || 1,
@@ -262,6 +264,7 @@ export function ProductFormPage() {
       wholesalePriceCurrency: formData.wholesalePriceCurrency,
       // Campos opcionais: enviar null se vazios
       factoryCode: formData.factoryCode || null,
+      barcode: (formData as any).barcode?.trim() || null,
       warrantyExpirationDate: formData.warrantyExpirationDate || null,
       observations: formData.observations || null,
       quantityPerBox: formData.quantityPerBox || 1,
@@ -411,6 +414,34 @@ export function ProductFormPage() {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+          </div>
+
+          {/* Código de barras (EAN/GTIN) — leitor USB digita e dá Enter; não envia o formulário */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Código de barras (EAN)
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                name="barcode"
+                inputMode="numeric"
+                autoComplete="off"
+                value={(formData as any).barcode}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, barcode: e.target.value.replace(/[^0-9A-Za-z\-.]/g, '') }))}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 tabular-nums"
+                placeholder="Leia com o leitor ou digite"
+              />
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 5v14M7 5v14M11 5v14M14 5v14M18 5v14M21 5v14" /></svg>
+            </div>
+            {(() => {
+              const v = String((formData as any).barcode || '');
+              if (!/^\d{13}$/.test(v)) return <p className="mt-1 text-xs text-gray-400">Também pode ser cadastrado lendo pela câmera no PDV Móvel.</p>;
+              const sum = v.slice(0, 12).split('').reduce((a, c, i) => a + Number(c) * (i % 2 ? 3 : 1), 0);
+              const ok = (10 - (sum % 10)) % 10 === Number(v[12]);
+              return <p className={`mt-1 text-xs ${ok ? 'text-emerald-600' : 'text-amber-600'}`}>{ok ? '✓ EAN-13 válido' : '⚠ Dígito verificador do EAN-13 não confere'}</p>;
+            })()}
           </div>
 
           {/* Código Produto do Fornecedor (código deste produto no catálogo do fornecedor) */}

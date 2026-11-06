@@ -16,7 +16,8 @@ export function LoginPage() {
       await login({ email, password });
       // Operador de Caixa entra direto no PDV.
       const role = useAuth.getState().user?.role;
-      navigate(role === 'CASHIER' ? '/pdv' : '/dashboard');
+      // Celular/tablet em pé → PDV móvel (câmera)
+      navigate(role === 'CASHIER' ? (window.innerWidth < 768 ? '/pdv/movel' : '/pdv') : '/dashboard');
     } catch (error) {
       // Erro já tratado no hook
     }

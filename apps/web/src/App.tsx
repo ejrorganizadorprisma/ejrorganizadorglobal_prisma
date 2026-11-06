@@ -110,6 +110,7 @@ import { ExpensesPage } from './pages/ExpensesPage';
 import { FinancialDebtorsPage } from './pages/FinancialDebtorsPage';
 import { CashBoxPage } from './pages/CashBoxPage';
 import { PosPage } from './pages/PosPage';
+import { PosMobilePage } from './pages/PosMobilePage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -383,6 +384,15 @@ function AppRoutes() {
         }
       />
       {/* Catálogo imersivo do orçamento (fullscreen, sem MainLayout) */}
+      {/* PDV móvel (celular/tablet, leitura pela câmera) — tela cheia */}
+      <Route
+        path="/pdv/movel"
+        element={
+          <ProtectedRoute>
+            <PosMobilePage />
+          </ProtectedRoute>
+        }
+      />
       {/* PDV / Caixa — tela cheia, sem MainLayout */}
       <Route
         path="/pdv"

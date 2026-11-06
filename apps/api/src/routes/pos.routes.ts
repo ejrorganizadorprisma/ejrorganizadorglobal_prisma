@@ -49,6 +49,12 @@ router.post(
   handle((req) => service.closeSession(user(req), req.params.id, req.body?.countedCash, req.body?.notes))
 );
 
+// Busca exata por código de barras / código (scanner)
+router.get('/products/lookup', handle((req) => service.lookupProduct(String(req.query.code || ''))));
+
+// Vincular código de barras a um produto { barcode } (gerentes)
+router.post('/products/:id/barcode', handle((req) => service.setBarcode(user(req), req.params.id, req.body?.barcode)));
+
 // Finalizar venda
 router.post('/sales', handle((req) => service.createSale(user(req), req.body || {}), 201));
 

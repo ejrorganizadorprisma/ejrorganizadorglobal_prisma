@@ -167,6 +167,7 @@ const menuSections: MenuSection[] = [
           { name: 'Lista de Vendas', path: '/sales', icon: DollarSign, page: 'sales' as AppPage },
           { name: 'Nova Venda', path: '/sales/new', icon: Plus, page: 'sales' as AppPage },
           { name: 'PDV / Caixa', path: '/pdv', icon: ScanBarcode, page: 'pos' as AppPage },
+          { name: 'PDV Móvel (câmera)', path: '/pdv/movel', icon: Smartphone, page: 'pos' as AppPage },
         ],
       },
       {

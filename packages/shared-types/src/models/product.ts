@@ -46,6 +46,7 @@ export interface Product {
   unit: ProductUnit; // unidade de medida
   // Extra fields
   factoryCode?: string;
+  barcode?: string | null; // código de barras (EAN/GTIN) — leitor USB ou câmera
   warrantyExpirationDate?: string;
   observations?: string;
   quantityPerBox?: number;
@@ -88,6 +89,10 @@ export const CreateProductSchema = z.object({
   assemblyCost: z.number().int().min(0).default(0),
   unit: z.nativeEnum(ProductUnit).default(ProductUnit.UNIT),
   factoryCode: z.string().optional().nullable(),
+  barcode: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim() || null : v),
+    z.string().max(64, 'Código de barras muito longo').regex(/^[0-9A-Za-z\-.]+$/, 'Código de barras inválido').optional().nullable()
+  ),
   warrantyExpirationDate: z.string().optional().nullable(),
   observations: z.string().optional().nullable(),
   quantityPerBox: z.number().int().min(1).optional().default(1),
@@ -124,6 +129,10 @@ export const UpdateProductSchema = z.object({
   assemblyCost: z.number().int().min(0).optional(),
   unit: z.nativeEnum(ProductUnit).optional(),
   factoryCode: z.string().optional().nullable(),
+  barcode: z.preprocess(
+    (v) => (typeof v === 'string' ? v.trim() || null : v),
+    z.string().max(64, 'Código de barras muito longo').regex(/^[0-9A-Za-z\-.]+$/, 'Código de barras inválido').optional().nullable()
+  ),
   warrantyExpirationDate: z.string().optional().nullable(),
   observations: z.string().optional().nullable(),
   quantityPerBox: z.number().int().min(1).optional(),

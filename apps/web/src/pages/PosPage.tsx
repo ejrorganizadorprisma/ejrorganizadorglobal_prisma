@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   ScanBarcode, Search, Trash2, Minus, Plus, User, UserSearch, Percent, CreditCard, Banknote, QrCode,
   Landmark, Receipt, FileText, HandCoins, CircleEllipsis, Wallet, X, Check, Printer, Lock, LogOut,
-  ArrowDownCircle, ArrowUpCircle, History, Store, Loader2, ShoppingCart, Keyboard, ArrowLeft, Clock, UserPlus,
+  ArrowDownCircle, ArrowUpCircle, History, Store, Loader2, ShoppingCart, Keyboard, ArrowLeft, Clock, UserPlus, Smartphone,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
@@ -17,7 +17,7 @@ import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
 // ─────────────────────────────────────────────────────────────────────────────
-type CartItem = {
+export type CartItem = {
   productId: string;
   name: string;
   code?: string;
@@ -31,19 +31,19 @@ type CartItem = {
   wholesalePrice?: number;
   priceCurrency?: string;
 };
-type PosCustomer = {
+export type PosCustomer = {
   id: string; name: string; allowedPaymentMethods?: string[] | null; creditMaxDays?: number | null; document?: string;
   priceTier?: string; priceAdjustmentPct?: number | null;
 };
-type Payment = { method: string; amount: number };
-type Totals = {
+export type Payment = { method: string; amount: number };
+export type Totals = {
   openingAmount: number; salesCount: number; salesTotal: number; discountTotal: number; cancelledCount: number;
   byMethod: { method: string; amount: number; count: number }[];
   supplies: number; withdrawals: number; cashSales: number; expectedCash: number;
   movements: { id: string; type: string; amount: number; reason?: string; userName?: string; createdAt: string }[];
 };
-type Session = { id: string; sessionNumber: number; operatorName?: string; openedAt: string; openingAmount: number; totals: Totals };
-type ReceiptData = {
+export type Session = { id: string; sessionNumber: number; operatorName?: string; openedAt: string; openingAmount: number; totals: Totals };
+export type ReceiptData = {
   id: string; saleNumber: string; createdAt: string; sessionNumber?: number; operatorName?: string;
   customerName: string; customerDocument?: string; subtotal: number; discount: number; total: number;
   changeAmount: number; nfNumber?: string; status: string;
@@ -51,21 +51,22 @@ type ReceiptData = {
   payments: { method: string; amount: number; status: string; dueDate?: string }[];
 };
 
-const CONSUMER: PosCustomer = { id: 'cust-consumidor-final', name: 'Consumidor Final', allowedPaymentMethods: null };
-const METHOD_ORDER = ['CASH', 'PIX', 'DEBIT_CARD', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHECK', 'CREDIT', 'PROMISSORY', 'BOLETO', 'OTHER'];
-const METHOD_ICONS: Record<string, any> = {
+export const POS_PRINT_CSS = `@media print { @page { size: 80mm auto; margin: 3mm; } body * { visibility: hidden; } #pos-print, #pos-print *, #pos-print-close, #pos-print-close * { visibility: visible; } #pos-print, #pos-print-close { position: absolute; left: 0; top: 0; width: 72mm; background: #fff; } body.pos-printing-close #pos-print { display: none !important; } }`;
+export const CONSUMER: PosCustomer = { id: 'cust-consumidor-final', name: 'Consumidor Final', allowedPaymentMethods: null };
+export const METHOD_ORDER = ['CASH', 'PIX', 'DEBIT_CARD', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHECK', 'CREDIT', 'PROMISSORY', 'BOLETO', 'OTHER'];
+export const METHOD_ICONS: Record<string, any> = {
   CASH: Banknote, PIX: QrCode, DEBIT_CARD: CreditCard, CREDIT_CARD: CreditCard, BANK_TRANSFER: Landmark,
   CHECK: FileText, CREDIT: HandCoins, PROMISSORY: FileText, BOLETO: Receipt, OTHER: CircleEllipsis,
 };
-const label = (m: string) => PAYMENT_METHOD_LABELS[m] || m;
-const errMsg = (e: any, fb: string) => e?.response?.data?.error?.message || e?.response?.data?.message || fb;
+export const label = (m: string) => PAYMENT_METHOD_LABELS[m] || m;
+export const errMsg = (e: any, fb: string) => e?.response?.data?.error?.message || e?.response?.data?.message || fb;
 const pad = (n: number) => String(n).padStart(2, '0');
 const localDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Campo de dinheiro (PYG inteiro; BRL/USD centavos)
 // ─────────────────────────────────────────────────────────────────────────────
-function MoneyField({
+export function MoneyField({
   value, onChange, decimals, autoFocus, onEnter, className = '', inputRef,
 }: {
   value: number; onChange: (v: number) => void; decimals: number; autoFocus?: boolean;
@@ -92,7 +93,7 @@ function MoneyField({
   );
 }
 
-function Modal({ title, icon: Icon, onClose, children, wide }: { title: string; icon?: any; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+export function Modal({ title, icon: Icon, onClose, children, wide }: { title: string; icon?: any; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
     window.addEventListener('keydown', h, true);
@@ -114,14 +115,14 @@ function Modal({ title, icon: Icon, onClose, children, wide }: { title: string; 
   );
 }
 
-function Kbd({ children }: { children: React.ReactNode }) {
+export function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="inline-flex items-center justify-center min-w-[1.6rem] px-1.5 py-0.5 rounded-md bg-slate-800/80 text-[10px] font-semibold text-slate-200 border border-slate-600">{children}</kbd>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cupom (impressão térmica 80mm)
 // ─────────────────────────────────────────────────────────────────────────────
-function ReceiptPrint({ data, fmt, company }: { data: ReceiptData | null; fmt: (v: number) => string; company: string }) {
+export function ReceiptPrint({ data, fmt, company }: { data: ReceiptData | null; fmt: (v: number) => string; company: string }) {
   if (!data) return null;
   const d = new Date(data.createdAt);
   return (
@@ -226,6 +227,10 @@ export function PosPage() {
   const listEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(t); }, []);
+  // Celular/tablet em pé → PDV móvel (câmera). "Versão computador" grava a preferência.
+  useEffect(() => {
+    if (window.innerWidth < 768 && localStorage.getItem('pos-prefer-desktop') !== '1') navigate('/pdv/movel', { replace: true });
+  }, [navigate]);
   useEffect(() => { localStorage.setItem('pos-auto-print', autoPrint ? '1' : '0'); }, [autoPrint]);
 
   const focusScan = useCallback(() => setTimeout(() => scanRef.current?.focus(), 30), []);
@@ -375,7 +380,7 @@ export function PosPage() {
 
   return (
     <div className="min-h-screen lg:h-screen flex flex-col bg-slate-100 text-slate-900 lg:overflow-hidden print:h-auto print:bg-white">
-      <style>{`@media print { @page { size: 80mm auto; margin: 3mm; } body * { visibility: hidden; } #pos-print, #pos-print *, #pos-print-close, #pos-print-close * { visibility: visible; } #pos-print, #pos-print-close { position: absolute; left: 0; top: 0; width: 72mm; background: #fff; } body.pos-printing-close #pos-print { display: none !important; } }`}</style>
+      <style>{POS_PRINT_CSS}</style>
       <ReceiptPrint data={printData} fmt={fmt} company={companyName} />
 
       {/* Barra superior */}
@@ -401,6 +406,7 @@ export function PosPage() {
           <HeaderBtn icon={ArrowUpCircle} label="Suprimento" onClick={() => setModal('supply')} />
           <HeaderBtn icon={ArrowDownCircle} label="Sangria" onClick={() => setModal('withdraw')} />
           <HeaderBtn icon={Lock} label="Fechar caixa" onClick={() => setModal('close')} accent />
+          <HeaderBtn icon={Smartphone} label="Versão celular" onClick={() => { localStorage.removeItem('pos-prefer-desktop'); navigate('/pdv/movel'); }} />
           <HeaderBtn icon={Keyboard} label="Atalhos" kbd="F1" onClick={() => setModal('help')} />
           {isCashier && <HeaderBtn icon={LogOut} label="Sair" onClick={async () => { await logout(); navigate('/login'); }} />}
         </div>
@@ -661,7 +667,7 @@ function HeaderBtn({ icon: Icon, label, kbd, onClick, accent }: { icon: any; lab
 // ─────────────────────────────────────────────────────────────────────────────
 // Abertura de caixa
 // ─────────────────────────────────────────────────────────────────────────────
-function OpenSessionScreen({ fmt, decimals, userName, isCashier, onBack, onLogout, onOpened }: {
+export function OpenSessionScreen({ fmt, decimals, userName, isCashier, onBack, onLogout, onOpened }: {
   fmt: (v: number) => string; decimals: number; userName?: string; isCashier: boolean;
   onBack: () => void; onLogout: () => void; onOpened: () => void;
 }) {
@@ -701,7 +707,7 @@ function OpenSessionScreen({ fmt, decimals, userName, isCashier, onBack, onLogou
 // ─────────────────────────────────────────────────────────────────────────────
 // Pagamento
 // ─────────────────────────────────────────────────────────────────────────────
-function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
+export function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
   total: number; customer: PosCustomer; fmt: (v: number) => string; decimals: number; onClose: () => void;
   onConfirm: (d: { payments: Payment[]; withNf: boolean; nfNumber?: string; creditDueDate?: string }) => Promise<void>;
 }) {
@@ -786,7 +792,7 @@ function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
     <Modal title="Pagamento" icon={Wallet} onClose={() => !saving && onClose()} wide>
       <div className="grid md:grid-cols-[1fr_280px] gap-5">
         <div>
-          <div className="text-xs font-medium text-slate-500 mb-2">Forma de pagamento <span className="text-slate-400">(Alt+1…{methods.length})</span></div>
+          <div className="text-xs font-medium text-slate-500 mb-2">Forma de pagamento <span className="hidden md:inline text-slate-400">(Alt+1…{methods.length})</span></div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {methods.map((m, i) => {
               const Icon = METHOD_ICONS[m] || Wallet;
@@ -804,7 +810,7 @@ function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
           <div className="mt-4">
             <div className="flex items-baseline justify-between">
               <label className="text-xs font-medium text-slate-500">Valor em {label(method)}</label>
-              <span className="text-[11px] text-slate-400">Enter adiciona · com o total coberto, Enter conclui</span>
+              <span className="hidden md:inline text-[11px] text-slate-400">Enter adiciona · com o total coberto, Enter conclui</span>
             </div>
             <MoneyField inputRef={amountRef} value={amount} onChange={setAmount} decimals={decimals} autoFocus onEnter={onEnter} className="text-3xl mt-1" />
             {quickCash.length > 0 && (
@@ -867,10 +873,30 @@ function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
             </div>
           )}
           <button onClick={() => finish()} disabled={saving || remaining > 0}
-            className="mt-auto pt-0 w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-bold text-lg flex items-center justify-center gap-2 mt-4">
+            className="hidden md:flex mt-auto pt-0 w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 text-white font-bold text-lg items-center justify-center gap-2 mt-4">
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />} Concluir venda
           </button>
         </div>
+      </div>
+      {/* Celular/tablet: barra fixa com o que falta/troco + concluir */}
+      <div className="md:hidden sticky bottom-0 -mx-5 -mb-5 mt-4 px-5 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] bg-white/95 backdrop-blur border-t border-slate-200 flex items-center gap-3">
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className={`text-[11px] uppercase tracking-wider ${change > 0 ? 'text-amber-700' : remaining ? 'text-red-600' : 'text-emerald-700'}`}>
+            {change > 0 ? 'Troco' : remaining ? 'Falta' : 'Pago'}
+          </div>
+          <div className="text-xl font-extrabold tabular-nums truncate">{fmt(change > 0 ? change : remaining || paid)}</div>
+        </div>
+        {remaining > 0 ? (
+          <button onClick={() => onEnter()} disabled={saving || amount <= 0}
+            className="px-5 py-3.5 rounded-2xl bg-emerald-500 active:bg-emerald-600 disabled:opacity-40 text-white font-bold">
+            {amount >= remaining ? 'Concluir' : `+ ${label(method)}`}
+          </button>
+        ) : (
+          <button onClick={() => finish()} disabled={saving}
+            className="px-6 py-3.5 rounded-2xl bg-emerald-500 active:bg-emerald-600 disabled:opacity-40 text-white font-bold flex items-center gap-2">
+            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />} Concluir
+          </button>
+        )}
       </div>
     </Modal>
   );
@@ -884,7 +910,7 @@ const toPosCustomer = (c: any): PosCustomer => ({
   document: c.ruc || c.ci || c.document, priceTier: c.priceTier, priceAdjustmentPct: c.priceAdjustmentPct,
 });
 
-function CustomerModal({ onClose, onPick, current }: { onClose: () => void; onPick: (c: PosCustomer) => void; current: PosCustomer }) {
+export function CustomerModal({ onClose, onPick, current }: { onClose: () => void; onPick: (c: PosCustomer) => void; current: PosCustomer }) {
   const [mode, setMode] = useState<'search' | 'new'>('search');
   const [q, setQ] = useState('');
   const [list, setList] = useState<any[]>([]);
@@ -1077,7 +1103,7 @@ function QuickCustomerForm({ initial, onCancel, onCreated, onClose, onUseExistin
   );
 }
 
-function DiscountModal({ subtotal, value, fmt, decimals, onClose, onApply }: { subtotal: number; value: number; fmt: (v: number) => string; decimals: number; onClose: () => void; onApply: (v: number) => void }) {
+export function DiscountModal({ subtotal, value, fmt, decimals, onClose, onApply }: { subtotal: number; value: number; fmt: (v: number) => string; decimals: number; onClose: () => void; onApply: (v: number) => void }) {
   const [mode, setMode] = useState<'value' | 'pct'>('value');
   const [v, setV] = useState(value);
   const [pct, setPct] = useState('');
@@ -1114,7 +1140,7 @@ function QtyModal({ item, onClose, onApply }: { item: CartItem; onClose: () => v
   );
 }
 
-function MovementModal({ type, sessionId, fmt, decimals, available, onClose, onDone }: {
+export function MovementModal({ type, sessionId, fmt, decimals, available, onClose, onDone }: {
   type: 'SUPPLY' | 'WITHDRAWAL'; sessionId: string; fmt: (v: number) => string; decimals: number; available: number; onClose: () => void; onDone: () => void;
 }) {
   const [amount, setAmount] = useState(0);
@@ -1142,7 +1168,7 @@ function MovementModal({ type, sessionId, fmt, decimals, available, onClose, onD
   );
 }
 
-function CloseModal({ session, fmt, decimals, pendingCart, onClose, onClosed }: {
+export function CloseModal({ session, fmt, decimals, pendingCart, onClose, onClosed }: {
   session: Session; fmt: (v: number) => string; decimals: number; pendingCart: boolean; onClose: () => void; onClosed: () => void;
 }) {
   const { data: totals } = useQuery({
@@ -1225,7 +1251,7 @@ function CloseModal({ session, fmt, decimals, pendingCart, onClose, onClosed }: 
   );
 }
 
-function SessionSalesModal({ sessionId, fmt, onClose, onReprint }: { sessionId: string; fmt: (v: number) => string; onClose: () => void; onReprint: (id: string) => void }) {
+export function SessionSalesModal({ sessionId, fmt, onClose, onReprint }: { sessionId: string; fmt: (v: number) => string; onClose: () => void; onReprint: (id: string) => void }) {
   const { data = [], isLoading } = useQuery({
     queryKey: ['pos-sales', sessionId],
     queryFn: async () => (await api.get(`/pos/session/${sessionId}/sales`)).data.data as any[],
