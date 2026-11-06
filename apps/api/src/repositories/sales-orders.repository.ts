@@ -1136,6 +1136,8 @@ export class SalesOrdersRepository {
             email: row.customer.email || undefined,
             phone: row.customer.phone || undefined,
             document: row.customer.document || undefined,
+            allowedPaymentMethods: row.customer.allowed_payment_methods ?? null,
+            creditMaxDays: row.customer.credit_max_days ?? null,
           }
         : undefined,
       seller: row.seller

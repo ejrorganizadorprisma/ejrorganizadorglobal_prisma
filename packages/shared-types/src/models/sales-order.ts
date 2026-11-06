@@ -89,6 +89,10 @@ export interface SalesOrder {
     email?: string;
     phone?: string;
     document?: string;
+    /** Formas de pagamento aceitas pelo cliente (null/vazio = qualquer). */
+    allowedPaymentMethods?: string[] | null;
+    /** Prazo máximo de crédito (dias) do cliente. */
+    creditMaxDays?: number | null;
   };
   seller?: {
     id: string;

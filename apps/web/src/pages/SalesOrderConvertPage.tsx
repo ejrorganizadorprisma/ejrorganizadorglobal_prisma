@@ -14,17 +14,18 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PAYMENT_METHOD_LABELS } from '../lib/payment-methods';
 
-const PAYMENT_METHODS = [
-  { value: 'PIX', label: 'PIX' },
-  { value: 'CASH', label: 'Dinheiro' },
-  { value: 'CREDIT_CARD', label: 'Cartao Credito' },
-  { value: 'DEBIT_CARD', label: 'Cartao Debito' },
-  { value: 'BANK_SLIP', label: 'Boleto' },
-  { value: 'BANK_TRANSFER', label: 'Transferencia' },
-  { value: 'CHECK', label: 'Cheque' },
-  { value: 'CREDIT', label: 'A Prazo (Fiado)' },
-];
+// Mesmas chaves/labels do cadastro de clientes (allowed_payment_methods).
+const ALL_PAYMENT_METHODS = Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => ({ value, label }));
+
+// Data local (YYYY-MM-DD) daqui a N dias — para sugerir o vencimento do crédito.
+const dateInDays = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 const SHIPPING_METHODS = [
   { value: '', label: 'Sem frete' },
@@ -55,9 +56,11 @@ export function SalesOrderConvertPage() {
   const [nfOpen, setNfOpen] = useState(false);
   const { formatPrice, defaultCurrency } = useFormatPrice();
 
-  const [paymentMethod, setPaymentMethod] = useState('PIX');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [installments, setInstallments] = useState(1);
   const [dueDate, setDueDate] = useState('');
+  // true quando o usuário digitou o vencimento — aí não sobrescrevemos a sugestão.
+  const [dueDateTouched, setDueDateTouched] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [notes, setNotes] = useState('');
   const [shippingMethod, setShippingMethod] = useState('');
@@ -72,6 +75,33 @@ export function SalesOrderConvertPage() {
   // separação); senão, a quantidade desejada do pedido.
   const defaultQtyFor = (item: any) =>
     item.quantitySeparated != null ? item.quantitySeparated : item.quantity;
+
+  // Formas de pagamento aceitas pelo cliente (cadastro). Sem cadastro = todas,
+  // igual à validação da API (sales.service: só valida quando há lista).
+  const customerMethods = order?.customer?.allowedPaymentMethods || [];
+  const paymentOptions = customerMethods.length > 0
+    ? customerMethods.map((value) => ({ value, label: PAYMENT_METHOD_LABELS[value] || value }))
+    : ALL_PAYMENT_METHODS;
+  const creditMaxDays = order?.customer?.creditMaxDays || 0;
+
+  // Pré-seleciona a 1ª forma aceita pelo cliente (antes era sempre PIX).
+  useEffect(() => {
+    if (!order) return;
+    if (!paymentMethod || !paymentOptions.some((o) => o.value === paymentMethod)) {
+      setPaymentMethod(paymentOptions[0]?.value || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.id, customerMethods.join(',')]);
+
+  // Crédito: sugere o vencimento = hoje + prazo máximo do cliente.
+  useEffect(() => {
+    if (dueDateTouched) return;
+    if (paymentMethod === 'CREDIT' && creditMaxDays > 0) {
+      setDueDate(dateInDays(creditMaxDays));
+    } else {
+      setDueDate('');
+    }
+  }, [paymentMethod, creditMaxDays, dueDateTouched]);
 
   // Inicializa seleção quando o pedido carrega/muda — default = qty separada.
   // Item sem nada separado (0) começa desmarcado.
@@ -526,10 +556,15 @@ export function SalesOrderConvertPage() {
                   onChange={(e) => setPaymentMethod(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                 >
-                  {PAYMENT_METHODS.map((m) => (
+                  {paymentOptions.map((m) => (
                     <option key={m.value} value={m.value}>{m.label}</option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {customerMethods.length > 0
+                    ? 'Formas aceitas no cadastro do cliente.'
+                    : 'Cliente sem formas de pagamento cadastradas — todas liberadas.'}
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Parcelas</label>
@@ -547,9 +582,17 @@ export function SalesOrderConvertPage() {
                 <input
                   type="date"
                   value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  onChange={(e) => { setDueDate(e.target.value); setDueDateTouched(true); }}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
+                {paymentMethod === 'CREDIT' && creditMaxDays > 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Prazo máximo do cliente: {creditMaxDays} {creditMaxDays === 1 ? 'dia' : 'dias'}
+                    {dueDate && dueDate > dateInDays(creditMaxDays) && (
+                      <span className="text-amber-600"> — vencimento acima do prazo</span>
+                    )}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Desconto (centavos)</label>
