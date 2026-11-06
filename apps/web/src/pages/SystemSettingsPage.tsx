@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSystemSettings, useUpdateSystemSettings } from '../hooks/useSystemSettings';
+import { useAuth } from '../hooks/useAuth';
 import {
   COUNTRY_CONFIG,
   CURRENCY_CONFIG,
@@ -12,6 +13,8 @@ import {
 export function SystemSettingsPage() {
   const { data: settings, isLoading } = useSystemSettings();
   const updateSettings = useUpdateSystemSettings();
+  const { user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
 
   const [country, setCountry] = useState<Country>('BR');
   const [defaultCurrency, setDefaultCurrency] = useState<Currency>('BRL');
@@ -21,6 +24,7 @@ export function SystemSettingsPage() {
   const [exchangeRateUsdToPyg, setExchangeRateUsdToPyg] = useState(7250.00);
   const [enabledCurrencies, setEnabledCurrencies] = useState<Currency[]>(['BRL', 'PYG', 'USD']);
   const [floorIdentificationMethod, setFloorIdentificationMethod] = useState<'LOGGED_USER' | 'EMPLOYEE_CODE'>('LOGGED_USER');
+  const [invoiceWithoutNfEnabled, setInvoiceWithoutNfEnabled] = useState(false);
 
   // Estados de inversão para os 3 campos
   const [isBrlUsdInverted, setIsBrlUsdInverted] = useState(false);
@@ -48,6 +52,7 @@ export function SystemSettingsPage() {
       setExchangeRateUsdToPyg(settings.exchangeRateUsdToPyg);
       setEnabledCurrencies(settings.enabledCurrencies);
       if ((settings as any).floorIdentificationMethod) setFloorIdentificationMethod((settings as any).floorIdentificationMethod);
+      setInvoiceWithoutNfEnabled(!!settings.invoiceWithoutNfEnabled);
     }
   }, [settings]);
 
@@ -66,7 +71,7 @@ export function SystemSettingsPage() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [country, defaultCurrency, language, exchangeRateBrlToUsd, exchangeRateBrlToPyg, exchangeRateUsdToPyg, enabledCurrencies, floorIdentificationMethod]); // Dependências para ter acesso aos valores atuais
+  }, [country, defaultCurrency, language, exchangeRateBrlToUsd, exchangeRateBrlToPyg, exchangeRateUsdToPyg, enabledCurrencies, floorIdentificationMethod, invoiceWithoutNfEnabled]); // Dependências para ter acesso aos valores atuais
 
   // Ao mudar o país, sugerir moeda e língua padrão (mas permitir personalização)
   const handleCountryChange = (newCountry: Country) => {
@@ -100,6 +105,7 @@ export function SystemSettingsPage() {
         exchangeRateUsdToPyg,
         enabledCurrencies,
         floorIdentificationMethod,
+        ...(isOwner ? { invoiceWithoutNfEnabled } : {}),
       });
       alert('✅ Configurações salvas com sucesso!');
     } catch (error: any) {
@@ -121,6 +127,36 @@ export function SystemSettingsPage() {
       <p className="text-gray-600 mb-8">
         Configure o país, moeda, idioma e taxas de câmbio do sistema
       </p>
+
+      {/* Faturamento: com / sem Nota Fiscal */}
+      <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-lg lg:text-xl font-semibold mb-1 flex items-center gap-2">
+              <span>🧾</span>
+              <span>Faturamento sem Nota Fiscal</span>
+            </h2>
+            <p className="text-sm text-gray-500">
+              Habilita a escolha <strong>Com NF</strong> / <strong>Sem NF</strong> ao faturar. Vendas sem NF não
+              consomem a numeração das notas fiscais.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={invoiceWithoutNfEnabled}
+            disabled={!isOwner}
+            onClick={() => setInvoiceWithoutNfEnabled((v) => !v)}
+            title={isOwner ? '' : 'Somente o administrador geral (Owner) pode alterar'}
+            className={`relative shrink-0 inline-flex h-7 w-12 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${invoiceWithoutNfEnabled ? 'bg-emerald-500' : 'bg-gray-300'}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${invoiceWithoutNfEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">
+          {isOwner ? 'Pressione F10 ou salve para aplicar.' : '🔒 Somente o administrador geral (Owner) pode alterar esta opção.'}
+        </p>
+      </div>
 
       {/* Identificação no chão de fábrica */}
       <div className="bg-white rounded-lg shadow p-4 lg:p-6 mb-6">

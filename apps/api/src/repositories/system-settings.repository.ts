@@ -116,6 +116,12 @@ export class SystemSettingsRepository {
       paramIndex++;
     }
 
+    if (dto.invoiceWithoutNfEnabled !== undefined) {
+      updateFields.push(`invoice_without_nf_enabled = $${paramIndex}`);
+      values.push(!!dto.invoiceWithoutNfEnabled);
+      paramIndex++;
+    }
+
     if (dto.floorIdentificationMethod !== undefined) {
       updateFields.push(`floor_identification_method = $${paramIndex}`);
       values.push(dto.floorIdentificationMethod);
@@ -177,6 +183,7 @@ export class SystemSettingsRepository {
       mobileAppEnabled: data.mobile_app_enabled ?? false,
       mobileAppApiKey: data.mobile_app_api_key ?? null,
       floorIdentificationMethod: data.floor_identification_method ?? 'LOGGED_USER',
+      invoiceWithoutNfEnabled: data.invoice_without_nf_enabled ?? false,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };

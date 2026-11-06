@@ -27,7 +27,7 @@ import { useSale, useUpdateSale, useUpdatePayment, useInvoiceSale, useUploadSale
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { useDefaultDocumentSettings } from '../hooks/useDocumentSettings';
 import { generateSalePDF } from '../utils/salePdfGenerator';
-import { InvoiceModal } from '../components/InvoiceModal';
+import { InvoiceModal, invoicePayload } from '../components/InvoiceModal';
 import { SaleStatus, PaymentStatus } from '@ejr/shared-types';
 
 const fulfillmentConfig: Record<string, { label: string; bg: string; text: string }> = {
@@ -294,6 +294,7 @@ export function SaleDetailPage() {
 
           <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1 text-sm">
             {sale.nfNumber && <div><span className="text-gray-400">NF:</span> <span className="font-medium">{sale.nfNumber}</span></div>}
+            {sale.invoicedWithoutNf && <div><span className="text-gray-400">NF:</span> <span className="font-medium text-amber-700">Faturada sem NF</span></div>}
             {sale.carrier?.name && <div><span className="text-gray-400">Transportadora:</span> <span className="font-medium">{sale.carrier.name}</span></div>}
             {typeof sale.shippingCost === 'number' && sale.shippingCost > 0 && <div><span className="text-gray-400">Valor do frete:</span> <span className="font-medium">{formatPriceValue(sale.shippingCost, sale.freightCurrency || defaultCurrency)}</span></div>}
             {sale.freightMode && <div><span className="text-gray-400">Modalidade:</span> <span className="font-medium">{sale.freightMode}</span></div>}
@@ -612,7 +613,7 @@ export function SaleDetailPage() {
           currency={defaultCurrency}
           onClose={() => setInvoiceOpen(false)}
           onConfirm={async (nf) => {
-            await invoice.mutateAsync({ id: sale.id, data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId } });
+            await invoice.mutateAsync({ id: sale.id, data: invoicePayload(nf) });
             if (nf.file) await uploadNf.mutateAsync({ id: sale.id, endpoint: 'invoice-file', file: nf.file });
             toast.success('Venda faturada! Enviada para expedição.');
             setInvoiceOpen(false);

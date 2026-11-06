@@ -169,7 +169,7 @@ export function useNextNfNumber(options?: { enabled?: boolean }) {
 export function useInvoiceSale() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { withoutNf?: boolean; nfNumber?: string; nfDate?: string; nfAmount?: number; carrierId?: string } }) => {
       const res = await api.post(`/sales/${id}/invoice`, data);
       return res.data.data as Sale;
     },

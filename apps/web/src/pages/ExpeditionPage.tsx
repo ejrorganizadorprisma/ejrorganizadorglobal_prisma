@@ -78,6 +78,9 @@ function SaleHeader({ sale }: { sale: Sale }) {
           {sale.nfFileUrl && <a href={fileUrl(sale.nfFileUrl)} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 hover:underline flex items-center gap-1 justify-end mt-1"><Link2 className="w-3 h-3" /> ver NF</a>}
         </div>
       )}
+      {!sale.nfNumber && sale.invoicedWithoutNf && (
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Sem NF</span>
+      )}
     </div>
   );
 }

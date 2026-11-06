@@ -26,6 +26,9 @@ export interface SystemSettings {
   // Chão de fábrica: como identificar o responsável na Separação/Expedição
   floorIdentificationMethod: FloorIdentificationMethod;
 
+  // Faturamento: permite faturar SEM Nota Fiscal (não consome a numeração de NF)
+  invoiceWithoutNfEnabled: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +44,7 @@ export interface UpdateSystemSettingsDTO {
   mobileAppEnabled?: boolean;
   mobileAppApiKey?: string | null;
   floorIdentificationMethod?: FloorIdentificationMethod;
+  invoiceWithoutNfEnabled?: boolean;
 }
 
 export const COUNTRY_CONFIG = {

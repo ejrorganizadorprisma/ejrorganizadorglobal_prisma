@@ -128,6 +128,7 @@ export interface Sale {
   nfAmount?: number; // centavos
   nfFileUrl?: string;
   nfFileName?: string;
+  invoicedWithoutNf?: boolean; // faturada sem NF (nfNumber vazio)
   invoicedAt?: string;
   invoicedBy?: string;
   // Expedição
@@ -237,7 +238,8 @@ export interface UpdateSaleDTO {
 
 // Faturamento: lança a NF de saída e (opcionalmente) a transportadora.
 export interface InvoiceSaleDTO {
-  nfNumber: string;
+  withoutNf?: boolean; // faturar sem NF (exige system_settings.invoice_without_nf_enabled)
+  nfNumber?: string; // obrigatório quando withoutNf != true
   nfDate?: string;
   nfAmount?: number; // centavos
   carrierId?: string; // opcional no faturamento

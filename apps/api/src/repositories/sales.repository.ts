@@ -989,11 +989,12 @@ export class SalesRepository {
   async invoice(
     id: string,
     userId: string,
-    dto: { nfNumber: string; nfDate?: string | null; nfAmount?: number | null; carrierId?: string | null }
+    dto: { nfNumber: string | null; nfDate?: string | null; nfAmount?: number | null; carrierId?: string | null; withoutNf?: boolean }
   ): Promise<void> {
     await db.query(
       `UPDATE sales
           SET nf_number = $1,
+              invoiced_without_nf = $7,
               nf_date = $2,
               nf_amount = $3,
               carrier_id = COALESCE($4, carrier_id),
@@ -1002,7 +1003,7 @@ export class SalesRepository {
               fulfillment_status = 'IN_EXPEDITION',
               updated_at = NOW()
         WHERE id = $6`,
-      [dto.nfNumber, dto.nfDate || null, dto.nfAmount ?? null, dto.carrierId || null, userId, id]
+      [dto.nfNumber, dto.nfDate || null, dto.nfAmount ?? null, dto.carrierId || null, userId, id, !!dto.withoutNf]
     );
   }
 
@@ -1129,6 +1130,7 @@ export class SalesRepository {
       nfAmount: data.nf_amount ?? undefined,
       nfFileUrl: data.nf_file_url || undefined,
       nfFileName: data.nf_file_name || undefined,
+      invoicedWithoutNf: data.invoiced_without_nf ?? false,
       invoicedAt: data.invoiced_at || undefined,
       invoicedBy: data.invoiced_by || undefined,
       carrierId: data.carrier_id || undefined,

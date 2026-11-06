@@ -30,7 +30,12 @@ export class SystemSettingsController {
    */
   async updateSettings(req: Request, res: Response) {
     try {
-      const dto = req.body;
+      const dto = { ...(req.body || {}) };
+      // "Faturar sem Nota Fiscal" só pode ser alterado pelo admin geral (OWNER).
+      // Para os demais papéis o campo é ignorado (a tela salva todos os campos juntos).
+      if (dto.invoiceWithoutNfEnabled !== undefined && (req as any).user?.role !== 'OWNER') {
+        delete dto.invoiceWithoutNfEnabled;
+      }
       const settings = await systemSettingsService.updateSettings(dto);
       res.json({ data: settings });
     } catch (error: any) {

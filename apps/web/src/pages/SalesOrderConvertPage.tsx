@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSalesOrder, useConvertOrderToSale, useReturnToSeparation, type ConvertToSaleFromOrderDTO } from '../hooks/useSalesOrders';
 import { useInvoiceSale, useUploadSaleFile } from '../hooks/useSales';
-import { InvoiceModal, type NfData } from '../components/InvoiceModal';
+import { InvoiceModal, type NfData, invoicePayload } from '../components/InvoiceModal';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import {
   ArrowLeft,
@@ -240,14 +240,16 @@ export function SalesOrderConvertPage() {
     if (sale?.id) {
       await invoiceMutation.mutateAsync({
         id: sale.id,
-        data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId },
+        data: invoicePayload(nf),
       });
       if (nf.file) await uploadMutation.mutateAsync({ id: sale.id, endpoint: 'invoice-file', file: nf.file });
     }
     toast.success(
       isPartialConversion
-        ? 'Faturado! NF lançada e o saldo virou um Pedido de Venda | Pendência.'
-        : 'Pedido faturado e NF lançada. Enviado para expedição.'
+        ? `Faturado${nf.withoutNf ? ' sem NF' : '! NF lançada'} e o saldo virou um Pedido de Venda | Pendência.`
+        : nf.withoutNf
+          ? 'Pedido faturado sem Nota Fiscal. Enviado para expedição.'
+          : 'Pedido faturado e NF lançada. Enviado para expedição.'
     );
     navigate(sale?.id ? `/sales/${sale.id}` : `/sales-orders/${order.id}/edit`);
   };

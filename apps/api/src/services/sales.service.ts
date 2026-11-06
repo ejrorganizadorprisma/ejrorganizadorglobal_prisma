@@ -472,7 +472,7 @@ export class SalesService {
   }
 
   /** Faturamento: lança a NF de saída (+ transportadora opcional) → Em Expedição. */
-  async invoice(id: string, userId: string, dto: { nfNumber: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
+  async invoice(id: string, userId: string, dto: { withoutNf?: boolean; nfNumber?: string; nfDate?: string; nfAmount?: number; carrierId?: string }) {
     const sale = await this.repository.findById(id);
     if (!sale) throw new NotFoundError('Venda não encontrada');
     if (sale.fulfillmentStatus !== 'CONFERRED') {
@@ -482,6 +482,23 @@ export class SalesService {
           : 'Esta venda não passou pela conferência e não pode ser faturada.'
       );
     }
+    // Faturar SEM NF: só se o admin habilitou nas Configurações do Sistema.
+    // Não grava número/data/valor de NF → a sequência de NF não avança.
+    if (dto.withoutNf) {
+      const cfg = await db.query(`SELECT invoice_without_nf_enabled FROM system_settings LIMIT 1`);
+      if (!cfg.rows[0]?.invoice_without_nf_enabled) {
+        throw new BadRequestError('Faturamento sem Nota Fiscal não está habilitado nas Configurações do Sistema');
+      }
+      await this.repository.invoice(id, userId, {
+        nfNumber: null,
+        nfDate: null,
+        nfAmount: null,
+        carrierId: dto.carrierId,
+        withoutNf: true,
+      });
+      return this.repository.findById(id);
+    }
+
     if (!dto.nfNumber || !dto.nfNumber.trim()) throw new BadRequestError('Número da NF é obrigatório');
     await this.repository.invoice(id, userId, {
       nfNumber: dto.nfNumber.trim(),

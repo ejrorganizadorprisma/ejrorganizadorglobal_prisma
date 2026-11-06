@@ -28,7 +28,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { InvoiceModal } from '../components/InvoiceModal';
+import { InvoiceModal, invoicePayload } from '../components/InvoiceModal';
 
 const statusConfig: Record<SaleStatus, { label: string; bg: string; text: string; icon: any }> = {
   PENDING: { label: 'Pendente', bg: 'bg-amber-50', text: 'text-amber-700', icon: Clock },
@@ -516,7 +516,7 @@ export function SalesPage() {
           currency={defaultCurrency}
           onClose={() => setInvoiceTarget(null)}
           onConfirm={async (nf) => {
-            await invoice.mutateAsync({ id: invoiceTarget.id, data: { nfNumber: nf.nfNumber, nfDate: nf.nfDate, nfAmount: nf.nfAmount, carrierId: nf.carrierId } });
+            await invoice.mutateAsync({ id: invoiceTarget.id, data: invoicePayload(nf) });
             if (nf.file) await uploadNf.mutateAsync({ id: invoiceTarget.id, endpoint: 'invoice-file', file: nf.file });
             toast.success('Venda faturada! Enviada para expedição.');
             setInvoiceTarget(null);
