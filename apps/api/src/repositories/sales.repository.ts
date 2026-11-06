@@ -14,6 +14,17 @@ import type {
   UpdateSalePaymentDTO,
 } from '@ejr/shared-types';
 
+/** Agrupa linhas por uma coluna (para carregar itens da página inteira de uma vez). */
+function groupBy<T extends Record<string, any>>(rows: T[], key: string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = r[key];
+    const arr = m.get(k);
+    if (arr) arr.push(r); else m.set(k, [r]);
+  }
+  return m;
+}
+
 export class SalesRepository {
   /**
    * Listar vendas com filtros e paginação
@@ -124,27 +135,35 @@ export class SalesRepository {
     const result = await db.query(query, queryParams);
 
     // Fetch items and payments for each sale
+    // Itens e pagamentos da PÁGINA INTEIRA em 2 consultas (antes: 2 por venda,
+    // em fila no pool max:1 do pgbouncer → ~3s para 20 vendas).
+    const ids = result.rows.map((r) => r.id);
+    const [allItems, allPayments] = ids.length
+      ? [
+          (await db.query(
+            `
+            SELECT
+              si.*,
+              p.id as product_id,
+              p.code as product_code,
+              p.name as product_name,
+              p.current_stock as product_current_stock
+            FROM sale_items si
+            LEFT JOIN products p ON si.product_id = p.id
+            WHERE si.sale_id = ANY($1::text[])
+            `,
+            [ids]
+          )).rows,
+          (await db.query('SELECT * FROM sale_payments WHERE sale_id = ANY($1::text[])', [ids])).rows,
+        ]
+      : [[], []];
+    const itemsBySale = groupBy(allItems, 'sale_id');
+    const paymentsBySale = groupBy(allPayments, 'sale_id');
+
     const sales = await Promise.all(
       result.rows.map(async (row) => {
-        const itemsResult = await db.query(
-          `
-          SELECT
-            si.*,
-            p.id as product_id,
-            p.code as product_code,
-            p.name as product_name,
-            p.current_stock as product_current_stock
-          FROM sale_items si
-          LEFT JOIN products p ON si.product_id = p.id
-          WHERE si.sale_id = $1
-          `,
-          [row.id]
-        );
-
-        const paymentsResult = await db.query(
-          'SELECT * FROM sale_payments WHERE sale_id = $1',
-          [row.id]
-        );
+        const itemsResult = { rows: itemsBySale.get(row.id) || [] };
+        const paymentsResult = { rows: paymentsBySale.get(row.id) || [] };
 
         return this.mapToSale({
           ...row,

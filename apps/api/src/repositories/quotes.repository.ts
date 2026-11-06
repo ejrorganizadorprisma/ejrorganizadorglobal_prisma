@@ -1,6 +1,17 @@
 import { db } from '../config/database';
 import type { Quote, QuoteStatus, QuoteItem, CreateQuoteDTO, UpdateQuoteDTO } from '@ejr/shared-types';
 
+/** Agrupa linhas por uma coluna (para carregar itens da página inteira de uma vez). */
+function groupBy<T extends Record<string, any>>(rows: T[], key: string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = r[key];
+    const arr = m.get(k);
+    if (arr) arr.push(r); else m.set(k, [r]);
+  }
+  return m;
+}
+
 export class QuotesRepository {
   async findMany(params: {
     page: number;
@@ -71,9 +82,10 @@ export class QuotesRepository {
     const result = await db.query(query, queryParams);
 
     // Fetch items for each quote
-    const quotes = await Promise.all(
-      result.rows.map(async (row) => {
-        const itemsResult = await db.query(
+    // Itens da PÁGINA INTEIRA numa consulta só (antes: 1 por orçamento).
+    const ids = result.rows.map((r) => r.id);
+    const allItems = ids.length
+      ? (await db.query(
           `
           SELECT
             qi.*,
@@ -83,10 +95,16 @@ export class QuotesRepository {
             p.factory_code as product_factory_code
           FROM quote_items qi
           LEFT JOIN products p ON qi.product_id = p.id
-          WHERE qi.quote_id = $1
+          WHERE qi.quote_id = ANY($1::text[])
           `,
-          [row.id]
-        );
+          [ids]
+        )).rows
+      : [];
+    const itemsByQuote = groupBy(allItems, 'quote_id');
+
+    const quotes = await Promise.all(
+      result.rows.map(async (row) => {
+        const itemsResult = { rows: itemsByQuote.get(row.id) || [] };
 
         return {
           ...row,

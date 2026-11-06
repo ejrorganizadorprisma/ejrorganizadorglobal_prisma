@@ -18,6 +18,17 @@ import type {
  * Sempre que o método abrir uma transação, seguir o padrão db.transaction()
  * (pool.connect) — pgbouncer em modo transaction-pool quebra db.query('BEGIN').
  */
+/** Agrupa linhas por uma coluna (para carregar itens da página inteira de uma vez). */
+function groupBy<T extends Record<string, any>>(rows: T[], key: string): Map<string, T[]> {
+  const m = new Map<string, T[]>();
+  for (const r of rows) {
+    const k = r[key];
+    const arr = m.get(k);
+    if (arr) arr.push(r); else m.set(k, [r]);
+  }
+  return m;
+}
+
 export class SalesOrdersRepository {
   /**
    * Listar pedidos com filtros e paginação
@@ -125,9 +136,11 @@ export class SalesOrdersRepository {
     queryParams.push(limit, offset);
     const result = await db.query(query, queryParams);
 
-    const orders = await Promise.all(
-      result.rows.map(async (row) => {
-        const itemsResult = await db.query(
+    // Itens da PÁGINA INTEIRA numa consulta só (antes: 1 consulta por pedido,
+    // em fila no pool max:1 do pgbouncer → ~2s para 20 pedidos).
+    const ids = result.rows.map((r) => r.id);
+    const allItems = ids.length
+      ? (await db.query(
           `SELECT
              soi.*,
              p.id   AS p_id,
@@ -136,9 +149,15 @@ export class SalesOrdersRepository {
              p.current_stock AS p_current_stock
            FROM sales_order_items soi
            LEFT JOIN products p ON soi.product_id = p.id
-           WHERE soi.sales_order_id = $1`,
-          [row.id]
-        );
+           WHERE soi.sales_order_id = ANY($1::text[])`,
+          [ids]
+        )).rows
+      : [];
+    const itemsByOrder = groupBy(allItems, 'sales_order_id');
+
+    const orders = await Promise.all(
+      result.rows.map(async (row) => {
+        const itemsResult = { rows: itemsByOrder.get(row.id) || [] };
 
         return this.mapToSalesOrder({
           ...row,
