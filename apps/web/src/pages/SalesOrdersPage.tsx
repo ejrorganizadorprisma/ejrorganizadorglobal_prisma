@@ -29,6 +29,7 @@ import {
   Ban,
   CalendarClock,
   AlertTriangle,
+  Undo2,
 } from 'lucide-react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
 import { AppPage } from '@ejr/shared-types';
@@ -98,6 +99,33 @@ function getForecastMeta(order: any): { state: ForecastState; days: number; labe
   else if (days === 0) state = 'today';
   else state = 'upcoming';
   return { state, days, label: fd.toLocaleDateString('pt-BR') };
+}
+
+/** Versão compacta (1 linha) da previsão, para a tabela desktop. */
+function ForecastChip({ meta }: { meta: { state: ForecastState; days: number; label: string } }) {
+  const { state, days, label } = meta;
+  const short = label.slice(0, 5); // dd/mm
+  const styles: Record<ForecastState, string> = {
+    overdue: 'bg-red-100 text-red-700',
+    today: 'bg-amber-100 text-amber-700',
+    upcoming: 'bg-slate-100 text-slate-600',
+    inflow: 'bg-gray-100 text-gray-400',
+  };
+  const text =
+    state === 'overdue' ? `${Math.abs(days)}d atraso` : state === 'today' ? 'hoje' : short;
+  const title =
+    state === 'overdue'
+      ? `Separar · atrasado ${Math.abs(days)} dia(s) (previsão ${label})`
+      : state === 'today'
+        ? 'Separar hoje'
+        : `Previsão de separação: ${label}`;
+  const Icon = state === 'overdue' ? AlertTriangle : CalendarClock;
+  return (
+    <span title={title} className={`inline-flex items-center gap-0.5 px-1.5 py-px text-[10px] font-semibold rounded-full whitespace-nowrap ${styles[state]}`}>
+      <Icon className="w-2.5 h-2.5" />
+      {text}
+    </span>
+  );
 }
 
 function ForecastBadge({ meta }: { meta: { state: ForecastState; days: number; label: string } }) {
@@ -193,16 +221,16 @@ export function SalesOrdersPage() {
   };
 
   // Próxima etapa do workflow conforme o status
-  const nextStep = (order: any): { label: string; color: string; run: () => void } | null => {
+  const nextStep = (order: any): { label: string; short: string; color: string; run: () => void } | null => {
     const s = order.status;
     if (s === 'PENDING')
-      return { label: 'Confirmar Recebimento', color: 'bg-sky-600 hover:bg-sky-700', run: () => navigate(`/sales-orders/${order.id}/edit`) };
+      return { label: 'Confirmar Recebimento', short: 'Receber', color: 'bg-sky-600 hover:bg-sky-700', run: () => navigate(`/sales-orders/${order.id}/edit`) };
     if (s === 'APPROVED' || s === 'RECEIVED')
-      return { label: 'Liberar Separação', color: 'bg-amber-600 hover:bg-amber-700', run: () => doRelease(order) };
+      return { label: 'Liberar Separação', short: 'Liberar', color: 'bg-amber-600 hover:bg-amber-700', run: () => doRelease(order) };
     if (s === 'SEPARATED')
-      return { label: 'Conferência OK', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
+      return { label: 'Conferência OK', short: 'Conferência OK', color: 'bg-emerald-600 hover:bg-emerald-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
     if (s === 'PARTIALLY_CONVERTED')
-      return { label: 'Faturar saldo', color: 'bg-teal-600 hover:bg-teal-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
+      return { label: 'Faturar saldo', short: 'Faturar saldo', color: 'bg-teal-600 hover:bg-teal-700', run: () => navigate(`/sales-orders/${order.id}/convert`) };
     return null;
   };
 
@@ -264,32 +292,33 @@ export function SalesOrdersPage() {
   const totalPages = data?.pagination?.totalPages || 0;
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-100 rounded-lg">
-            <ClipboardList className="w-6 h-6 text-indigo-600" />
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-indigo-100 rounded-lg shrink-0">
+            <ClipboardList className="w-5 h-5 text-indigo-600" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Pedidos de Venda</h1>
-            <p className="text-sm text-gray-500">Pedidos registrados por vendedores para faturamento</p>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Pedidos de Venda</h1>
+            <p className="hidden sm:block text-xs text-gray-500">Pedidos registrados por vendedores para faturamento</p>
           </div>
         </div>
         {canEdit && (
           <button
             onClick={() => navigate('/sales-orders/new')}
-            className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm flex items-center gap-2"
+            className="shrink-0 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            Novo Pedido
+            <span className="hidden sm:inline">Novo Pedido</span>
+            <span className="sm:hidden">Novo</span>
           </button>
         )}
       </div>
 
       {/* Search & Filters */}
-      <div className="bg-white rounded-xl shadow-sm border mb-6">
-        <div className="p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white rounded-xl shadow-sm border mb-4">
+        <div className="p-2.5 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -297,14 +326,14 @@ export function SalesOrdersPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Buscar por numero, cliente, vendedor..."
-              className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
             />
           </div>
           <div className="flex gap-2">
             <select
               value={status}
               onChange={(e) => { setStatus(e.target.value as SalesOrderStatus | ''); setPage(1); }}
-              className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+              className="flex-1 sm:flex-none px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
             >
               <option value="">Todos status</option>
               {Object.entries(statusConfig).map(([key, cfg]) => (
@@ -313,7 +342,7 @@ export function SalesOrdersPage() {
             </select>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-2.5 border rounded-lg text-sm flex items-center gap-2 transition-colors ${
+              className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors ${
                 showFilters || hasActiveFilters
                   ? 'border-indigo-500 text-indigo-600 bg-indigo-50'
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -378,18 +407,27 @@ export function SalesOrdersPage() {
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
-          <div className="hidden lg:block bg-white rounded-xl shadow-sm border overflow-hidden">
-            <table className="min-w-full">
+          {/* Desktop Table — compacta, 1 linha por pedido */}
+          <div className="hidden lg:block bg-white rounded-xl shadow-sm border overflow-x-auto">
+            <table className="w-full min-w-[660px] table-fixed text-[13px]">
+              <colgroup>
+                <col className="w-[168px]" />
+                <col />
+                <col className="hidden xl:table-column w-[120px]" />
+                <col className="hidden xl:table-column w-[80px]" />
+                <col className="w-[120px]" />
+                <col className="w-[118px]" />
+                <col className="w-[188px]" />
+              </colgroup>
               <thead>
-                <tr className="border-b bg-gray-50/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Pedido</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendedor</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Data</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acoes</th>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left">Pedido</th>
+                  <th className="px-3 py-2 text-left">Cliente</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-left">Vendedor</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-left">Data</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -398,104 +436,105 @@ export function SalesOrdersPage() {
                   const StatusIcon = cfg.icon;
                   const fm = getForecastMeta(order);
                   const rowTint =
-                    fm?.state === 'overdue' ? 'bg-red-50' : fm?.state === 'today' ? 'bg-amber-50' : '';
+                    fm?.state === 'overdue' ? 'bg-red-50/60' : fm?.state === 'today' ? 'bg-amber-50/60' : '';
+                  const step = nextStep(order);
+                  const statusLabel = order.status === 'PENDING' && order.pendingOriginOrderId ? 'Pendência' : cfg.label;
                   return (
-                    <tr key={order.id} className={`transition-colors ${rowTint} hover:bg-indigo-50/30`}>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <div>
-                            <span className="font-semibold text-gray-900">{order.orderNumber}</span>
-                            {order.sale && (
-                              <span className="ml-2 text-xs text-emerald-600">
-                                → {order.sale.saleNumber}
-                              </span>
-                            )}
-                          </div>
-                          {fm && <div><ForecastBadge meta={fm} /></div>}
+                    <tr key={order.id} className={`group transition-colors ${rowTint} hover:bg-indigo-50/40`}>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="font-semibold text-gray-900 whitespace-nowrap tabular-nums"
+                            title={`${new Date(order.orderDate).toLocaleDateString('pt-BR')}${order.seller?.name ? ` · ${order.seller.name}` : ''}`}
+                          >
+                            {order.orderNumber}
+                          </span>
+                          {fm && <ForecastChip meta={fm} />}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{order.customer?.name || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500">{order.seller?.name || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-sm">
-                        {new Date(order.orderDate).toLocaleDateString('pt-BR')}
+                      <td className="px-3 py-2 text-gray-800 font-medium truncate" title={order.customer?.name}>
+                        {order.customer?.name || '-'}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      <td className="hidden xl:table-cell px-3 py-2 text-gray-500 truncate" title={order.seller?.name}>
+                        {order.seller?.name || '-'}
+                      </td>
+                      <td className="hidden xl:table-cell px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">
+                        {new Date(order.orderDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">
                         {formatPrice(order.total)}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className="px-3 py-2">
                         <span
                           title={cfg.title}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${cfg.bg} ${cfg.text} ${order.pendingOriginOrderId ? 'cursor-help' : ''}`}
+                          className={`inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${cfg.bg} ${cfg.text} ${order.pendingOriginOrderId ? 'cursor-help' : ''}`}
                         >
-                          <StatusIcon className="w-3 h-3" />
-                          {cfg.label}
+                          <StatusIcon className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{statusLabel}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleGeneratePDF(order)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Gerar PDF"
-                          >
-                            <FileDown className="w-4 h-4" />
-                          </button>
-                          {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                          {step && (
                             <button
-                              onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
-                              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="Editar pedido"
+                              onClick={step.run}
+                              className={`mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white transition-colors ${step.color}`}
+                              title={`Próxima etapa: ${step.label}`}
                             >
-                              <Pencil className="w-4 h-4" />
+                              {step.short} →
                             </button>
                           )}
-                          {(() => {
-                            const step = nextStep(order);
-                            return step ? (
-                              <button
-                                onClick={step.run}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold text-white transition-colors ${step.color}`}
-                                title={`Próxima etapa: ${step.label}`}
-                              >
-                                {step.label} →
-                              </button>
-                            ) : null;
-                          })()}
                           {order.status === 'CONVERTED' && order.sale?.id && (
                             <button
                               onClick={() => navigate(`/sales/${order.sale.id}`)}
-                              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                              className="mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 ring-1 ring-emerald-200 transition-colors tabular-nums"
                               title="Abrir a venda gerada (NF / Expedição / Coleta)"
                             >
-                              Abrir Venda →
+                              {order.sale.saleNumber || 'Abrir Venda'} →
                             </button>
                           )}
                           {order.status === 'SEPARATED' && (
                             <button
                               onClick={() => doReturnToSeparation(order)}
-                              className="px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-orange-500 hover:bg-orange-600 transition-colors"
-                              title="Conferência reprovada: devolver para o estoque re-separar"
+                              className="p-1 text-orange-500 hover:text-orange-700 hover:bg-orange-50 rounded-md transition-colors"
+                              title="Devolver: conferência reprovada, o estoque re-separa"
                             >
-                              ↩ Devolver
+                              <Undo2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleGeneratePDF(order)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Gerar PDF"
+                          >
+                            <FileDown className="w-3.5 h-3.5" />
+                          </button>
+                          {canEdit && order.status !== 'CONVERTED' && order.status !== 'CANCELLED' && (
+                            <button
+                              onClick={() => navigate(`/sales-orders/${order.id}/edit`)}
+                              className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                              title="Editar pedido"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
                             </button>
                           )}
                           {order.status === 'PENDING' && (
                             <button
                               onClick={() => handleCancel(order.id, order.orderNumber)}
-                              className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                              className="p-1 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
                               title="Cancelar pedido"
                             >
-                              <Ban className="w-4 h-4" />
+                              <Ban className="w-3.5 h-3.5" />
                             </button>
                           )}
                           {(order.status === 'DRAFT' ||
                             (order.status === 'PENDING' && order.pendingOriginOrderId)) && (
                             <button
                               onClick={() => handleDelete(order.id, order.orderNumber)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                               title={order.pendingOriginOrderId ? 'Excluir pedido de pendência' : 'Excluir rascunho'}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
