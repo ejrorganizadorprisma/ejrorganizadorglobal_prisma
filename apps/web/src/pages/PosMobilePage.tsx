@@ -13,6 +13,7 @@ import { useFormatPrice } from '../hooks/useFormatPrice';
 import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 import { CameraScanner } from '../components/pos/CameraScanner';
 import { UnknownBarcodeModal } from '../components/pos/UnknownBarcodeModal';
+import { StockBadge } from '../components/pos/StockBadge';
 import {
   type CartItem, type PosCustomer, type Session, type ReceiptData,
   CONSUMER, POS_PRINT_CSS, label, errMsg,
@@ -118,7 +119,7 @@ export function PosMobilePage() {
 
   const [scanning, setScanning] = useState(() => localStorage.getItem('pos-mobile-camera') !== '0');
   useEffect(() => { localStorage.setItem('pos-mobile-camera', scanning ? '1' : '0'); }, [scanning]);
-  const [lastRead, setLastRead] = useState<{ name: string; price: number; qty: number } | null>(null);
+  const [lastRead, setLastRead] = useState<{ name: string; price: number; qty: number; stock?: number; minimum?: number } | null>(null);
   const [notFound, setNotFound] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -164,11 +165,11 @@ export function PosMobilePage() {
       }
       return [{
         productId: p.id, name: p.name, code: p.code, barcode: p.barcode, unit: p.unit,
-        unitPrice: price, quantity: qty, discount: 0, stock: p.currentStock,
+        unitPrice: price, quantity: qty, discount: 0, stock: p.currentStock, minimumStock: p.minimumStock,
         retailPrice: Number(p.salePrice || 0), wholesalePrice: Number(p.wholesalePrice || 0), priceCurrency: p.salePriceCurrency,
       }, ...prev];
     });
-    setTimeout(() => setLastRead({ name: p.name, price, qty: finalQty }), 0);
+    setTimeout(() => setLastRead({ name: p.name, price, qty: finalQty, stock: p.currentStock, minimum: p.minimumStock }), 0);
     if (p.currentStock != null && finalQty > p.currentStock) toast.warning(`Estoque de ${p.name}: ${p.currentStock}`);
   }, []);
 
@@ -287,7 +288,10 @@ export function PosMobilePage() {
           {lastRead && (
             <div className="absolute left-2 right-2 bottom-2 rounded-xl bg-white/95 backdrop-blur px-3 py-2 flex items-center gap-2 shadow-lg">
               <Check className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div className="min-w-0 flex-1 text-sm font-semibold truncate">{lastRead.name}</div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold truncate">{lastRead.name}</div>
+                <StockBadge stock={lastRead.stock} minimum={lastRead.minimum} inCart={lastRead.qty} size="xs" />
+              </div>
               <div className="text-sm tabular-nums font-bold whitespace-nowrap">{lastRead.qty}× {fmt(lastRead.price)}</div>
             </div>
           )}
@@ -311,10 +315,8 @@ export function PosMobilePage() {
               <li key={it.productId} className={`bg-white rounded-2xl border px-3 py-2.5 flex items-center gap-3 ${idx === 0 ? 'border-emerald-300 shadow-sm' : 'border-slate-200'}`}>
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold text-[15px] leading-snug line-clamp-2">{it.name}</div>
-                  <div className="text-xs text-slate-400 tabular-nums mt-0.5">
-                    {fmt(it.unitPrice)} · {it.code}
-                    {it.stock != null && it.quantity > it.stock && <span className="ml-1 text-red-600 font-semibold">estoque {it.stock}</span>}
-                  </div>
+                  <div className="text-xs text-slate-400 tabular-nums mt-0.5">{fmt(it.unitPrice)} · {it.code}</div>
+                  <div className="mt-1"><StockBadge stock={it.stock} minimum={it.minimumStock} inCart={it.quantity} size="xs" /></div>
                   <div className="mt-1 font-bold tabular-nums">{fmt(it.unitPrice * it.quantity - it.discount)}</div>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
@@ -386,7 +388,8 @@ export function PosMobilePage() {
               <button key={p.id} onClick={() => pickResult(p)} className="w-full text-left px-3 py-3 rounded-xl active:bg-emerald-50 flex items-center gap-3 border-b border-slate-100">
                 <div className="min-w-0 flex-1">
                   <div className="font-semibold leading-snug">{p.name}</div>
-                  <div className="text-xs text-slate-400">{p.code}{p.barcode ? ` · ${p.barcode}` : ''} · estoque {p.currentStock ?? '—'}</div>
+                  <div className="text-xs text-slate-400">{p.code}{p.barcode ? ` · ${p.barcode}` : ''}</div>
+                  <div className="mt-1"><StockBadge stock={p.currentStock} minimum={p.minimumStock} size="xs" /></div>
                 </div>
                 <div className="font-bold tabular-nums whitespace-nowrap">{fmt(resolveCustomerPrice(p, customer).price)}</div>
               </button>

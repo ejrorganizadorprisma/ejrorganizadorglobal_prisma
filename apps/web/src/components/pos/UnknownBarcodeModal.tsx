@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { ScanBarcode, Link2, PackagePlus, Search, Loader2, Check, ArrowLeft, Keyboard } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Modal, MoneyField, errMsg } from '../../pages/PosPage';
+import { StockBadge } from './StockBadge';
 
 /**
  * Código de barras lido que não pertence a nenhum produto.
@@ -113,6 +114,7 @@ function ProductPicker({ code, link, fmt, onBack, onClose, onAdded }: {
             <div className="min-w-0 flex-1">
               <div className="font-semibold leading-snug">{p.name}</div>
               <div className="text-xs text-slate-400">{p.code}{p.barcode ? ` · cód. barras ${p.barcode}` : ' · sem cód. barras'}</div>
+              <div className="mt-1"><StockBadge stock={p.currentStock} minimum={p.minimumStock} size="xs" /></div>
             </div>
             {saving === p.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="font-bold tabular-nums whitespace-nowrap">{fmt(p.salePrice || 0)}</span>}
           </button>

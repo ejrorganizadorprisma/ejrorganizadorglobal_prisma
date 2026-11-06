@@ -210,7 +210,7 @@ export class PosService {
     const c = String(code || '').trim();
     if (!c) throw new BadRequestError('Código vazio');
     const r = await db.query(
-      `SELECT id, name, code, barcode, unit, sale_price, wholesale_price, sale_price_currency, current_stock, status
+      `SELECT id, name, code, barcode, unit, sale_price, wholesale_price, sale_price_currency, current_stock, minimum_stock, status
          FROM products
         WHERE (barcode = $1 OR LOWER(code) = LOWER($1) OR LOWER(factory_code) = LOWER($1))
         ORDER BY (barcode = $1) DESC, (status = 'ACTIVE') DESC
@@ -222,7 +222,7 @@ export class PosService {
     return {
       id: p.id, name: p.name, code: p.code, barcode: p.barcode || undefined, unit: p.unit,
       salePrice: int(p.sale_price), wholesalePrice: int(p.wholesale_price), salePriceCurrency: p.sale_price_currency,
-      currentStock: int(p.current_stock), status: p.status,
+      currentStock: int(p.current_stock), minimumStock: int(p.minimum_stock), status: p.status,
     };
   }
 

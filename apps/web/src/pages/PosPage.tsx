@@ -14,6 +14,7 @@ import { useNextNfNumber } from '../hooks/useSales';
 import { PAYMENT_METHOD_LABELS } from '../lib/payment-methods';
 import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 import { UnknownBarcodeModal } from '../components/pos/UnknownBarcodeModal';
+import { StockBadge } from '../components/pos/StockBadge';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -28,6 +29,7 @@ export type CartItem = {
   quantity: number;
   discount: number;
   stock?: number;
+  minimumStock?: number;
   retailPrice?: number;
   wholesalePrice?: number;
   priceCurrency?: string;
@@ -260,7 +262,7 @@ export function PosPage() {
       } else {
         next = [...prev, {
           productId: p.id, name: p.name, code: p.code, barcode: p.barcode, unit: p.unit,
-          unitPrice: price, quantity: qty, discount: 0, stock: p.currentStock,
+          unitPrice: price, quantity: qty, discount: 0, stock: p.currentStock, minimumStock: p.minimumStock,
           retailPrice: Number(p.salePrice || 0), wholesalePrice: Number(p.wholesalePrice || 0), priceCurrency: p.salePriceCurrency,
         }];
         setSelected(next.length - 1);
@@ -451,7 +453,10 @@ export function PosPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-slate-800 truncate">{p.name}</div>
-                      <div className="text-xs text-slate-400 truncate">{p.code}{p.barcode ? ` · ${p.barcode}` : ''} · estoque {p.currentStock ?? '—'}</div>
+                      <div className="text-xs text-slate-400 truncate flex items-center gap-1.5">
+                        <StockBadge stock={p.currentStock} minimum={p.minimumStock} size="xs" />
+                        <span className="truncate">{p.code}{p.barcode ? ` · ${p.barcode}` : ''}</span>
+                      </div>
                     </div>
                     <div className="font-semibold tabular-nums text-slate-800 whitespace-nowrap">{fmt(p.salePrice || 0)}</div>
                   </button>
@@ -484,13 +489,15 @@ export function PosPage() {
                 <tbody className="divide-y divide-slate-100">
                   {cart.map((it, idx) => {
                     const active = idx === (selected >= 0 ? selected : cart.length - 1);
-                    const over = it.stock != null && it.quantity > it.stock;
-                    return (
+                                    return (
                       <tr key={it.productId} onClick={() => setSelected(idx)} className={`cursor-pointer transition-colors ${active ? 'bg-emerald-50/70' : 'hover:bg-slate-50'}`}>
                         <td className="px-3 py-2.5 text-slate-400 tabular-nums">{String(idx + 1).padStart(2, '0')}</td>
                         <td className="px-3 py-2.5 min-w-0">
                           <div className="font-medium text-slate-800 truncate max-w-[40vw] lg:max-w-[34vw]">{it.name}</div>
-                          <div className="text-[11px] text-slate-400 truncate">{it.code}{over && <span className="ml-2 text-red-600 font-semibold">estoque {it.stock}</span>}</div>
+                          <div className="text-[11px] text-slate-400 truncate flex items-center gap-1.5">
+                            <StockBadge stock={it.stock} minimum={it.minimumStock} inCart={it.quantity} size="xs" />
+                            <span className="truncate">{it.code}</span>
+                          </div>
                         </td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center justify-center gap-1">
@@ -545,6 +552,7 @@ export function PosPage() {
             <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
               <div className="text-[11px] uppercase tracking-wider text-slate-400">Item atual</div>
               <div className="font-semibold text-slate-800 text-lg leading-snug line-clamp-2">{lastItem.name}</div>
+              <div className="mt-1"><StockBadge stock={lastItem.stock} minimum={lastItem.minimumStock} inCart={lastItem.quantity} /></div>
               <div className="mt-1 flex items-baseline justify-between text-slate-500 tabular-nums">
                 <span>{lastItem.quantity} × {fmt(lastItem.unitPrice)}</span>
                 <span className="text-xl font-bold text-slate-900">{fmt(lastItem.unitPrice * lastItem.quantity - lastItem.discount)}</span>
