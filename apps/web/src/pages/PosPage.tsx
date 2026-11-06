@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import {
   ScanBarcode, Search, Trash2, Minus, Plus, User, UserSearch, Percent, CreditCard, Banknote, QrCode,
   Landmark, Receipt, FileText, HandCoins, CircleEllipsis, Wallet, X, Check, Printer, Lock, LogOut,
-  ArrowDownCircle, ArrowUpCircle, History, Store, Loader2, ShoppingCart, Keyboard, ArrowLeft, Clock,
+  ArrowDownCircle, ArrowUpCircle, History, Store, Loader2, ShoppingCart, Keyboard, ArrowLeft, Clock, UserPlus,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
@@ -849,15 +849,22 @@ function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cliente (F9)
+// Cliente (F9): buscar ou cadastrar na hora
 // ─────────────────────────────────────────────────────────────────────────────
+const toPosCustomer = (c: any): PosCustomer => ({
+  id: c.id, name: c.name, allowedPaymentMethods: c.allowedPaymentMethods, creditMaxDays: c.creditMaxDays,
+  document: c.ruc || c.ci || c.document,
+});
+
 function CustomerModal({ onClose, onPick, current }: { onClose: () => void; onPick: (c: PosCustomer) => void; current: PosCustomer }) {
+  const [mode, setMode] = useState<'search' | 'new'>('search');
   const [q, setQ] = useState('');
   const [list, setList] = useState<any[]>([]);
   const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(false);
+
   useEffect(() => {
-    if (q.trim().length < 2) { setList([]); return; }
+    if (mode !== 'search' || q.trim().length < 2) { setList([]); return; }
     let alive = true;
     const t = setTimeout(async () => {
       setLoading(true);
@@ -867,35 +874,177 @@ function CustomerModal({ onClose, onPick, current }: { onClose: () => void; onPi
       } finally { if (alive) setLoading(false); }
     }, 220);
     return () => { alive = false; clearTimeout(t); };
-  }, [q]);
-  const pick = (c: any) => onPick({ id: c.id, name: c.name, allowedPaymentMethods: c.allowedPaymentMethods, creditMaxDays: c.creditMaxDays, document: c.ruc || c.ci || c.document });
+  }, [q, mode]);
+
+  // Alt+N abre o cadastro rápido
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.altKey && e.key.toLowerCase() === 'n') { e.preventDefault(); setMode('new'); } };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  if (mode === 'new') {
+    return <QuickCustomerForm initial={q.trim()} onCancel={() => setMode('search')} onCreated={(c) => onPick(c)} onClose={onClose} onUseExisting={(c) => onPick(c)} />;
+  }
+
   return (
     <Modal title="Identificar cliente" icon={UserSearch} onClose={onClose}>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') { e.preventDefault(); setIdx((i) => Math.min(i + 1, list.length - 1)); }
-            if (e.key === 'ArrowUp') { e.preventDefault(); setIdx((i) => Math.max(i - 1, 0)); }
-            if (e.key === 'Enter' && list[idx]) pick(list[idx]);
-          }}
-          placeholder="Nome, RUC, CI ou documento" className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-300 outline-none focus:ring-4 focus:ring-emerald-100" />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-slate-400" />}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') { e.preventDefault(); setIdx((i) => Math.min(i + 1, list.length - 1)); }
+              if (e.key === 'ArrowUp') { e.preventDefault(); setIdx((i) => Math.max(i - 1, 0)); }
+              if (e.key === 'Enter') {
+                if (list[idx]) onPick(toPosCustomer(list[idx]));
+                else if (q.trim().length >= 2 && !loading) setMode('new');
+              }
+            }}
+            placeholder="Nome, RUC, CI ou telefone" className="w-full pl-9 pr-9 py-3 rounded-xl border border-slate-300 outline-none focus:ring-4 focus:ring-emerald-100" />
+          {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-slate-400" />}
+        </div>
+        <button onClick={() => setMode('new')} title="Cadastrar novo cliente (Alt+N)"
+          className="shrink-0 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm flex items-center gap-1.5">
+          <UserPlus className="w-4 h-4" /><span className="hidden sm:inline">Novo</span>
+        </button>
       </div>
       <div className="mt-3 space-y-1 max-h-[45vh] overflow-y-auto">
         {list.map((c, i) => (
-          <button key={c.id} onClick={() => pick(c)} onMouseEnter={() => setIdx(i)}
+          <button key={c.id} onClick={() => onPick(toPosCustomer(c))} onMouseEnter={() => setIdx(i)}
             className={`w-full text-left px-3 py-2.5 rounded-xl ${i === idx ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}>
             <div className="font-medium text-slate-800">{c.name}</div>
-            <div className="text-xs text-slate-400">{[c.ruc && `RUC ${c.ruc}`, c.ci && `CI ${c.ci}`, c.document].filter(Boolean).join(' · ') || '—'}
+            <div className="text-xs text-slate-400">{[c.ruc && `RUC ${c.ruc}`, c.ci && `CI ${c.ci}`, c.document, c.phone].filter(Boolean).join(' · ') || '—'}
               {(c.allowedPaymentMethods || []).length > 0 && ` · ${(c.allowedPaymentMethods as string[]).map(label).join(', ')}`}</div>
           </button>
         ))}
-        {q.trim().length >= 2 && !loading && list.length === 0 && <div className="text-sm text-slate-400 text-center py-4">Nenhum cliente encontrado</div>}
+        {q.trim().length >= 2 && !loading && list.length === 0 && (
+          <button onClick={() => setMode('new')} className="w-full py-4 rounded-xl border-2 border-dashed border-emerald-300 text-emerald-700 hover:bg-emerald-50 font-semibold flex items-center justify-center gap-2">
+            <UserPlus className="w-4 h-4" /> Cadastrar “{q.trim()}” (Enter)
+          </button>
+        )}
       </div>
-      {current.id !== CONSUMER.id && (
-        <button onClick={() => onPick(CONSUMER)} className="mt-3 w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50">Voltar para Consumidor Final</button>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-slate-400"><Kbd>Alt+N</Kbd> novo cliente</span>
+        {current.id !== CONSUMER.id && (
+          <button onClick={() => onPick(CONSUMER)} className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-medium hover:bg-slate-50">Voltar para Consumidor Final</button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Cadastro rápido no balcão: só o essencial (tipo, nome, RUC/CI, telefone,
+ * e-mail opcional). Pré-preenche com o que foi digitado na busca: número vira
+ * documento, texto vira nome. Antes de criar, procura o documento para não
+ * duplicar. Formas de pagamento: todas menos Crédito (a prazo exige liberação
+ * no cadastro completo).
+ */
+function QuickCustomerForm({ initial, onCancel, onCreated, onClose, onUseExisting }: {
+  initial: string; onCancel: () => void; onCreated: (c: PosCustomer) => void; onClose: () => void; onUseExisting: (c: PosCustomer) => void;
+}) {
+  const looksLikeDoc = /^[\d.\-\s]{5,}$/.test(initial);
+  const [type, setType] = useState<'INDIVIDUAL' | 'BUSINESS'>(looksLikeDoc && initial.includes('-') ? 'BUSINESS' : 'INDIVIDUAL');
+  const [name, setName] = useState(looksLikeDoc ? '' : initial);
+  const [doc, setDoc] = useState(looksLikeDoc ? initial.replace(/\s/g, '') : '');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [dup, setDup] = useState<any>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const docRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { (looksLikeDoc ? nameRef : name ? docRef : nameRef).current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const docLabel = type === 'BUSINESS' ? 'RUC' : 'CI';
+
+  // Aviso de duplicado enquanto digita o documento
+  useEffect(() => {
+    const d = doc.trim();
+    if (d.length < 4) { setDup(null); return; }
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/customers', { params: { search: d, limit: 5 } });
+        const norm = (v: any) => String(v || '').replace(/\D/g, '');
+        const hit = (data?.data || []).find((c: any) => [c.ruc, c.ci, c.document].some((v) => v && norm(v) === norm(d)));
+        if (alive) setDup(hit || null);
+      } catch { /* ignore */ }
+    }, 300);
+    return () => { alive = false; clearTimeout(t); };
+  }, [doc]);
+
+  const save = async () => {
+    if (name.trim().length < 2) { toast.error('Informe o nome do cliente'); nameRef.current?.focus(); return; }
+    if (email.trim() && !/^\S+@\S+\.\S+$/.test(email.trim())) { toast.error('E-mail inválido'); return; }
+    if (dup) { toast.error(`Já existe um cliente com este ${docLabel}: ${dup.name}`); return; }
+    setSaving(true);
+    try {
+      const body: any = {
+        type,
+        name: name.trim(),
+        phone: phone.trim() || undefined,
+        whatsapp: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        allowedPaymentMethods: METHOD_ORDER.filter((m) => m !== 'CREDIT'),
+        notes: 'Cadastrado no PDV (balcão)',
+      };
+      if (doc.trim()) body[type === 'BUSINESS' ? 'ruc' : 'ci'] = doc.trim();
+      const { data } = await api.post('/customers', body);
+      toast.success('Cliente cadastrado');
+      onCreated(toPosCustomer(data.data));
+    } catch (e: any) {
+      const zod = e?.response?.data?.error?.details?.[0]?.message;
+      toast.error(zod || errMsg(e, 'Erro ao cadastrar cliente'));
+      setSaving(false);
+    }
+  };
+
+  const onKey = (e: React.KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); save(); } };
+  const field = 'w-full px-3 py-2.5 rounded-xl border border-slate-300 outline-none focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500';
+
+  return (
+    <Modal title="Novo cliente" icon={UserPlus} onClose={onClose}>
+      <div className="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl mb-3">
+        {([['INDIVIDUAL', 'Pessoa física'], ['BUSINESS', 'Empresa']] as const).map(([k, t]) => (
+          <button key={k} onClick={() => setType(k)} className={`py-2 rounded-lg text-sm font-semibold transition-all ${type === k ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500'}`}>{t}</button>
+        ))}
+      </div>
+      <div className="space-y-2.5">
+        <div>
+          <label className="text-xs font-medium text-slate-500">{type === 'BUSINESS' ? 'Razão social / nome' : 'Nome completo'} *</label>
+          <input ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={onKey} className={`mt-1 ${field}`} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div>
+            <label className="text-xs font-medium text-slate-500">{docLabel}</label>
+            <input ref={docRef} value={doc} onChange={(e) => setDoc(e.target.value)} onKeyDown={onKey} inputMode="numeric" placeholder={type === 'BUSINESS' ? '80012345-6' : '1234567'} className={`mt-1 ${field}`} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-slate-500">Telefone / WhatsApp</label>
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} onKeyDown={onKey} inputMode="tel" placeholder="0981 123456" className={`mt-1 ${field}`} />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">E-mail (opcional)</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={onKey} inputMode="email" className={`mt-1 ${field}`} />
+        </div>
+      </div>
+
+      {dup && (
+        <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 flex items-center justify-between gap-2">
+          <span className="min-w-0">Já cadastrado: <b className="truncate">{dup.name}</b></span>
+          <button onClick={() => onUseExisting(toPosCustomer(dup))} className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white font-semibold text-xs">Usar este</button>
+        </div>
       )}
+
+      <p className="mt-3 text-[11px] text-slate-400">Venda a prazo (Crédito) fica liberada só após completar o cadastro em Clientes.</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button onClick={onCancel} className="py-3 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50">Voltar</button>
+        <button onClick={save} disabled={saving} className="py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold disabled:opacity-50 flex items-center justify-center gap-2">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Cadastrar e usar
+        </button>
+      </div>
     </Modal>
   );
 }
@@ -1087,6 +1236,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
     ['F7', 'Vendas do turno / reimprimir cupom'],
     ['F8', 'Remover o item atual'],
     ['F9', 'Identificar cliente'],
+    ['F9 → Alt+N', 'Cadastrar cliente novo na hora'],
     ['F10 / F12', 'Pagamento'],
     ['Alt+1…9', 'No pagamento: escolhe a forma'],
     ['Ctrl+Del', 'Cancelar a venda atual'],
