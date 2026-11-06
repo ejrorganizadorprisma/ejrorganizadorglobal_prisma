@@ -106,7 +106,13 @@ function ExpeditionCard({ sale, byCode }: { sale: Sale; byCode: boolean }) {
   const [carrierId, setCarrierId] = useState(sale.carrierId || '');
   const [volumes, setVolumes] = useState<number>(sale.volumesCount || 1);
   const [bundles, setBundles] = useState<number>(sale.bundlesCount || 0);
-  const [scheduled, setScheduled] = useState(sale.carrierScheduledDate?.slice(0, 10) || '');
+  // Coleta agendada: já vem com a data de hoje (local), editável.
+  const [scheduled, setScheduled] = useState(() => {
+    if (sale.carrierScheduledDate) return sale.carrierScheduledDate.slice(0, 10);
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
   const [notes, setNotes] = useState(sale.expeditionNotes || '');
   const [code, setCode] = useState('');
 
