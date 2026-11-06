@@ -54,7 +54,12 @@ export function InvoiceModal({
 
   const [withoutNf, setWithoutNf] = useState(false);
   const [nfNumber, setNfNumber] = useState('');
-  const [nfDate, setNfDate] = useState(new Date().toISOString().slice(0, 10));
+  // Data LOCAL (toISOString é UTC → à noite no Paraguai virava o dia seguinte).
+  const [nfDate, setNfDate] = useState(() => {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  });
   const [nfAmount, setNfAmount] = useState<number>(defaultAmountCents ?? 0);
   const [carrierId, setCarrierId] = useState('');
   const [file, setFile] = useState<File | null>(null);
