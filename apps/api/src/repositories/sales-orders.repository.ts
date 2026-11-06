@@ -115,20 +115,10 @@ export class SalesOrdersRepository {
       LEFT JOIN sales_orders po ON so.pending_origin_order_id = po.id
       ${whereClause}
       ORDER BY
-        -- Prioridade inteligente para a operação:
-        --   0 = "no ponto de separar" (previsão chegou/venceu e ainda não liberado)
-        --   1 = tem previsão futura, ainda a caminho da separação
-        --   2 = demais (sem previsão ou já em fluxo) → mais recente no topo
-        CASE
-          WHEN so.status IN ('PENDING','APPROVED','RECEIVED')
-               AND so.separation_forecast_date IS NOT NULL
-               AND so.separation_forecast_date <= CURRENT_DATE THEN 0
-          WHEN so.status IN ('PENDING','APPROVED','RECEIVED')
-               AND so.separation_forecast_date IS NOT NULL THEN 1
-          ELSE 2
-        END ASC,
-        so.separation_forecast_date ASC NULLS LAST,
-        so.created_at DESC
+        -- Pedido mais recente sempre no topo (pedido do usuário, 2026-11).
+        -- Antes havia priorização pela Previsão de Separação (fb42674).
+        so.created_at DESC,
+        so.order_number DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
