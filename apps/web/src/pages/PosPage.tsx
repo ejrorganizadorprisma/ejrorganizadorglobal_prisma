@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useNextNfNumber } from '../hooks/useSales';
 import { PAYMENT_METHOD_LABELS } from '../lib/payment-methods';
+import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -26,8 +27,14 @@ type CartItem = {
   quantity: number;
   discount: number;
   stock?: number;
+  retailPrice?: number;
+  wholesalePrice?: number;
+  priceCurrency?: string;
 };
-type PosCustomer = { id: string; name: string; allowedPaymentMethods?: string[] | null; creditMaxDays?: number | null; document?: string };
+type PosCustomer = {
+  id: string; name: string; allowedPaymentMethods?: string[] | null; creditMaxDays?: number | null; document?: string;
+  priceTier?: string; priceAdjustmentPct?: number | null;
+};
 type Payment = { method: string; amount: number };
 type Totals = {
   openingAmount: number; salesCount: number; salesTotal: number; discountTotal: number; cancelledCount: number;
@@ -189,6 +196,22 @@ export function PosPage() {
     localStorage.setItem(storageKey, JSON.stringify({ cart, customer, discount: globalDiscount }));
   }, [cart, customer, globalDiscount, storageKey]);
 
+  // Trocou o cliente → recalcula os preços pela tabela dele (Varejo/Atacado/Especial)
+  const customerRef = useRef(customer);
+  customerRef.current = customer;
+  const tierKey = `${customer.id}|${customer.priceTier || 'RETAIL'}|${customer.priceAdjustmentPct ?? ''}`;
+  const prevTierKey = useRef(tierKey);
+  useEffect(() => {
+    if (prevTierKey.current === tierKey) return;
+    prevTierKey.current = tierKey;
+    setCart((prev) => prev.map((i) => (i.retailPrice == null ? i : {
+      ...i,
+      unitPrice: resolveCustomerPrice({ salePrice: i.retailPrice, wholesalePrice: i.wholesalePrice, salePriceCurrency: i.priceCurrency }, customer).price,
+    })));
+    if (cart.length) toast.success(`Preços pela tabela ${priceTierLabel(customer)}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tierKey]);
+
   const [selected, setSelected] = useState<number>(-1);
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
@@ -218,8 +241,9 @@ export function PosPage() {
   // ── Produtos ──────────────────────────────────────────────────────────────
   const addProduct = useCallback((p: any, qty = 1) => {
     if (!p) return;
-    const price = Number(p.salePrice || 0);
-    if (!price) toast.warning(`${p.name} está sem preço de venda cadastrado`);
+    // Preço pela tabela do cliente (o servidor recalcula igual ao finalizar)
+    const price = resolveCustomerPrice(p, customerRef.current).price;
+    if (!Number(p.salePrice || 0)) toast.warning(`${p.name} está sem preço de venda cadastrado`);
     setCart((prev) => {
       const idx = prev.findIndex((i) => i.productId === p.id);
       let next: CartItem[];
@@ -230,6 +254,7 @@ export function PosPage() {
         next = [...prev, {
           productId: p.id, name: p.name, code: p.code, barcode: p.barcode, unit: p.unit,
           unitPrice: price, quantity: qty, discount: 0, stock: p.currentStock,
+          retailPrice: Number(p.salePrice || 0), wholesalePrice: Number(p.wholesalePrice || 0), priceCurrency: p.salePriceCurrency,
         }];
         setSelected(next.length - 1);
       }
@@ -497,6 +522,9 @@ export function PosPage() {
             <div className="min-w-0 flex-1">
               <div className="text-[11px] uppercase tracking-wider text-slate-400">Cliente</div>
               <div className="font-semibold text-slate-800 truncate">{customer.name}</div>
+              {customer.priceTier && customer.priceTier !== 'RETAIL' && (
+                <div className="text-[11px] font-semibold text-violet-600">Tabela {priceTierLabel(customer)}</div>
+              )}
             </div>
             <span className="text-[11px] text-slate-400 flex items-center gap-1"><Kbd>F9</Kbd></span>
           </button>
@@ -853,7 +881,7 @@ function PaymentModal({ total, customer, fmt, decimals, onClose, onConfirm }: {
 // ─────────────────────────────────────────────────────────────────────────────
 const toPosCustomer = (c: any): PosCustomer => ({
   id: c.id, name: c.name, allowedPaymentMethods: c.allowedPaymentMethods, creditMaxDays: c.creditMaxDays,
-  document: c.ruc || c.ci || c.document,
+  document: c.ruc || c.ci || c.document, priceTier: c.priceTier, priceAdjustmentPct: c.priceAdjustmentPct,
 });
 
 function CustomerModal({ onClose, onPick, current }: { onClose: () => void; onPick: (c: PosCustomer) => void; current: PosCustomer }) {

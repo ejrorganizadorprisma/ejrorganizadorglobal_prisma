@@ -112,6 +112,8 @@ export function CustomerFormPage() {
     },
     allowedPaymentMethods: DEFAULT_PAYMENT_METHODS as string[],
     creditMaxDays: null as number | null,
+    priceTier: 'RETAIL' as 'RETAIL' | 'WHOLESALE' | 'SPECIAL',
+    priceAdjustmentPct: '' as string,
     responsibleUserId: null as string | null,
   });
 
@@ -156,6 +158,8 @@ export function CustomerFormPage() {
             },
         allowedPaymentMethods: (customer as any).allowedPaymentMethods ?? DEFAULT_PAYMENT_METHODS,
         creditMaxDays: (customer as any).creditMaxDays ?? null,
+        priceTier: ((customer as any).priceTier || 'RETAIL') as 'RETAIL' | 'WHOLESALE' | 'SPECIAL',
+        priceAdjustmentPct: (customer as any).priceAdjustmentPct != null ? String((customer as any).priceAdjustmentPct) : '',
         responsibleUserId: (customer as any).responsibleUserId ?? null,
       });
       setCi(customer.ci || '');
@@ -225,6 +229,12 @@ export function CustomerFormPage() {
       // Admin/gerente pode atribuir vendedor responsavel
       if (canAssignResponsible) {
         baseData.responsibleUserId = formData.responsibleUserId ?? null;
+        // Tabela de preço (só admin/gerente)
+        baseData.priceTier = formData.priceTier;
+        baseData.priceAdjustmentPct =
+          formData.priceTier === 'SPECIAL' && formData.priceAdjustmentPct !== ''
+            ? Number(String(formData.priceAdjustmentPct).replace(',', '.'))
+            : null;
       }
 
       let payload: any;
@@ -866,6 +876,80 @@ export function CustomerFormPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Tabela de preço */}
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-1">Tabela de preço</h2>
+          <p className="text-sm text-gray-500 mb-3">
+            Define o preço usado em orçamentos, pedidos, vendas e no PDV para este cliente.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {([
+              { key: 'RETAIL', title: 'Varejo', desc: 'Preço de venda normal do produto.' },
+              { key: 'WHOLESALE', title: 'Atacado', desc: 'Preço de atacado do produto (sem atacado, usa o varejo).' },
+              { key: 'SPECIAL', title: 'Especial', desc: 'Varejo com desconto ou acréscimo em %.' },
+            ] as const).map((opt) => {
+              const active = formData.priceTier === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  disabled={!canAssignResponsible}
+                  onClick={() => setFormData((f: any) => ({ ...f, priceTier: opt.key }))}
+                  className={`text-left p-4 rounded-xl border-2 transition-all disabled:cursor-not-allowed disabled:opacity-70 ${
+                    active ? 'border-indigo-500 bg-indigo-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-800">{opt.title}</span>
+                    {active && <span className="text-xs font-semibold text-indigo-600">✓</span>}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{opt.desc}</div>
+                </button>
+              );
+            })}
+          </div>
+          {formData.priceTier === 'SPECIAL' && (
+            <div className="mt-3 p-4 rounded-xl border border-indigo-200 bg-indigo-50/50">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ajuste sobre o varejo (%)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  disabled={!canAssignResponsible}
+                  value={formData.priceAdjustmentPct}
+                  onChange={(e) => setFormData((f: any) => ({ ...f, priceAdjustmentPct: e.target.value.replace(/[^\d,.\-+]/g, '') }))}
+                  placeholder="-10 ou 5"
+                  className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-right font-semibold"
+                />
+                {[-15, -10, -5, 5, 10].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    disabled={!canAssignResponsible}
+                    onClick={() => setFormData((f: any) => ({ ...f, priceAdjustmentPct: String(v) }))}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-gray-200 hover:border-indigo-300"
+                  >
+                    {v > 0 ? `+${v}` : v}%
+                  </button>
+                ))}
+              </div>
+              {(() => {
+                const pct = Number(String(formData.priceAdjustmentPct).replace(',', '.'));
+                if (!formData.priceAdjustmentPct || Number.isNaN(pct)) return <p className="mt-1 text-xs text-gray-400">Negativo = desconto · positivo = acréscimo. Arredonda para Gs. 100.</p>;
+                const ex = Math.round((100000 * (1 + pct / 100)) / 100) * 100;
+                return (
+                  <p className="mt-1 text-xs text-gray-600">
+                    {pct < 0 ? 'Desconto' : 'Acréscimo'} de {Math.abs(pct)}% — ex.: Gs. 100.000 → <b>Gs. {ex.toLocaleString('es-PY')}</b>
+                  </p>
+                );
+              })()}
+            </div>
+          )}
+          {!canAssignResponsible && (
+            <p className="mt-2 text-xs text-gray-400">🔒 Somente administrador/gerente altera a tabela de preço.</p>
+          )}
         </div>
 
         {/* Credito / Pagamento */}

@@ -1,6 +1,7 @@
 import { db } from '../config/database';
 import { SalesRepository } from '../repositories/sales.repository';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../utils/errors';
+import { resolveCustomerPrice } from '@ejr/shared-types';
 
 /**
  * PDV / Caixa (venda de balcão).
@@ -308,7 +309,8 @@ export class PosService {
 
     const customerId = input.customerId || CONSUMER_CUSTOMER_ID;
     const cust = await db.query(
-      `SELECT id, name, allowed_payment_methods, credit_max_days, approval_status FROM customers WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT id, name, allowed_payment_methods, credit_max_days, approval_status, price_tier, price_adjustment_pct
+         FROM customers WHERE id = $1 AND deleted_at IS NULL`,
       [customerId]
     );
     const customer = cust.rows[0];
@@ -318,7 +320,7 @@ export class PosService {
     // Preços do cadastro
     const productIds = Array.from(new Set(rawItems.map((i) => i.productId)));
     const prod = await db.query(
-      `SELECT id, name, sale_price, status FROM products WHERE id = ANY($1::text[])`,
+      `SELECT id, name, sale_price, wholesale_price, sale_price_currency, status FROM products WHERE id = ANY($1::text[])`,
       [productIds]
     );
     const byId = new Map(prod.rows.map((p) => [p.id, p]));
@@ -328,7 +330,13 @@ export class PosService {
       if (p.status && p.status !== 'ACTIVE') throw new BadRequestError(`Produto inativo: ${p.name}`);
       const quantity = int(i.quantity);
       if (quantity > 100000) throw new BadRequestError(`Quantidade inválida para ${p.name}`);
-      const unitPrice = int(p.sale_price);
+      // Preço pela tabela do cliente (Varejo / Atacado / Especial ±%)
+      const unitPrice = int(
+        resolveCustomerPrice(
+          { salePrice: int(p.sale_price), wholesalePrice: int(p.wholesale_price), salePriceCurrency: p.sale_price_currency },
+          { priceTier: customer.price_tier, priceAdjustmentPct: customer.price_adjustment_pct }
+        ).price
+      );
       const gross = quantity * unitPrice;
       const discount = Math.min(Math.max(0, int(i.discount)), gross);
       return { productId: p.id, name: p.name, quantity, unitPrice, discount, total: gross - discount };

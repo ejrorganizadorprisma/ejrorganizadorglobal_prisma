@@ -43,6 +43,8 @@ function mapRow(row: any) {
     address: row.address,
     allowedPaymentMethods: row.allowed_payment_methods,
     creditMaxDays: row.credit_max_days,
+    priceTier: row.price_tier || 'RETAIL',
+    priceAdjustmentPct: row.price_adjustment_pct != null ? Number(row.price_adjustment_pct) : null,
     createdBy: row.created_by,
     responsibleUserId: row.responsible_user_id,
     responsibleUserName: row.responsible_user_name ?? null,
@@ -166,11 +168,11 @@ export class CustomersRepository {
         allowed_payment_methods, credit_max_days, created_by,
         responsible_user_id, approval_status, approved_at, approved_by,
         rg, birth_date, gender, marital_status, profession,
-        whatsapp, phone_alt, email_alt, notes
+        whatsapp, phone_alt, email_alt, notes, price_tier, price_adjustment_pct
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
-        $17, $18, $19, $20, $21, $22, $23, $24, $25
+        $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
       )
       RETURNING *
     `;
@@ -203,6 +205,8 @@ export class CustomersRepository {
       data.phoneAlt ?? null,
       data.emailAlt ?? null,
       data.notes ?? null,
+      data.priceTier || 'RETAIL',
+      data.priceTier === 'SPECIAL' ? data.priceAdjustmentPct ?? null : null,
     ]);
 
     return mapRow(result.rows[0]);
@@ -232,6 +236,13 @@ export class CustomersRepository {
     if (customerData.allowedPaymentMethods !== undefined)
       setField('allowed_payment_methods', customerData.allowedPaymentMethods);
     if (customerData.creditMaxDays !== undefined) setField('credit_max_days', customerData.creditMaxDays);
+    if (data.priceTier !== undefined) {
+      setField('price_tier', data.priceTier || 'RETAIL');
+      // Ajuste % só vale para Especial
+      setField('price_adjustment_pct', data.priceTier === 'SPECIAL' ? data.priceAdjustmentPct ?? null : null);
+    } else if (data.priceAdjustmentPct !== undefined) {
+      setField('price_adjustment_pct', data.priceAdjustmentPct ?? null);
+    }
     if (customerData.responsibleUserId !== undefined)
       setField('responsible_user_id', customerData.responsibleUserId);
 

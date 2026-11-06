@@ -13,6 +13,7 @@ import { useFormatPrice } from '../hooks/useFormatPrice';
 import { generateQuotePDF, type QuotePdfMode } from '../utils/quotePdfGenerator';
 import { api } from '../lib/api';
 import { Search, Package, AlertTriangle, Trash2, Plus, Wrench, FileText, Printer } from 'lucide-react';
+import { useCustomerPricing, PriceTierBadge } from '../lib/customerPricing';
 
 type FormItem = {
   itemType: QuoteItemType;
@@ -35,7 +36,7 @@ export function QuoteFormPage() {
   const createQuote = useCreateQuote();
   const updateQuote = useUpdateQuote();
 
-  const { data: customersData } = useCustomers({ page: 1, limit: 100 });
+  const { data: customersData } = useCustomers({ page: 1, limit: 500 });
   const { data: servicesData } = useServices({ page: 1, limit: 100, isActive: true });
   const { data: systemSettings } = useSystemSettings();
   const defaultCurrency = systemSettings?.defaultCurrency || 'BRL';
@@ -100,6 +101,10 @@ export function QuoteFormPage() {
     notes: '',
     items: [] as FormItem[],
   });
+  const tierCustomer = customersData?.data.find((c: any) => c.id === formData.customerId) as any;
+  const { priceOf } = useCustomerPricing<any>(tierCustomer, (fn) =>
+    setFormData((prev: any) => ({ ...prev, items: fn(prev.items) }))
+  );
 
   useEffect(() => {
     if (quote) {
@@ -162,7 +167,7 @@ export function QuoteFormPage() {
         productName: pendingProduct.name,
         productCode: pendingProduct.code,
         quantity: addQty,
-        unitPrice: pendingProduct.salePrice || 0,
+        unitPrice: priceOf(pendingProduct),
       }],
     }));
 
@@ -409,6 +414,7 @@ export function QuoteFormPage() {
                   </option>
                 ))}
               </select>
+              {tierCustomer && <div className="mt-1.5"><PriceTierBadge customer={tierCustomer} /></div>}
             </div>
 
             <div>

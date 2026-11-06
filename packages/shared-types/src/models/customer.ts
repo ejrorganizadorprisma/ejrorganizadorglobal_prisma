@@ -42,6 +42,9 @@ export interface Customer {
   address?: Address;
   allowedPaymentMethods?: string[];
   creditMaxDays?: number | null;
+  /** Tabela de preço: RETAIL (varejo), WHOLESALE (atacado), SPECIAL (varejo ± %) */
+  priceTier?: 'RETAIL' | 'WHOLESALE' | 'SPECIAL';
+  priceAdjustmentPct?: number | null;
   responsibleUserId?: string | null;
   responsibleUserName?: string | null;
   approvalStatus?: CustomerApprovalStatus;
@@ -103,6 +106,11 @@ export const CreateCustomerSchema = z.object({
     AddressSchema.optional()
   ),
   allowedPaymentMethods: z.array(z.string()).optional(),
+  priceTier: z.enum(['RETAIL', 'WHOLESALE', 'SPECIAL']).optional(),
+  priceAdjustmentPct: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
+    z.number().min(-90, 'Ajuste mínimo −90%').max(300, 'Ajuste máximo +300%').nullable().optional()
+  ),
   creditMaxDays: z.preprocess(
     (val) => (val === '' || val === null ? null : val),
     z.number().int().min(1).nullable().optional()
@@ -147,6 +155,11 @@ export const UpdateCustomerSchema = z.object({
     AddressSchema.optional()
   ),
   allowedPaymentMethods: z.array(z.string()).optional(),
+  priceTier: z.enum(['RETAIL', 'WHOLESALE', 'SPECIAL']).optional(),
+  priceAdjustmentPct: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
+    z.number().min(-90, 'Ajuste mínimo −90%').max(300, 'Ajuste máximo +300%').nullable().optional()
+  ),
   creditMaxDays: z.preprocess(
     (val) => (val === '' || val === null ? null : val),
     z.number().int().min(1).nullable().optional()

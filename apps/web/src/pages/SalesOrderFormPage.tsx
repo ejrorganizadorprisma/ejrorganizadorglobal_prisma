@@ -26,6 +26,7 @@ import {
   ShieldOff,
   PackageCheck,
 } from 'lucide-react';
+import { useCustomerPricing, PriceTierBadge } from '../lib/customerPricing';
 
 type FormItem = {
   itemType: 'PRODUCT' | 'SERVICE';
@@ -108,6 +109,10 @@ export function SalesOrderFormPage() {
   ) as any;
   const isCustomerInactive =
     !!selectedCustomer && selectedCustomer.approvalStatus === 'REJECTED';
+  // Tabela de preço do cliente (Varejo / Atacado / Especial)
+  const { priceOf } = useCustomerPricing<FormItem>(selectedCustomer, (fn) =>
+    setFormData((prev) => ({ ...prev, items: fn(prev.items) }))
+  );
 
   // Click outside dropdown
   useEffect(() => {
@@ -165,7 +170,7 @@ export function SalesOrderFormPage() {
           productName: pendingProduct.name,
           productCode: pendingProduct.code,
           quantity: addQty,
-          unitPrice: pendingProduct.salePrice || 0,
+          unitPrice: priceOf(pendingProduct),
           discount: 0,
         },
       ],
@@ -422,6 +427,7 @@ export function SalesOrderFormPage() {
                 const hasCredit = methods.includes('CREDIT') || methods.includes('CREDIT_CARD');
                 return (
                   <div className="mt-1.5 text-xs space-y-0.5">
+                    <div><PriceTierBadge customer={c} /></div>
                     <div>
                       <span className="text-gray-500">Status: </span>
                       <span className={`font-semibold ${statusStyles[status] || 'text-gray-600'}`}>

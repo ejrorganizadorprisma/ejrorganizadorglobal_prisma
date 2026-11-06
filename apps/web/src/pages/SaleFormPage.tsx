@@ -31,6 +31,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { CurrencyInput } from '../components/CurrencyInput';
+import { useCustomerPricing, PriceTierBadge } from '../lib/customerPricing';
 
 type ItemType = 'PRODUCT' | 'SERVICE';
 
@@ -105,6 +106,7 @@ export function SaleFormPage() {
   const searchDropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedCustomer = customersData?.data?.find((c: any) => c.id === customerId);
+  const { priceOf } = useCustomerPricing<any>(selectedCustomer as any, (fn) => setItems((prev: any) => fn(prev)));
 
   const customerAllowedMethods = useMemo(() => {
     return selectedCustomer?.allowedPaymentMethods || ['CASH'];
@@ -256,7 +258,7 @@ export function SaleFormPage() {
           productName: product.name,
           productCode: product.code,
           quantity: 1,
-          unitPrice: product.salePrice || 0,
+          unitPrice: priceOf(product),
           discount: 0,
           stock: product.currentStock,
         },
@@ -572,6 +574,7 @@ export function SaleFormPage() {
                   <div className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
                     <div>
                       <span className="font-medium text-blue-900">{selectedCustomer.name}</span>
+                      <PriceTierBadge customer={selectedCustomer as any} className="ml-2" />
                       {selectedCustomer.document && (
                         <span className="text-sm text-blue-600 ml-2">{selectedCustomer.document}</span>
                       )}

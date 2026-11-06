@@ -32,6 +32,7 @@ import {
   PackageCheck,
   ClipboardCheck,
 } from 'lucide-react';
+import { useCustomerPricing, PriceTierBadge } from '../lib/customerPricing';
 
 type FormItem = {
   itemType: 'PRODUCT' | 'SERVICE';
@@ -129,6 +130,10 @@ export function SalesOrderEditPage() {
     internalNotes: '',
     items: [] as FormItem[],
   });
+  const tierCustomer = customersData?.data.find((c: any) => c.id === formData.customerId) as any;
+  const { priceOf } = useCustomerPricing<FormItem>(tierCustomer, (fn) =>
+    setFormData((prev) => ({ ...prev, items: fn(prev.items) }))
+  );
 
   // Preencher form com dados do pedido
   useEffect(() => {
@@ -233,7 +238,7 @@ export function SalesOrderEditPage() {
           productName: pendingProduct.name,
           productCode: pendingProduct.code,
           quantity: addQty,
-          unitPrice: pendingProduct.salePrice || 0,
+          unitPrice: priceOf(pendingProduct),
           discount: 0,
         },
       ],
@@ -539,6 +544,7 @@ export function SalesOrderEditPage() {
                   </option>
                 ))}
               </select>
+              {tierCustomer && <div className="mt-1.5"><PriceTierBadge customer={tierCustomer} /></div>}
             </div>
 
             <div>

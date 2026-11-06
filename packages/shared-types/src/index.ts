@@ -4,6 +4,7 @@ export * from './models/permissions';
 
 // Product
 export * from './models/product';
+export * from './models/pricing';
 export * from './models/product-part';
 export * from './models/product-supplier';
 export * from './models/product-category';

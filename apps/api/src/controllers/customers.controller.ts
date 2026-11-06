@@ -3,6 +3,8 @@ import type { AuthRequest } from '../middleware/auth';
 import { CustomersService } from '../services/customers.service';
 import { CreateCustomerSchema, UpdateCustomerSchema } from '@ejr/shared-types';
 
+
+const PRICE_ADMIN_ROLES = ['OWNER', 'DIRECTOR', 'MANAGER'];
 export class CustomersController {
   private service: CustomersService;
 
@@ -74,6 +76,11 @@ export class CustomersController {
 
   create = async (req: AuthRequest, res: Response) => {
     const data = CreateCustomerSchema.parse(req.body);
+    // Tabela de preço (Varejo/Atacado/Especial) só por OWNER/DIRECTOR/MANAGER
+    if (!PRICE_ADMIN_ROLES.includes(req.user?.role || '')) {
+      delete (data as any).priceTier;
+      delete (data as any).priceAdjustmentPct;
+    }
     const userId = req.user?.id;
     const userRole = req.user?.role;
     const customer = await this.service.create(data, userId, userRole);
@@ -88,6 +95,10 @@ export class CustomersController {
   update = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const data = UpdateCustomerSchema.parse(req.body);
+    if (!PRICE_ADMIN_ROLES.includes(req.user?.role || '')) {
+      delete (data as any).priceTier;
+      delete (data as any).priceAdjustmentPct;
+    }
 
     // Vendedor mobile nao pode editar responsibleUserId nem aprovar
     if (req.user?.role === 'SALESPERSON') {
