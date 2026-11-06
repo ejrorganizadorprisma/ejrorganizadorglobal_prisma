@@ -46,3 +46,6 @@ export function StockBadge({
     </span>
   );
 }
+
+/** Produto sem estoque (zerado ou negativo). */
+export const isOutOfStock = (stock?: number | null) => stock != null && stock <= 0;

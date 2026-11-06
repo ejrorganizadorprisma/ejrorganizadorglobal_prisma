@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { ScanBarcode, Link2, PackagePlus, Search, Loader2, Check, ArrowLeft, Keyboard } from 'lucide-react';
 import { api } from '../../lib/api';
 import { Modal, MoneyField, errMsg } from '../../pages/PosPage';
-import { StockBadge } from './StockBadge';
+import { StockBadge, isOutOfStock } from './StockBadge';
 
 /**
  * Código de barras lido que não pertence a nenhum produto.
@@ -110,9 +110,9 @@ function ProductPicker({ code, link, fmt, onBack, onClose, onAdded }: {
       </div>
       <div className="mt-2 max-h-[50vh] overflow-y-auto -mx-2">
         {list.map((p) => (
-          <button key={p.id} onClick={() => pick(p)} disabled={!!saving} className="w-full text-left px-3 py-3 rounded-xl active:bg-emerald-50 hover:bg-slate-50 flex items-center gap-3 border-b border-slate-100 disabled:opacity-50">
+          <button key={p.id} onClick={() => pick(p)} disabled={!!saving} className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 border-b border-slate-100 border-l-4 disabled:opacity-50 ${isOutOfStock(p.currentStock) ? 'bg-red-50 border-l-red-500' : 'border-l-transparent active:bg-emerald-50 hover:bg-slate-50'}`}>
             <div className="min-w-0 flex-1">
-              <div className="font-semibold leading-snug">{p.name}</div>
+              <div className={`font-semibold leading-snug ${isOutOfStock(p.currentStock) ? 'text-red-700' : ''}`}>{p.name}</div>
               <div className="text-xs text-slate-400">{p.code}{p.barcode ? ` · cód. barras ${p.barcode}` : ' · sem cód. barras'}</div>
               <div className="mt-1"><StockBadge stock={p.currentStock} minimum={p.minimumStock} size="xs" /></div>
             </div>

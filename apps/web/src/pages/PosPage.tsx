@@ -14,7 +14,7 @@ import { useNextNfNumber } from '../hooks/useSales';
 import { PAYMENT_METHOD_LABELS } from '../lib/payment-methods';
 import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 import { UnknownBarcodeModal } from '../components/pos/UnknownBarcodeModal';
-import { StockBadge } from '../components/pos/StockBadge';
+import { StockBadge, isOutOfStock } from '../components/pos/StockBadge';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -449,10 +449,10 @@ export function PosPage() {
                     key={p.id}
                     onMouseDown={(e) => { e.preventDefault(); const m = query.match(/^(\d+)\s*\*/); addProduct(p, m ? parseInt(m[1], 10) : 1); setQuery(''); setSuggestions([]); focusScan(); }}
                     onMouseEnter={() => setSugIndex(i)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left ${i === sugIndex ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 text-left border-l-4 ${isOutOfStock(p.currentStock) ? `border-red-500 ${i === sugIndex ? 'bg-red-100' : 'bg-red-50 hover:bg-red-100'}` : `border-transparent ${i === sugIndex ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-slate-800 truncate">{p.name}</div>
+                      <div className={`font-medium truncate ${isOutOfStock(p.currentStock) ? 'text-red-700' : 'text-slate-800'}`}>{p.name}</div>
                       <div className="text-xs text-slate-400 truncate flex items-center gap-1.5">
                         <StockBadge stock={p.currentStock} minimum={p.minimumStock} size="xs" />
                         <span className="truncate">{p.code}{p.barcode ? ` · ${p.barcode}` : ''}</span>
@@ -490,10 +490,10 @@ export function PosPage() {
                   {cart.map((it, idx) => {
                     const active = idx === (selected >= 0 ? selected : cart.length - 1);
                                     return (
-                      <tr key={it.productId} onClick={() => setSelected(idx)} className={`cursor-pointer transition-colors ${active ? 'bg-emerald-50/70' : 'hover:bg-slate-50'}`}>
+                      <tr key={it.productId} onClick={() => setSelected(idx)} className={`cursor-pointer transition-colors ${isOutOfStock(it.stock) || (it.stock != null && it.quantity > it.stock) ? (active ? 'bg-red-100' : 'bg-red-50 hover:bg-red-100') : active ? 'bg-emerald-50/70' : 'hover:bg-slate-50'}`}>
                         <td className="px-3 py-2.5 text-slate-400 tabular-nums">{String(idx + 1).padStart(2, '0')}</td>
                         <td className="px-3 py-2.5 min-w-0">
-                          <div className="font-medium text-slate-800 truncate max-w-[40vw] lg:max-w-[34vw]">{it.name}</div>
+                          <div className={`font-medium truncate max-w-[40vw] lg:max-w-[34vw] ${isOutOfStock(it.stock) || (it.stock != null && it.quantity > it.stock) ? 'text-red-700' : 'text-slate-800'}`}>{it.name}</div>
                           <div className="text-[11px] text-slate-400 truncate flex items-center gap-1.5">
                             <StockBadge stock={it.stock} minimum={it.minimumStock} inCart={it.quantity} size="xs" />
                             <span className="truncate">{it.code}</span>
@@ -549,9 +549,9 @@ export function PosPage() {
           </button>
 
           {lastItem && (
-            <div className="hidden lg:block bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+            <div className={`hidden lg:block rounded-2xl border shadow-sm p-4 ${isOutOfStock(lastItem.stock) ? 'bg-red-50 border-red-300' : 'bg-white border-slate-200'}`}>
               <div className="text-[11px] uppercase tracking-wider text-slate-400">Item atual</div>
-              <div className="font-semibold text-slate-800 text-lg leading-snug line-clamp-2">{lastItem.name}</div>
+              <div className={`font-semibold text-lg leading-snug line-clamp-2 ${isOutOfStock(lastItem.stock) ? 'text-red-700' : 'text-slate-800'}`}>{lastItem.name}</div>
               <div className="mt-1"><StockBadge stock={lastItem.stock} minimum={lastItem.minimumStock} inCart={lastItem.quantity} /></div>
               <div className="mt-1 flex items-baseline justify-between text-slate-500 tabular-nums">
                 <span>{lastItem.quantity} × {fmt(lastItem.unitPrice)}</span>

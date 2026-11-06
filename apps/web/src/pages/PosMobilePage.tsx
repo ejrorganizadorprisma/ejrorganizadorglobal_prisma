@@ -13,7 +13,7 @@ import { useFormatPrice } from '../hooks/useFormatPrice';
 import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 import { CameraScanner } from '../components/pos/CameraScanner';
 import { UnknownBarcodeModal } from '../components/pos/UnknownBarcodeModal';
-import { StockBadge } from '../components/pos/StockBadge';
+import { StockBadge, isOutOfStock } from '../components/pos/StockBadge';
 import {
   type CartItem, type PosCustomer, type Session, type ReceiptData,
   CONSUMER, POS_PRINT_CSS, label, errMsg,
@@ -286,10 +286,10 @@ export function PosMobilePage() {
         <div className="print:hidden shrink-0 relative">
           <CameraScanner onDetect={onScan} paused={scannerPaused} onClose={() => setScanning(false)} className="h-[34dvh] sm:h-[38dvh] md:h-[30dvh]" />
           {lastRead && (
-            <div className="absolute left-2 right-2 bottom-2 rounded-xl bg-white/95 backdrop-blur px-3 py-2 flex items-center gap-2 shadow-lg">
-              <Check className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div className={`absolute left-2 right-2 bottom-2 rounded-xl backdrop-blur px-3 py-2 flex items-center gap-2 shadow-lg ${isOutOfStock(lastRead.stock) ? 'bg-red-50/95 ring-2 ring-red-400' : 'bg-white/95'}`}>
+              <Check className={`w-5 h-5 shrink-0 ${isOutOfStock(lastRead.stock) ? 'text-red-600' : 'text-emerald-600'}`} />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold truncate">{lastRead.name}</div>
+                <div className={`text-sm font-semibold truncate ${isOutOfStock(lastRead.stock) ? 'text-red-700' : ''}`}>{lastRead.name}</div>
                 <StockBadge stock={lastRead.stock} minimum={lastRead.minimum} inCart={lastRead.qty} size="xs" />
               </div>
               <div className="text-sm tabular-nums font-bold whitespace-nowrap">{lastRead.qty}× {fmt(lastRead.price)}</div>
@@ -312,9 +312,9 @@ export function PosMobilePage() {
         ) : (
           <ul className="p-2 space-y-2 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 lg:grid-cols-3">
             {cart.map((it, idx) => (
-              <li key={it.productId} className={`bg-white rounded-2xl border px-3 py-2.5 flex items-center gap-3 ${idx === 0 ? 'border-emerald-300 shadow-sm' : 'border-slate-200'}`}>
+              <li key={it.productId} className={`rounded-2xl border px-3 py-2.5 flex items-center gap-3 ${isOutOfStock(it.stock) || (it.stock != null && it.quantity > it.stock) ? 'bg-red-50 border-red-300' : idx === 0 ? 'bg-white border-emerald-300 shadow-sm' : 'bg-white border-slate-200'}`}>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-[15px] leading-snug line-clamp-2">{it.name}</div>
+                  <div className={`font-semibold text-[15px] leading-snug line-clamp-2 ${isOutOfStock(it.stock) || (it.stock != null && it.quantity > it.stock) ? 'text-red-700' : ''}`}>{it.name}</div>
                   <div className="text-xs text-slate-400 tabular-nums mt-0.5">{fmt(it.unitPrice)} · {it.code}</div>
                   <div className="mt-1"><StockBadge stock={it.stock} minimum={it.minimumStock} inCart={it.quantity} size="xs" /></div>
                   <div className="mt-1 font-bold tabular-nums">{fmt(it.unitPrice * it.quantity - it.discount)}</div>
@@ -385,9 +385,9 @@ export function PosMobilePage() {
           )}
           <div className="flex-1 overflow-y-auto p-2">
             {results.map((p) => (
-              <button key={p.id} onClick={() => pickResult(p)} className="w-full text-left px-3 py-3 rounded-xl active:bg-emerald-50 flex items-center gap-3 border-b border-slate-100">
+              <button key={p.id} onClick={() => pickResult(p)} className={`w-full text-left px-3 py-3 rounded-xl flex items-center gap-3 border-b border-slate-100 border-l-4 ${isOutOfStock(p.currentStock) ? 'bg-red-50 border-l-red-500 active:bg-red-100' : 'border-l-transparent active:bg-emerald-50'}`}>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold leading-snug">{p.name}</div>
+                  <div className={`font-semibold leading-snug ${isOutOfStock(p.currentStock) ? 'text-red-700' : ''}`}>{p.name}</div>
                   <div className="text-xs text-slate-400">{p.code}{p.barcode ? ` · ${p.barcode}` : ''}</div>
                   <div className="mt-1"><StockBadge stock={p.currentStock} minimum={p.minimumStock} size="xs" /></div>
                 </div>
