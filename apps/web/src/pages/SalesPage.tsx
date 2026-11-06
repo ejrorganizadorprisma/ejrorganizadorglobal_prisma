@@ -52,6 +52,13 @@ function FulfillmentBadge({ status }: { status?: string }) {
   return <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full ${cfg.bg} ${cfg.text}`}><Truck className="w-3 h-3" /> {cfg.label}</span>;
 }
 
+/** Posição do menu flutuante a partir do botão (abre para cima perto do fim da tela). */
+function menuPosFrom(el: HTMLElement, menuHeight = 110) {
+  const r = el.getBoundingClientRect();
+  const up = r.bottom + menuHeight + 8 > window.innerHeight;
+  return { top: up ? Math.max(8, r.top - menuHeight - 4) : r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) };
+}
+
 export function SalesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
@@ -77,6 +84,7 @@ export function SalesPage() {
   const { formatPrice, defaultCurrency } = useFormatPrice();
   const { data: documentSettings } = useDefaultDocumentSettings();
   const [pdfMenuOpen, setPdfMenuOpen] = useState<string | null>(null);
+  const [pdfMenuPos, setPdfMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [invoiceTarget, setInvoiceTarget] = useState<Sale | null>(null);
 
@@ -121,64 +129,65 @@ export function SalesPage() {
   const hasActiveFilters = search || status || startDate || endDate;
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <ShoppingBag className="w-6 h-6 text-blue-600" />
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
+            <ShoppingBag className="w-5 h-5 text-blue-600" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Vendas</h1>
-            <p className="text-sm text-gray-500">Gerencie suas vendas e pagamentos</p>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Vendas</h1>
+            <p className="hidden sm:block text-xs text-gray-500">Gerencie suas vendas e pagamentos</p>
           </div>
         </div>
         <button
           onClick={() => navigate('/sales/new')}
-          className="w-full sm:w-auto bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium shadow-sm"
+          className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5 font-medium text-sm"
         >
-          <Plus className="w-5 h-5" />
-          Nova Venda
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Nova Venda</span>
+          <span className="sm:hidden">Nova</span>
         </button>
       </div>
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <ShoppingBag className="w-4 h-4 text-gray-400" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Total Vendas</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider">Total Vendas</span>
             </div>
-            <p className="text-xl font-bold text-gray-900">{stats.totalSales}</p>
+            <p className="text-lg font-bold tabular-nums truncate text-gray-900">{stats.totalSales}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <DollarSign className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Faturamento</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider">Faturamento</span>
             </div>
-            <p className="text-xl font-bold text-gray-900">{formatPrice(stats.totalRevenue)}</p>
+            <p className="text-lg font-bold tabular-nums truncate text-gray-900">{formatPrice(stats.totalRevenue)}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <CheckCircle className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Recebido</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider">Recebido</span>
             </div>
-            <p className="text-xl font-bold text-emerald-600">{formatPrice(stats.totalPaid)}</p>
+            <p className="text-lg font-bold tabular-nums truncate text-emerald-600">{formatPrice(stats.totalPaid)}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <AlertTriangle className="w-4 h-4 text-red-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">A Receber</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider">A Receber</span>
             </div>
-            <p className="text-xl font-bold text-red-600">{formatPrice(stats.totalPending)}</p>
+            <p className="text-lg font-bold tabular-nums truncate text-red-600">{formatPrice(stats.totalPending)}</p>
           </div>
         </div>
       )}
 
       {/* Search & Filters */}
-      <div className="bg-white rounded-xl shadow-sm border mb-6">
-        <div className="p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white rounded-xl shadow-sm border mb-4">
+        <div className="p-2.5 flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
@@ -186,14 +195,14 @@ export function SalesPage() {
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Buscar por numero, cliente..."
-              className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
           <div className="flex gap-2">
             <select
               value={status}
               onChange={(e) => { setStatus(e.target.value as SaleStatus | ''); setPage(1); }}
-              className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+              className="flex-1 sm:flex-none px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
             >
               <option value="">Todos status</option>
               {Object.entries(statusConfig).map(([key, cfg]) => (
@@ -202,7 +211,7 @@ export function SalesPage() {
             </select>
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`px-3 py-2.5 border rounded-lg text-sm flex items-center gap-2 transition-colors ${
+              className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors ${
                 showFilters || hasActiveFilters
                   ? 'border-blue-500 text-blue-600 bg-blue-50'
                   : 'border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -268,85 +277,103 @@ export function SalesPage() {
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
-          <div className="hidden lg:block bg-white rounded-xl shadow-sm border overflow-hidden">
-            <table className="min-w-full">
+          {/* Desktop Table — compacta, 1 linha por venda */}
+          <div className="hidden lg:block bg-white rounded-xl shadow-sm border overflow-x-auto">
+            <table className="w-full min-w-[760px] table-fixed text-[13px]">
+              <colgroup>
+                <col className="w-[124px]" />
+                <col />
+                <col className="hidden xl:table-column w-[84px]" />
+                <col className="w-[112px]" />
+                <col className="hidden xl:table-column w-[108px]" />
+                <col className="w-[108px]" />
+                <col className="w-[150px]" />
+                <col className="w-[100px]" />
+              </colgroup>
               <thead>
-                <tr className="border-b bg-gray-50/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Venda</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Data</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Pago</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Pendente</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acoes</th>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left">Venda</th>
+                  <th className="px-3 py-2 text-left">Cliente</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-left">Data</th>
+                  <th className="px-3 py-2 text-right">Total</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-right">Pago</th>
+                  <th className="px-3 py-2 text-right">Pendente</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {data?.data?.map((sale: any) => {
                   const cfg = statusConfig[sale.status as SaleStatus];
                   const StatusIcon = cfg?.icon;
+                  const ful = sale.fulfillmentStatus ? fulfillmentConfig[sale.fulfillmentStatus] : null;
+                  const dateLabel = new Date(sale.saleDate).toLocaleDateString('pt-BR');
                   return (
                     <tr
                       key={sale.id}
-                      className="hover:bg-blue-50/30 cursor-pointer transition-colors"
+                      className="hover:bg-blue-50/40 cursor-pointer transition-colors"
                       onClick={() => navigate(`/sales/${sale.id}`)}
                     >
-                      <td className="px-4 py-3">
-                        <span className="font-semibold text-gray-900">{sale.saleNumber}</span>
+                      <td className="px-3 py-2">
+                        <span className="font-semibold text-gray-900 whitespace-nowrap tabular-nums" title={`${dateLabel} · pago ${formatPrice(sale.totalPaid)}`}>
+                          {sale.saleNumber}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-700">{sale.customer?.name || '-'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-sm">
-                        {new Date(sale.saleDate).toLocaleDateString('pt-BR')}
+                      <td className="px-3 py-2 text-gray-800 font-medium truncate" title={sale.customer?.name}>{sale.customer?.name || '-'}</td>
+                      <td className="hidden xl:table-cell px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">
+                        {new Date(sale.saleDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       </td>
-                      <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                      <td className="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">
                         {formatPrice(sale.total)}
                       </td>
-                      <td className="px-4 py-3 text-right text-emerald-600 font-medium">
+                      <td className="hidden xl:table-cell px-3 py-2 text-right text-emerald-600 font-medium whitespace-nowrap tabular-nums">
                         {formatPrice(sale.totalPaid)}
                       </td>
-                      <td className="px-4 py-3 text-right text-red-600 font-medium">
+                      <td className="px-3 py-2 text-right text-red-600 font-medium whitespace-nowrap tabular-nums">
                         {sale.totalPending > 0 ? formatPrice(sale.totalPending) : '-'}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full ${cfg?.bg} ${cfg?.text}`}>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className={`inline-flex items-center gap-1 shrink-0 px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${cfg?.bg} ${cfg?.text}`}>
                             {StatusIcon && <StatusIcon className="w-3 h-3" />}
                             {cfg?.label}
                           </span>
-                          <FulfillmentBadge status={sale.fulfillmentStatus} />
+                          {ful && (
+                            <span title={ful.label} className={`inline-flex items-center gap-1 min-w-0 px-1.5 py-0.5 text-[10.5px] font-medium rounded-full ${ful.bg} ${ful.text}`}>
+                              <Truck className="w-3 h-3 shrink-0" /><span className="truncate">{ful.label}</span>
+                            </span>
+                          )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
                           {sale.fulfillmentStatus === 'CONFERRED' && (
                             <button
                               onClick={() => setInvoiceTarget(sale)}
-                              className="px-2.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-1"
+                              className="mr-1 px-2 py-0.5 text-[11px] font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md transition-colors flex items-center gap-1"
                               title="Faturamento (NF)"
                             >
-                              <Receipt className="w-3.5 h-3.5" /> Faturamento
+                              <Receipt className="w-3 h-3" /> Faturar
                             </button>
                           )}
                           <button
                             onClick={() => navigate(`/sales/${sale.id}`)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                             title="Ver detalhes"
                           >
-                            <Eye className="w-4 h-4" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
                           <div className="relative">
                             <button
-                              onClick={() => setPdfMenuOpen(pdfMenuOpen === sale.id ? null : sale.id)}
+                              onClick={(e) => { setPdfMenuPos(menuPosFrom(e.currentTarget)); setPdfMenuOpen(pdfMenuOpen === sale.id ? null : sale.id); }}
                               disabled={pdfLoadingId === sale.id}
-                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50"
                               title="Gerar PDF"
                             >
                               {pdfLoadingId === sale.id ? (
-                                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-3.5 h-3.5" />
                               )}
                             </button>
                             {pdfMenuOpen === sale.id && (
@@ -355,7 +382,8 @@ export function SalesPage() {
                                   className="fixed inset-0 z-10"
                                   onClick={() => setPdfMenuOpen(null)}
                                 />
-                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                                <div className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
+                                  style={pdfMenuPos ? { top: pdfMenuPos.top, right: pdfMenuPos.right } : undefined}>
                                   <button
                                     onClick={() => handleGeneratePdf(sale.id, 'elegant')}
                                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
@@ -377,10 +405,10 @@ export function SalesPage() {
                           {sale.status === 'PENDING' && (
                             <button
                               onClick={() => handleDelete(sale.id, sale.saleNumber)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                               title="Excluir"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
@@ -393,7 +421,7 @@ export function SalesPage() {
           </div>
 
           {/* Mobile Cards */}
-          <div className="lg:hidden space-y-3">
+          <div className="lg:hidden space-y-2">
             {data?.data?.map((sale: any) => {
               const cfg = statusConfig[sale.status as SaleStatus];
               const StatusIcon = cfg?.icon;
@@ -484,7 +512,7 @@ export function SalesPage() {
 
           {/* Pagination */}
           {data && data.total > 20 && (
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-gray-500">
                 {(page - 1) * 20 + 1}-{Math.min(page * 20, data.total)} de {data.total}
               </p>

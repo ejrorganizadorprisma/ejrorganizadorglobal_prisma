@@ -212,16 +212,16 @@ export default function StorageLocationsPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Localização de Estoque</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Localização de Estoque</h1>
           <p className="text-gray-600 mt-1">{canModify ? 'Gerencie' : 'Visualize'} espaços, prateleiras e seções</p>
         </div>
         {canCreate && (
           <button
             onClick={() => openDialog(activeTab)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+            className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-1.5 text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
             Novo {activeTab === 'spaces' ? 'Espaço' : activeTab === 'shelves' ? 'Prateleira' : 'Seção'}
@@ -230,7 +230,7 @@ export default function StorageLocationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex flex-wrap gap-4 sm:gap-0 sm:space-x-8 overflow-x-auto">
             <button
@@ -239,7 +239,7 @@ export default function StorageLocationsPage() {
                 activeTab === 'spaces'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+              } whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
             >
               <MapPin className="w-4 h-4" />
               Espaços ({spaces.length})
@@ -250,7 +250,7 @@ export default function StorageLocationsPage() {
                 activeTab === 'shelves'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+              } whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
             >
               <Box className="w-4 h-4" />
               Prateleiras ({shelves.length})
@@ -261,7 +261,7 @@ export default function StorageLocationsPage() {
                 activeTab === 'sections'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+              } whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
             >
               <Grid className="w-4 h-4" />
               Seções ({sections.length})
@@ -272,41 +272,41 @@ export default function StorageLocationsPage() {
 
       {/* Spaces Table */}
       {activeTab === 'spaces' && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table className="w-full min-w-[560px] table-fixed text-[13px]">
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[28%]">
                   Nome
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">
                   Descrição
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[90px]">
                   Status
                 </th>
                 {canModify && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 w-[80px] text-right">
                     Ações
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {spaces.map((space) => (
-                <tr key={space.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <MapPin className="w-5 h-5 text-blue-500 mr-3" />
-                      <div className="text-sm font-medium text-gray-900">{space.name}</div>
+                <tr key={space.id} className="hover:bg-indigo-50/40 transition-colors">
+                  <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                    <div className="flex items-center min-w-0">
+                      <MapPin className="w-3.5 h-3.5 text-blue-500 mr-2 shrink-0" />
+                      <div className="font-medium text-gray-900 truncate" title={space.name}>{space.name}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">{space.description || '-'}</div>
+                  <td className="px-3 py-1.5 overflow-hidden">
+                    <div className="text-gray-500 truncate" title={space.description || undefined}>{space.description || '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                         space.isActive
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
@@ -316,21 +316,21 @@ export default function StorageLocationsPage() {
                     </span>
                   </td>
                   {canModify && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-3 py-1.5 whitespace-nowrap text-right">
                       {canEdit && (
                         <button
                           onClick={() => openDialog('spaces', space)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete('spaces', space.id, space.name)}
-                          className="text-red-600 hover:text-red-900"
+                          className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </td>
@@ -339,7 +339,7 @@ export default function StorageLocationsPage() {
               ))}
               {spaces.length === 0 && (
                 <tr>
-                  <td colSpan={canModify ? 4 : 3} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={canModify ? 4 : 3} className="px-3 py-6 text-center text-gray-500">
                     Nenhum espaço cadastrado
                   </td>
                 </tr>
@@ -351,49 +351,49 @@ export default function StorageLocationsPage() {
 
       {/* Shelves Table */}
       {activeTab === 'shelves' && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table className="w-full min-w-[560px] table-fixed text-[13px]">
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[28%]">
                   Nome
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[18%]">
                   Espaço
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">
                   Descrição
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[90px]">
                   Status
                 </th>
                 {canModify && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 w-[80px] text-right">
                     Ações
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {shelves.map((shelf) => {
                 const space = spaces.find((s) => s.id === shelf.spaceId);
                 return (
-                  <tr key={shelf.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Box className="w-5 h-5 text-blue-500 mr-3" />
-                        <div className="text-sm font-medium text-gray-900">{shelf.name}</div>
+                  <tr key={shelf.id} className="hover:bg-indigo-50/40 transition-colors">
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                      <div className="flex items-center min-w-0">
+                        <Box className="w-3.5 h-3.5 text-blue-500 mr-2 shrink-0" />
+                        <div className="font-medium text-gray-900 truncate" title={shelf.name}>{shelf.name}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{space?.name || '-'}</div>
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                      <div className="text-gray-700 truncate">{space?.name || '-'}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500">{shelf.description || '-'}</div>
+                    <td className="px-3 py-1.5 overflow-hidden">
+                      <div className="text-gray-500 truncate" title={shelf.description || undefined}>{shelf.description || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                           shelf.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
@@ -403,21 +403,21 @@ export default function StorageLocationsPage() {
                       </span>
                     </td>
                     {canModify && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-3 py-1.5 whitespace-nowrap text-right">
                         {canEdit && (
                           <button
                             onClick={() => openDialog('shelves', shelf)}
-                            className="text-blue-600 hover:text-blue-900 mr-4"
+                            className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {canDelete && (
                           <button
                             onClick={() => handleDelete('shelves', shelf.id, shelf.name)}
-                            className="text-red-600 hover:text-red-900"
+                            className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </td>
@@ -427,7 +427,7 @@ export default function StorageLocationsPage() {
               })}
               {shelves.length === 0 && (
                 <tr>
-                  <td colSpan={canModify ? 5 : 4} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={canModify ? 5 : 4} className="px-3 py-6 text-center text-gray-500">
                     Nenhuma prateleira cadastrada
                   </td>
                 </tr>
@@ -439,56 +439,56 @@ export default function StorageLocationsPage() {
 
       {/* Sections Table */}
       {activeTab === 'sections' && (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table className="w-full min-w-[560px] table-fixed text-[13px]">
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[28%]">
                   Nome
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[18%]">
                   Prateleira
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[18%]">
                   Espaço
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">
                   Descrição
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[90px]">
                   Status
                 </th>
                 {canModify && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 w-[80px] text-right">
                     Ações
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {sections.map((section) => {
                 const shelf = shelves.find((s) => s.id === section.shelfId);
                 const space = shelf ? spaces.find((s) => s.id === shelf.spaceId) : null;
                 return (
-                  <tr key={section.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Grid className="w-5 h-5 text-blue-500 mr-3" />
-                        <div className="text-sm font-medium text-gray-900">{section.name}</div>
+                  <tr key={section.id} className="hover:bg-indigo-50/40 transition-colors">
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                      <div className="flex items-center min-w-0">
+                        <Grid className="w-3.5 h-3.5 text-blue-500 mr-2 shrink-0" />
+                        <div className="font-medium text-gray-900 truncate" title={section.name}>{section.name}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{shelf?.name || '-'}</div>
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                      <div className="text-gray-700 truncate">{shelf?.name || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-500">{space?.name || '-'}</div>
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                      <div className="text-gray-500 truncate">{space?.name || '-'}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500">{section.description || '-'}</div>
+                    <td className="px-3 py-1.5 overflow-hidden">
+                      <div className="text-gray-500 truncate" title={section.description || undefined}>{section.description || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                       <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                           section.isActive
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
@@ -498,21 +498,21 @@ export default function StorageLocationsPage() {
                       </span>
                     </td>
                     {canModify && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-3 py-1.5 whitespace-nowrap text-right">
                         {canEdit && (
                           <button
                             onClick={() => openDialog('sections', section)}
-                            className="text-blue-600 hover:text-blue-900 mr-4"
+                            className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         {canDelete && (
                           <button
                             onClick={() => handleDelete('sections', section.id, section.name)}
-                            className="text-red-600 hover:text-red-900"
+                            className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </td>
@@ -522,7 +522,7 @@ export default function StorageLocationsPage() {
               })}
               {sections.length === 0 && (
                 <tr>
-                  <td colSpan={canModify ? 6 : 5} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={canModify ? 6 : 5} className="px-3 py-6 text-center text-gray-500">
                     Nenhuma seção cadastrada
                   </td>
                 </tr>
@@ -551,7 +551,7 @@ export default function StorageLocationsPage() {
               {activeTab === 'spaces' && (
                 <>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Nome *
                     </label>
                     <input
@@ -559,18 +559,18 @@ export default function StorageLocationsPage() {
                       required
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Ex: Depósito 1"
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Descrição
                     </label>
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       rows={3}
                       placeholder="Descrição opcional"
                     />
@@ -593,14 +593,14 @@ export default function StorageLocationsPage() {
               {activeTab === 'shelves' && (
                 <>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Espaço *
                     </label>
                     <select
                       required
                       value={formData.spaceId || ''}
                       onChange={(e) => setFormData({ ...formData, spaceId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Selecione um espaço</option>
                       {spaces
@@ -613,7 +613,7 @@ export default function StorageLocationsPage() {
                     </select>
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Nome *
                     </label>
                     <input
@@ -621,18 +621,18 @@ export default function StorageLocationsPage() {
                       required
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Ex: 1A"
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Descrição
                     </label>
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       rows={3}
                       placeholder="Descrição opcional"
                     />
@@ -655,14 +655,14 @@ export default function StorageLocationsPage() {
               {activeTab === 'sections' && (
                 <>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Prateleira *
                     </label>
                     <select
                       required
                       value={formData.shelfId || ''}
                       onChange={(e) => setFormData({ ...formData, shelfId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Selecione uma prateleira</option>
                       {shelves
@@ -678,7 +678,7 @@ export default function StorageLocationsPage() {
                     </select>
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Nome *
                     </label>
                     <input
@@ -686,18 +686,18 @@ export default function StorageLocationsPage() {
                       required
                       value={formData.name || ''}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Ex: 1"
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
                       Descrição
                     </label>
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       rows={3}
                       placeholder="Descrição opcional"
                     />

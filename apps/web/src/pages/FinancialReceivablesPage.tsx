@@ -18,8 +18,11 @@ import { toast } from 'sonner';
 import { PaymentStatus, type FinancialEntry, type FinancialFilters } from '@ejr/shared-types';
 
 const formatDate = (dateStr: string) => {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('pt-BR');
+  // Aceita 'YYYY-MM-DD' e também 'YYYY-MM-DD HH:MM:SS+00' (timestamptz das vendas):
+  // usa só a parte da data, ao meio-dia, para não deslocar o dia pelo fuso.
+  if (!dateStr) return '-';
+  const d = new Date(String(dateStr).slice(0, 10) + 'T12:00:00');
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
 };
 
 const statusLabel: Record<string, string> = {
@@ -78,38 +81,38 @@ export function FinancialReceivablesPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 lg:px-6 py-4 lg:py-8">
+    <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-2.5 mb-4">
         <Link to="/financial" className="text-blue-600 hover:text-blue-800">
-          <ArrowLeft className="w-6 h-6" />
+          <ArrowLeft className="w-5 h-5" />
         </Link>
-        <ArrowUpRight className="w-8 h-8 text-green-600" />
-        <h1 className="text-2xl lg:text-3xl font-bold">Contas a Receber</h1>
+        <ArrowUpRight className="w-6 h-6 text-green-600" />
+        <h1 className="text-lg sm:text-xl font-bold leading-tight">Contas a Receber</h1>
       </div>
 
       {/* Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <div className="text-sm text-gray-500 mb-1">Pendente</div>
-          <div className="text-lg lg:text-xl font-bold text-yellow-600 truncate">{formatPrice(totals.pending)}</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="bg-white rounded-xl shadow-sm border p-3">
+          <div className="text-xs text-gray-500 mb-0.5">Pendente</div>
+          <div className="text-lg lg:text-xl font-bold tabular-nums text-yellow-600 truncate">{formatPrice(totals.pending)}</div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <div className="text-sm text-gray-500 mb-1">Recebido</div>
+        <div className="bg-white rounded-xl shadow-sm border p-3">
+          <div className="text-xs text-gray-500 mb-0.5">Recebido</div>
           <div className="text-lg lg:text-xl font-bold text-green-600 truncate">{formatPrice(totals.paid)}</div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <div className="text-sm text-gray-500 mb-1">Atrasado</div>
+        <div className="bg-white rounded-xl shadow-sm border p-3">
+          <div className="text-xs text-gray-500 mb-0.5">Atrasado</div>
           <div className="text-lg lg:text-xl font-bold text-red-600 truncate">{formatPrice(totals.overdue)}</div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border p-4">
-          <div className="text-sm text-gray-500 mb-1">Total</div>
+        <div className="bg-white rounded-xl shadow-sm border p-3">
+          <div className="text-xs text-gray-500 mb-0.5">Total</div>
           <div className="text-lg lg:text-xl font-bold text-gray-800 truncate">{formatPrice(totals.total)}</div>
         </div>
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-xl shadow-sm border p-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm border p-3 mb-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="sm:col-span-2 lg:col-span-4 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -174,54 +177,72 @@ export function FinancialReceivablesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[700px]">
+          {/* Tabela compacta — 1 linha por parcela */}
+          <table className="w-full min-w-[720px] table-fixed text-[13px]">
+            <colgroup>
+              <col className="w-[120px]" />
+              <col />
+              <col className="w-[52px]" />
+              <col className="w-[116px]" />
+              <col className="w-[100px]" />
+              <col className="hidden xl:table-column w-[64px]" />
+              <col className="w-[96px]" />
+              <col className="hidden xl:table-column w-[84px]" />
+              <col className="w-[132px]" />
+            </colgroup>
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Venda</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-500">Cliente</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Parcela</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-gray-500">Valor</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Vencimento</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Dias</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Status</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Credito</th>
-                <th className="text-center px-4 py-3 text-sm font-medium text-gray-500">Ações</th>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Venda</th>
+                <th className="px-3 py-2 text-left">Cliente</th>
+                <th className="px-3 py-2 text-center">Parcela</th>
+                <th className="px-3 py-2 text-right">Valor</th>
+                <th className="px-3 py-2 text-left">Vencimento</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-center">Dias</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-center">Credito</th>
+                <th className="px-3 py-2 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-100">
               {entries.map((entry) => {
                 const isOverdue = entry.status === 'OVERDUE';
                 const isCreditExceeded = entry.isCreditExceeded === true;
+                const daysLate = entry.daysOverdue && entry.daysOverdue > 0 ? entry.daysOverdue : 0;
                 return (
-                  <tr key={entry.id} className={`border-b hover:bg-gray-50 ${isOverdue || isCreditExceeded ? 'bg-red-50' : ''}`}>
-                    <td className="px-4 py-3">
-                      <Link to={`/sales/${entry.sourceId}`} className="text-sm text-blue-600 hover:underline font-medium">
+                  <tr key={entry.id} className={`transition-colors hover:bg-blue-50/40 ${isOverdue || isCreditExceeded ? 'bg-red-50/60' : ''}`}>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <Link to={`/sales/${entry.sourceId}`} className="text-blue-600 hover:underline font-semibold tabular-nums">
                         {entry.sourceNumber}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-sm">{entry.entityName}</td>
-                    <td className="px-4 py-3 text-sm text-center">{entry.installmentNumber}</td>
-                    <td className="px-4 py-3 text-sm text-right font-medium text-green-700">
+                    <td className="px-3 py-2 truncate font-medium text-gray-800" title={entry.entityName}>{entry.entityName}</td>
+                    <td className="px-3 py-2 text-center tabular-nums">{entry.installmentNumber}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-green-700 whitespace-nowrap tabular-nums">
                       {formatPrice(entry.amount)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-center">{formatDate(entry.dueDate)}</td>
-                    <td className="px-4 py-3 text-center">
-                      {entry.daysOverdue && entry.daysOverdue > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          {entry.daysOverdue}d
+                    <td className="px-3 py-2 whitespace-nowrap tabular-nums text-gray-600">
+                      {formatDate(entry.dueDate)}
+                      {daysLate > 0 && (
+                        <span className="xl:hidden ml-1 text-[10.5px] font-semibold text-red-700" title={`${daysLate} dias em atraso`}>{daysLate}d</span>
+                      )}
+                    </td>
+                    <td className="hidden xl:table-cell px-3 py-2 text-center">
+                      {daysLate > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-red-100 text-red-800 tabular-nums">
+                          {daysLate}d
                         </span>
                       ) : (
                         <span className="text-gray-300">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-1 rounded-full ${statusBadge[entry.status] || 'bg-gray-100'}`}>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${statusBadge[entry.status] || 'bg-gray-100'}`}>
                         {statusLabel[entry.status] || entry.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="hidden xl:table-cell px-3 py-2 text-center">
                       {entry.customerCreditMaxDays ? (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
                           entry.isCreditExceeded ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-700'
                         }`}>
                           {entry.isCreditExceeded ? 'Excedido' : `${entry.customerCreditMaxDays}d`}
@@ -230,18 +251,18 @@ export function FinancialReceivablesPage() {
                         <span className="text-gray-300">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
                       {(entry.status === 'PENDING' || entry.status === 'OVERDUE') && (
                         <button
                           onClick={() => handleMarkPaid(entry)}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-600 text-white text-[11px] font-semibold rounded-md hover:bg-green-700"
                         >
                           <Check className="w-3 h-3" />
                           Receber
                         </button>
                       )}
                       {entry.status === 'PAID' && entry.paidDate && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-[11px] text-gray-500 tabular-nums">
                           Pago em {formatDate(entry.paidDate)}
                         </span>
                       )}

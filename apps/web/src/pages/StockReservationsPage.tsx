@@ -152,31 +152,31 @@ export function StockReservationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Reservas de Estoque</h1>
+      <div className="container mx-auto px-3 sm:px-4 py-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Reservas de Estoque</h1>
           <div className="flex w-full sm:w-auto gap-2">
             <button
               onClick={handleCancelExpired}
               disabled={cancelExpiredMutation.isPending}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 text-sm font-medium whitespace-nowrap"
             >
-              <AlertCircle className="w-5 h-5" />
+              <AlertCircle className="w-4 h-4" />
               Cancelar Expiradas
             </button>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Nova Reserva
             </button>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4">
+        <div className="bg-white rounded-xl shadow-sm border mb-4">
+          <div className="p-2.5">
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -202,9 +202,9 @@ export function StockReservationsPage() {
             </div>
 
             {showFilters && (
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="mt-2.5 grid grid-cols-1 md:grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
                     ID do Produto
                   </label>
                   <input
@@ -212,18 +212,18 @@ export function StockReservationsPage() {
                     value={productId}
                     onChange={(e) => setProductId(e.target.value)}
                     placeholder="ID do produto..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
                     Status
                   </label>
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value as ReservationStatus | '')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Todos</option>
                     <option value="ACTIVE">Ativa</option>
@@ -234,13 +234,13 @@ export function StockReservationsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
                     Tipo
                   </label>
                   <select
                     value={reservedForType}
                     onChange={(e) => setReservedForType(e.target.value as ReservationType | '')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Todos</option>
                     <option value="PRODUCTION_ORDER">Ordem de Produção</option>
@@ -274,95 +274,93 @@ export function StockReservationsPage() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Produto
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantidade
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tipo
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Reservado Para
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Expira Em
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Criada Em
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                <table className="w-full min-w-[700px] table-fixed text-[13px]">
+                  <colgroup>
+                    <col />
+                    <col className="w-[64px]" />
+                    <col className="w-[140px]" />
+                    <col className="w-[104px]" />
+                    <col className="hidden xl:table-column w-[150px]" />
+                    <col className="w-[90px]" />
+                    <col className="hidden xl:table-column w-[90px]" />
+                    <col className="w-[170px]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Produto</th>
+                      <th className="px-3 py-2 text-right">Qtd</th>
+                      <th className="px-3 py-2 text-left">Tipo</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Reservado Para</th>
+                      <th className="px-3 py-2 text-left">Expira Em</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Criada Em</th>
+                      <th className="px-3 py-2 text-right">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {data.data.map((reservation) => (
-                      <tr key={reservation.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {reservation.product?.name || 'Produto não encontrado'}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {reservation.product?.code}
+                      <tr key={reservation.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="px-3 py-2">
+                          <div
+                            className="flex items-baseline gap-1.5 min-w-0"
+                            title={`${reservation.product?.name || 'Produto não encontrado'}${reservation.product?.code ? ` · ${reservation.product.code}` : ''}${reservation.reservedForId ? ` · Para: ${reservation.reservedForId}` : ''}${reservation.reservedBy ? ` · Por: ${reservation.reservedBy}` : ''} · Criada em ${formatDate(reservation.createdAt)}`}
+                          >
+                            <span className="font-medium text-gray-900 truncate">
+                              {reservation.product?.name || 'Produto não encontrado'}
+                            </span>
+                            {reservation.product?.code && (
+                              <span className="shrink-0 text-[11px] text-gray-400 tabular-nums">{reservation.product.code}</span>
+                            )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-3 py-2 whitespace-nowrap text-right text-gray-900 tabular-nums font-semibold">
                           {reservation.quantity}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2">
                           <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            className={`inline-flex max-w-full px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                               typeColors[reservation.reservedForType]
                             }`}
                           >
-                            {typeLabels[reservation.reservedForType]}
+                            <span className="truncate">{typeLabels[reservation.reservedForType]}</span>
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2">
                           <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                               statusColors[reservation.status]
                             }`}
                           >
                             {statusLabels[reservation.status]}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {reservation.reservedForId || '-'}
-                          </div>
+                        <td
+                          className="hidden xl:table-cell px-3 py-2 text-gray-900 truncate"
+                          title={`${reservation.reservedForId || '-'}${reservation.reservedBy ? ` · Por: ${reservation.reservedBy}` : ''}`}
+                        >
+                          {reservation.reservedForId || '-'}
                           {reservation.reservedBy && (
-                            <div className="text-sm text-gray-500">
-                              Por: {reservation.reservedBy}
-                            </div>
+                            <span className="text-gray-500"> · Por: {reservation.reservedBy}</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div
-                            className={`text-sm ${
+                        <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                          <span
+                            className={
                               isExpiringSoon(reservation.expiresAt)
                                 ? 'text-orange-600 font-semibold'
                                 : 'text-gray-900'
-                            }`}
+                            }
                           >
                             {formatDate(reservation.expiresAt)}
-                          </div>
+                          </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 tabular-nums">
                           {formatDate(reservation.createdAt)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end gap-2 whitespace-nowrap text-[12px] font-medium">
                             {reservation.status === 'ACTIVE' && (
                               <>
                                 <button

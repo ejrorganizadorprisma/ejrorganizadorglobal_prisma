@@ -181,23 +181,23 @@ export function ProductCategoriesPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-4">
         <div className="text-center">Carregando...</div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Categorias e Famílias</h1>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900">Categorias e Famílias</h1>
           <p className="text-gray-600 mt-1">{canModify ? 'Gerencie' : 'Visualize'} as categorias e famílias de produtos</p>
         </div>
         {canCreate && (
           <button
             onClick={() => activeTab === 'categories' ? openCategoryDialog() : openFamilyDialog()}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+            className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-1.5 text-sm font-medium"
           >
             <Plus className="w-4 h-4" />
             {activeTab === 'categories' ? 'Nova Categoria' : 'Nova Família'}
@@ -206,7 +206,7 @@ export function ProductCategoriesPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="border-b border-gray-200">
           <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
             <button
@@ -215,7 +215,7 @@ export function ProductCategoriesPage() {
                 activeTab === 'categories'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+              } whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
             >
               <Tag className="w-4 h-4" />
               Categorias ({categories.length})
@@ -226,7 +226,7 @@ export function ProductCategoriesPage() {
                 activeTab === 'families'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+              } whitespace-nowrap py-2.5 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
             >
               <Layers className="w-4 h-4" />
               Famílias ({families.length})
@@ -239,40 +239,40 @@ export function ProductCategoriesPage() {
       {activeTab === 'categories' && (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <table className="w-full min-w-[560px] table-fixed text-[13px]">
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[28%]">
                   Nome
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">
                   Descrição
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[90px]">
                   Status
                 </th>
                 {canModify && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 w-[80px] text-right">
                     Ações
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {categories.map((category) => (
-                <tr key={category.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Tag className="w-5 h-5 text-blue-500 mr-3" />
-                      <div className="text-sm font-medium text-gray-900">{category.name}</div>
+                <tr key={category.id} className="hover:bg-indigo-50/40 transition-colors">
+                  <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                    <div className="flex items-center min-w-0">
+                      <Tag className="w-3.5 h-3.5 text-blue-500 mr-2 shrink-0" />
+                      <div className="font-medium text-gray-900 truncate" title={category.name}>{category.name}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">{category.description || '-'}</div>
+                  <td className="px-3 py-1.5 overflow-hidden">
+                    <div className="text-gray-500 truncate" title={category.description || undefined}>{category.description || '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                         category.isActive
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
@@ -282,23 +282,23 @@ export function ProductCategoriesPage() {
                     </span>
                   </td>
                   {canModify && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-3 py-1.5 whitespace-nowrap text-right">
                       {canEdit && (
                         <button
                           onClick={() => openCategoryDialog(category)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           title="Editar"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {canDelete && (
                         <button
                           onClick={() => handleDeleteCategory(category)}
-                          className="text-red-600 hover:text-red-900"
+                          className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                           title="Excluir"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </td>
@@ -307,7 +307,7 @@ export function ProductCategoriesPage() {
               ))}
               {categories.length === 0 && (
                 <tr>
-                  <td colSpan={canModify ? 4 : 3} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={canModify ? 4 : 3} className="px-3 py-6 text-center text-gray-500">
                     Nenhuma categoria cadastrada
                   </td>
                 </tr>
@@ -320,42 +320,42 @@ export function ProductCategoriesPage() {
 
       {/* Tabela de Famílias */}
       {activeTab === 'families' && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <table className="w-full min-w-[560px] table-fixed text-[13px]">
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[28%]">
                   Nome
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">
                   Descrição
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left w-[90px]">
                   Status
                 </th>
                 {canModify && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-2 w-[80px] text-right">
                     Ações
                   </th>
                 )}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {families.map((family) => (
-                <tr key={family.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Layers className="w-5 h-5 text-purple-500 mr-3" />
-                      <div className="text-sm font-medium text-gray-900">{family.name}</div>
+                <tr key={family.id} className="hover:bg-indigo-50/40 transition-colors">
+                  <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
+                    <div className="flex items-center min-w-0">
+                      <Layers className="w-3.5 h-3.5 text-purple-500 mr-2 shrink-0" />
+                      <div className="font-medium text-gray-900 truncate" title={family.name}>{family.name}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">{family.description || '-'}</div>
+                  <td className="px-3 py-1.5 overflow-hidden">
+                    <div className="text-gray-500 truncate" title={family.description || undefined}>{family.description || '-'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 py-1.5 whitespace-nowrap overflow-hidden">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                         family.isActive
                           ? 'bg-green-100 text-green-800'
                           : 'bg-red-100 text-red-800'
@@ -365,23 +365,23 @@ export function ProductCategoriesPage() {
                     </span>
                   </td>
                   {canModify && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="px-3 py-1.5 whitespace-nowrap text-right">
                       {canEdit && (
                         <button
                           onClick={() => openFamilyDialog(family)}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
+                          className="p-1 rounded-md text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
                           title="Editar"
                         >
-                          <Edit2 className="w-4 h-4" />
+                          <Edit2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {canDelete && (
                         <button
                           onClick={() => handleDeleteFamily(family)}
-                          className="text-red-600 hover:text-red-900"
+                          className="p-1 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                           title="Excluir"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </td>
@@ -390,7 +390,7 @@ export function ProductCategoriesPage() {
               ))}
               {families.length === 0 && (
                 <tr>
-                  <td colSpan={canModify ? 4 : 3} className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={canModify ? 4 : 3} className="px-3 py-6 text-center text-gray-500">
                     Nenhuma família cadastrada
                   </td>
                 </tr>
@@ -418,7 +418,7 @@ export function ProductCategoriesPage() {
 
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   Nome *
                 </label>
                 <input
@@ -426,19 +426,19 @@ export function ProductCategoriesPage() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder={activeTab === 'categories' ? 'Ex: Informática, Periféricos...' : 'Ex: Linha Premium, Linha Econômica...'}
                 />
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   Descrição
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
                   placeholder="Descrição opcional"
                 />

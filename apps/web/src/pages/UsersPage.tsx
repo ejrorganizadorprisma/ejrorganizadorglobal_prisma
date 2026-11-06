@@ -134,218 +134,196 @@ export function UsersPage() {
   const users = data?.data || [];
   const filteredUsers = users;
 
+  // Horário permitido em uma linha (faixas + dias)
+  const hoursText = (u: any): string | null => {
+    if (!u.allowedHours) return null;
+    const ranges = u.allowedHours.timeRanges
+      ? u.allowedHours.timeRanges.map((r: { start: string; end: string }) => `${r.start}-${r.end}`).join(', ')
+      : `${(u.allowedHours as any).start}-${(u.allowedHours as any).end}`;
+    return `${ranges} · ${formatDays(u.allowedHours.days)}`;
+  };
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Gerenciamento de Usuários</h1>
-          <p className="text-gray-600 mt-1">Controle de acesso e permissões</p>
+    <div className="container mx-auto px-3 sm:px-4 py-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
+            <UserCog className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Gerenciamento de Usuários</h1>
+            <p className="hidden sm:block text-xs text-gray-500">Controle de acesso e permissões</p>
+          </div>
         </div>
         {canCreate && (
           <button
             onClick={() => navigate('/users/new')}
-            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+            className="shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center gap-1.5"
           >
             <UserCog className="w-4 h-4" />
-            Novo Usuário
+            <span className="hidden sm:inline">Novo Usuário</span>
+            <span className="sm:hidden">Novo</span>
           </button>
         )}
       </div>
 
       {/* Filtros */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Pesquisar
-            </label>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nome ou e-mail..."
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Função
-            </label>
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Todas as funções</option>
-              <option value="OWNER">Proprietário</option>
-              <option value="DIRECTOR">Diretor</option>
-              <option value="MANAGER">Gerente</option>
-              <option value="COORDINATOR">Coordenador(a)</option>
-              <option value="SALESPERSON">Vendedor</option>
-              <option value="STOCK">Estoque</option>
-              <option value="EXPEDITION">Expedidor</option>
-              <option value="CASHIER">Operador de Caixa</option>
-              <option value="PRODUCTION">Produção</option>
-              <option value="TECHNICIAN">Técnico</option>
-              <option value="MONITOR">Monitor</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Todos</option>
-              <option value="active">Ativos</option>
-              <option value="inactive">Inativos</option>
-            </select>
-          </div>
+      <div className="bg-white rounded-xl shadow-sm border mb-4 p-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar nome ou e-mail..."
+            aria-label="Pesquisar"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label="Função"
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+            <option value="">Todas as funções</option>
+            <option value="OWNER">Proprietário</option>
+            <option value="DIRECTOR">Diretor</option>
+            <option value="MANAGER">Gerente</option>
+            <option value="COORDINATOR">Coordenador(a)</option>
+            <option value="SALESPERSON">Vendedor</option>
+            <option value="STOCK">Estoque</option>
+            <option value="EXPEDITION">Expedidor</option>
+            <option value="CASHIER">Operador de Caixa</option>
+            <option value="PRODUCTION">Produção</option>
+            <option value="TECHNICIAN">Técnico</option>
+            <option value="MONITOR">Monitor</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Status"
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+          >
+            <option value="">Todos status</option>
+            <option value="active">Ativos</option>
+            <option value="inactive">Inativos</option>
+          </select>
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Usuário
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Função
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Horário Permitido
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              {showActions && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              )}
+      {/* Tabela — compacta, 1 linha por usuário */}
+      <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+        <table className="w-full min-w-[640px] table-fixed text-[13px]">
+          <colgroup>
+            <col />
+            <col className="w-[150px]" />
+            <col className="hidden xl:table-column w-[220px]" />
+            <col className="w-[96px]" />
+            {showActions && <col className="w-[190px]" />}
+          </colgroup>
+          <thead>
+            <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left">Usuário</th>
+              <th className="px-3 py-2 text-left">Função</th>
+              <th className="hidden xl:table-cell px-3 py-2 text-left">Horário Permitido</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              {showActions && <th className="px-3 py-2 text-right">Ações</th>}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user: any) => (
-              <tr key={user.id} className={!user.isActive ? 'bg-gray-50' : ''}>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <UserCog className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500 flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {user.email}
+          <tbody className="divide-y divide-gray-100">
+            {filteredUsers.map((user: any) => {
+              const hours = hoursText(user);
+              return (
+                <tr key={user.id} className={`transition-colors hover:bg-blue-50/40 ${!user.isActive ? 'bg-gray-50/70' : ''}`}>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="shrink-0 h-7 w-7 bg-blue-100 rounded-full flex items-center justify-center">
+                        <UserCog className="h-3.5 w-3.5 text-blue-600" />
                       </div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${roleColors[user.role]}`}>
-                    <Shield className="w-3 h-3 mr-1" />
-                    {roleLabels[user.role]}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  {user.allowedHours ? (
-                    <div className="text-sm text-gray-900">
-                      <div className="flex items-start gap-1">
-                        <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
-                        <div>
-                          {user.allowedHours.timeRanges ? (
-                            user.allowedHours.timeRanges.map((range: { start: string; end: string }, idx: number) => (
-                              <div key={idx} className="text-sm">
-                                {range.start} - {range.end}
-                              </div>
-                            ))
-                          ) : (
-                            // Backward compatibility: convert old structure
-                            <div className="text-sm">
-                              {(user.allowedHours as any).start} - {(user.allowedHours as any).end}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {formatDays(user.allowedHours.days)}
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-sm text-gray-400">Sem restrição</span>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  {user.isActive ? (
-                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                      <Check className="w-3 h-3 mr-1" />
-                      Ativo
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                      <X className="w-3 h-3 mr-1" />
-                      Inativo
-                    </span>
-                  )}
-                </td>
-                {showActions && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex items-center gap-2">
-                      {canEdit && (
-                        <button
-                          onClick={() => navigate(`/users/${user.id}/edit`)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          title="Editar usuário"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      )}
-                      {canEdit && user.role !== 'OWNER' && (
-                        <button
-                          onClick={() => handleToggleStatus(user.id)}
-                          disabled={toggleStatus.isPending}
-                          className={`px-3 py-1 rounded text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                            user.isActive
-                              ? 'bg-orange-600 hover:bg-orange-700'
-                              : 'bg-green-600 hover:bg-green-700'
-                          }`}
-                        >
-                          {toggleStatus.isPending ? '...' : user.isActive ? 'Desativar' : 'Ativar'}
-                        </button>
-                      )}
-                      {user.role === 'OWNER' && (
-                        <span className="px-3 py-1 text-xs text-gray-500 italic">
-                          Sempre ativo
+                      <div className="min-w-0 flex items-baseline gap-2">
+                        <span className="font-medium text-gray-900 truncate" title={user.name}>{user.name}</span>
+                        <span className="text-gray-400 truncate hidden lg:inline-flex items-center gap-1" title={user.email}>
+                          <Mail className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{user.email}</span>
                         </span>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDelete(user.id, user.name)}
-                          disabled={deleteUser.isPending}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Excluir usuário"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      </div>
                     </div>
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex items-center gap-1 max-w-full px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${roleColors[user.role]}`}>
+                      <Shield className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{roleLabels[user.role]}</span>
+                    </span>
+                  </td>
+                  <td className="hidden xl:table-cell px-3 py-2 text-gray-600 truncate" title={hours || 'Sem restrição'}>
+                    {hours ? (
+                      <span className="inline-flex items-center gap-1 tabular-nums">
+                        <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        {hours}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">Sem restrição</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {user.isActive ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-green-100 text-green-800 whitespace-nowrap">
+                        <Check className="w-3 h-3" />
+                        Ativo
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full bg-red-100 text-red-800 whitespace-nowrap">
+                        <X className="w-3 h-3" />
+                        Inativo
+                      </span>
+                    )}
+                  </td>
+                  {showActions && (
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                        {canEdit && user.role !== 'OWNER' && (
+                          <button
+                            onClick={() => handleToggleStatus(user.id)}
+                            disabled={toggleStatus.isPending}
+                            className={`mr-1 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed ${
+                              user.isActive
+                                ? 'bg-orange-600 hover:bg-orange-700'
+                                : 'bg-green-600 hover:bg-green-700'
+                            }`}
+                          >
+                            {toggleStatus.isPending ? '...' : user.isActive ? 'Desativar' : 'Ativar'}
+                          </button>
+                        )}
+                        {user.role === 'OWNER' && (
+                          <span className="mr-1 text-[11px] text-gray-400 italic">Sempre ativo</span>
+                        )}
+                        {canEdit && (
+                          <button
+                            onClick={() => navigate(`/users/${user.id}/edit`)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                            title="Editar usuário"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(user.id, user.name)}
+                            disabled={deleteUser.isPending}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Excluir usuário"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
-        </div>
 
         {filteredUsers.length === 0 && (
           <div className="text-center py-12">
@@ -359,9 +337,9 @@ export function UsersPage() {
       </div>
 
       {/* Informações adicionais */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Sobre o controle de usuários:</h3>
-        <ul className="text-sm text-blue-700 space-y-1">
+      <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <h3 className="text-sm font-medium text-blue-800 mb-1">Sobre o controle de usuários:</h3>
+        <ul className="text-xs text-blue-700 space-y-0.5">
           <li>• Usuários inativos não podem fazer login no sistema</li>
           <li>• O horário permitido restringe o acesso apenas aos horários especificados</li>
           <li>• Diferentes funções têm diferentes níveis de permissão no sistema</li>

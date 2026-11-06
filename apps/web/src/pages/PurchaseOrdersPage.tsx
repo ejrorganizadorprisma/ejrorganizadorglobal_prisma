@@ -131,37 +131,37 @@ export function PurchaseOrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Ordens de Compra</h1>
+      <div className="max-w-7xl mx-auto py-4 sm:px-4">
+        <div className="px-3 sm:px-0">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight truncate">Ordens de Compra</h1>
             <button
               onClick={() => navigate('/purchase-orders/new')}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
             >
               Nova Ordem de Compra
             </button>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="bg-white shadow-sm border rounded-xl p-2.5 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
                 <input
                   type="text"
                   placeholder="Número ou observações..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="DRAFT">Rascunho</option>
@@ -174,11 +174,11 @@ export function PurchaseOrdersPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Fornecedor</label>
                 <select
                   value={supplierFilter}
                   onChange={(e) => setSupplierFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   {suppliersData?.data.map((supplier: any) => (
@@ -190,28 +190,28 @@ export function PurchaseOrdersPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Data Início</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data Fim</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Data Fim</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
 
             {(search || statusFilter || supplierFilter || startDate || endDate) && (
-              <div className="mt-4">
+              <div className="mt-2">
                 <button
                   onClick={clearFilters}
                   className="text-sm text-blue-600 hover:text-blue-800"
@@ -228,74 +228,68 @@ export function PurchaseOrdersPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="bg-white shadow-sm border rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nome
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fornecedor
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Entrega Prevista
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                <table className="w-full min-w-[720px] table-fixed text-[13px]">
+                  <colgroup>
+                    <col />
+                    <col className="w-[170px]" />
+                    <col className="w-[80px]" />
+                    <col className="hidden xl:table-column w-[96px]" />
+                    <col className="w-[130px]" />
+                    <col className="w-[104px]" />
+                    <col className="w-[230px]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Nome</th>
+                      <th className="px-3 py-2 text-left">Fornecedor</th>
+                      <th className="px-3 py-2 text-left">Data</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Entrega Prevista</th>
+                      <th className="px-3 py-2 text-right">Total</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-right">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {data?.data.map((order: any) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {order.name || order.purchaseRequest?.title || <span className="text-gray-400">-</span>}
-                          </div>
-                          {order.purchaseRequest && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full inline-block mt-1" title={`Requisição: ${order.purchaseRequest.title}`}>
-                              {order.purchaseRequest.requestNumber}
+                      <tr key={order.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className="font-medium text-gray-900 truncate"
+                              title={`${order.name || order.purchaseRequest?.title || ''}${order.expectedDeliveryDate ? ` · Entrega prevista: ${formatDate(order.expectedDeliveryDate)}` : ''}`}
+                            >
+                              {order.name || order.purchaseRequest?.title || <span className="text-gray-400">-</span>}
                             </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{order.supplier?.name || <span className="text-gray-400 italic">Não definido</span>}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">{formatDate(order.orderDate)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {order.expectedDeliveryDate ? formatDate(order.expectedDeliveryDate) : '-'}
+                            {order.purchaseRequest && (
+                              <span className="shrink-0 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-px rounded-full whitespace-nowrap" title={`Requisição: ${order.purchaseRequest.title}`}>
+                                {order.purchaseRequest.requestNumber}
+                              </span>
+                            )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {buildPurchaseMoney((order as any).budget).fmt(order.totalAmount)}
-                          </div>
+                        <td className="px-3 py-2 text-gray-700 truncate" title={order.supplier?.name || undefined}>
+                          {order.supplier?.name || <span className="text-gray-400 italic">Não definido</span>}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-500 tabular-nums">{formatDate(order.orderDate)}</td>
+                        <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 tabular-nums">
+                          {order.expectedDeliveryDate ? formatDate(order.expectedDeliveryDate) : '-'}
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap font-semibold text-gray-900 tabular-nums">
+                          {buildPurchaseMoney((order as any).budget).fmt(order.totalAmount)}
+                        </td>
+                        <td className="px-3 py-2">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`inline-flex max-w-full px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                               STATUS_COLORS[order.status as keyof typeof STATUS_COLORS]
                             }`}
                           >
-                            {STATUS_LABELS[order.status as keyof typeof STATUS_LABELS]}
+                            <span className="truncate">{STATUS_LABELS[order.status as keyof typeof STATUS_LABELS]}</span>
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-2">
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end gap-2 whitespace-nowrap text-[12px] font-medium">
                             <button
                               onClick={() => navigate(`/purchase-orders/${order.id}`)}
                               className="text-blue-600 hover:text-blue-900"

@@ -19,8 +19,11 @@ import { toast } from 'sonner';
 import { PaymentStatus, type FinancialEntry } from '@ejr/shared-types';
 
 const formatDate = (dateStr: string) => {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('pt-BR');
+  // Aceita 'YYYY-MM-DD' e também 'YYYY-MM-DD HH:MM:SS+00' (timestamptz das vendas):
+  // usa só a parte da data, ao meio-dia, para não deslocar o dia pelo fuso.
+  if (!dateStr) return '-';
+  const d = new Date(String(dateStr).slice(0, 10) + 'T12:00:00');
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString('pt-BR');
 };
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];

@@ -156,20 +156,20 @@ export function GoodsReceiptsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <div className="max-w-7xl mx-auto py-4 sm:px-4">
+        <div className="px-3 sm:px-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Recebimento de Mercadorias</h1>
-              <p className="text-sm text-gray-500 mt-1">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Recebimento de Mercadorias</h1>
+              <p className="hidden sm:block text-xs text-gray-500">
                 Veja o que ainda há a receber e lance cada parcela direto pelo card do pedido
               </p>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6">
+          <div className="border-b border-gray-200 mb-4 overflow-x-auto">
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('pending')}
@@ -358,25 +358,25 @@ export function GoodsReceiptsPage() {
           {activeTab === 'receipts' && (
             <>
               {/* Filtros */}
-              <div className="bg-white shadow rounded-lg p-4 mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-white shadow-sm border rounded-xl p-2.5 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
                     <input
                       type="text"
                       placeholder="Número ou NF-e..."
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Todos</option>
                       <option value="PENDING">Pendente</option>
@@ -388,11 +388,11 @@ export function GoodsReceiptsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Fornecedor</label>
                     <select
                       value={supplierFilter}
                       onChange={(e) => setSupplierFilter(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Todos</option>
                       {suppliersData?.data.map((supplier: any) => (
@@ -404,28 +404,28 @@ export function GoodsReceiptsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data Início</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Data Início</label>
                     <input
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Data Fim</label>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Data Fim</label>
                     <input
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
 
                 {(search || statusFilter || supplierFilter || startDate || endDate) && (
-                  <div className="mt-4">
+                  <div className="mt-2">
                     <button
                       onClick={clearFilters}
                       className="text-sm text-blue-600 hover:text-blue-800"
@@ -442,79 +442,66 @@ export function GoodsReceiptsPage() {
                 </div>
               ) : (
                 <>
-                  <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+                  <div className="bg-white shadow-sm border rounded-xl overflow-hidden">
                     <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Número
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Pedido
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Fornecedor
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Data Recebimento
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            NF-e
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Qualidade
-                          </th>
-                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Ações
-                          </th>
+                    <table className="w-full min-w-[680px] table-fixed text-[13px]">
+                      <colgroup>
+                        <col className="w-[120px]" />
+                        <col className="w-[120px]" />
+                        <col />
+                        <col className="w-[96px]" />
+                        <col className="hidden xl:table-column w-[110px]" />
+                        <col className="w-[110px]" />
+                        <col className="hidden xl:table-column w-[110px]" />
+                        <col className="w-[190px]" />
+                      </colgroup>
+                      <thead>
+                        <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                          <th className="px-3 py-2 text-left">Número</th>
+                          <th className="px-3 py-2 text-left">Pedido</th>
+                          <th className="px-3 py-2 text-left">Fornecedor</th>
+                          <th className="px-3 py-2 text-left">Data Receb.</th>
+                          <th className="hidden xl:table-cell px-3 py-2 text-left">NF-e</th>
+                          <th className="px-3 py-2 text-left">Status</th>
+                          <th className="hidden xl:table-cell px-3 py-2 text-left">Qualidade</th>
+                          <th className="px-3 py-2 text-right">Ações</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="divide-y divide-gray-100">
                         {data?.data.map((receipt: any) => (
-                          <tr key={receipt.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">
-                                {receipt.receiptNumber}
-                              </div>
+                          <tr key={receipt.id} className="hover:bg-blue-50/40 transition-colors">
+                            <td
+                              className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 tabular-nums truncate"
+                              title={`${receipt.receiptNumber}${receipt.invoiceNumber ? ` · NF-e ${receipt.invoiceNumber}` : ''}${receipt.qualityCheckStatus ? ` · Qualidade: ${QUALITY_STATUS_LABELS[receipt.qualityCheckStatus as keyof typeof QUALITY_STATUS_LABELS]}` : ''}`}
+                            >
+                              {receipt.receiptNumber}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                {receipt.supplierOrder?.orderNumber || receipt.purchaseOrder?.orderNumber || '-'}
-                              </div>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-700 tabular-nums truncate">
+                              {receipt.supplierOrder?.orderNumber || receipt.purchaseOrder?.orderNumber || '-'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{receipt.supplier?.name || '-'}</div>
+                            <td className="px-3 py-2 text-gray-700 truncate" title={receipt.supplier?.name || undefined}>
+                              {receipt.supplier?.name || '-'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">{formatDate(receipt.receiptDate)}</div>
+                            <td className="px-3 py-2 whitespace-nowrap text-gray-500 tabular-nums">{formatDate(receipt.receiptDate)}</td>
+                            <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 truncate" title={receipt.invoiceNumber || undefined}>
+                              {receipt.invoiceNumber || '-'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {receipt.invoiceNumber || '-'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 py-2">
                               <span
-                                className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                className={`inline-flex max-w-full px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                                   STATUS_COLORS[receipt.status as keyof typeof STATUS_COLORS]
                                 }`}
                               >
-                                {STATUS_LABELS[receipt.status as keyof typeof STATUS_LABELS]}
+                                <span className="truncate">{STATUS_LABELS[receipt.status as keyof typeof STATUS_LABELS]}</span>
                               </span>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-500">
-                                {receipt.qualityCheckStatus
-                                  ? QUALITY_STATUS_LABELS[receipt.qualityCheckStatus as keyof typeof QUALITY_STATUS_LABELS]
-                                  : '-'}
-                              </div>
+                            <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 truncate">
+                              {receipt.qualityCheckStatus
+                                ? QUALITY_STATUS_LABELS[receipt.qualityCheckStatus as keyof typeof QUALITY_STATUS_LABELS]
+                                : '-'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <div className="flex justify-end gap-2">
+                            <td className="px-3 py-2">
+                              <div className="flex justify-end gap-2 whitespace-nowrap text-[12px] font-medium">
                                 <button
                                   onClick={() => navigate(`/goods-receipts/${receipt.id}`)}
                                   className="text-blue-600 hover:text-blue-900"

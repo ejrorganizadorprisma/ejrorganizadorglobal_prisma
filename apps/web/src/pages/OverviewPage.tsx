@@ -79,25 +79,32 @@ export function OverviewPage() {
           {overview?.products.recent && overview.products.recent.length > 0 && (
             <div className="bg-white p-4 lg:p-6 rounded-lg shadow">
               <h3 className="font-semibold text-gray-900 mb-4">Produtos Recentes</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+              <div className="overflow-x-auto rounded-xl border">
+                <table className="w-full min-w-[520px] table-fixed text-[13px]">
+                  <colgroup>
+                    <col className="w-[110px]" />
+                    <col />
+                    <col className="hidden lg:table-column w-[170px]" />
+                    <col className="w-[80px]" />
+                    <col className="w-[120px]" />
+                  </colgroup>
                   <thead>
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Código</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Nome</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Categoria</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Estoque</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Preço Venda</th>
+                    <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Código</th>
+                      <th className="px-3 py-2 text-left">Nome</th>
+                      <th className="hidden lg:table-cell px-3 py-2 text-left">Categoria</th>
+                      <th className="px-3 py-2 text-right">Estoque</th>
+                      <th className="px-3 py-2 text-right">Preço Venda</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {overview.products.recent.map((product: any) => (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm">{product.code}</td>
-                        <td className="px-4 py-2 text-sm font-medium">{product.name}</td>
-                        <td className="px-4 py-2 text-sm">{product.category}</td>
-                        <td className="px-4 py-2 text-sm">{product.current_stock}</td>
-                        <td className="px-4 py-2 text-sm">{formatCurrency(product.sale_price)}</td>
+                      <tr key={product.id} className="transition-colors hover:bg-blue-50/40">
+                        <td className="px-3 py-2 text-gray-600 whitespace-nowrap truncate" title={product.code}>{product.code}</td>
+                        <td className="px-3 py-2 font-medium text-gray-900 truncate" title={`${product.name}${product.category ? ` · ${product.category}` : ''}`}>{product.name}</td>
+                        <td className="hidden lg:table-cell px-3 py-2 text-gray-500 truncate" title={product.category}>{product.category}</td>
+                        <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">{product.current_stock}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-gray-900 tabular-nums whitespace-nowrap">{formatCurrency(product.sale_price)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -200,35 +207,42 @@ export function OverviewPage() {
             {overview?.inventory.recentMovements && overview.inventory.recentMovements.length > 0 && (
               <div>
                 <h3 className="font-semibold text-gray-900 mb-4">Movimentações Recentes</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                <div className="overflow-x-auto rounded-xl border">
+                  <table className="w-full min-w-[480px] table-fixed text-[13px]">
+                    <colgroup>
+                      <col className="w-[110px]" />
+                      <col />
+                      <col className="w-[110px]" />
+                      <col className="w-[90px]" />
+                    </colgroup>
                     <thead>
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Data</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Produto</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Tipo</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Quantidade</th>
+                      <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left">Data</th>
+                        <th className="px-3 py-2 text-left">Produto</th>
+                        <th className="px-3 py-2 text-left">Tipo</th>
+                        <th className="px-3 py-2 text-right">Quantidade</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {overview.inventory.recentMovements.map((movement: any) => (
-                        <tr key={movement.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm">{formatDate(movement.created_at)}</td>
-                          <td className="px-4 py-2 text-sm">
-                            {movement.products?.name || 'N/A'} ({movement.products?.code || 'N/A'})
-                          </td>
-                          <td className="px-4 py-2">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              movement.type === 'IN' ? 'bg-green-100 text-green-800' :
-                              movement.type === 'OUT' ? 'bg-red-100 text-red-800' :
-                              'bg-blue-100 text-blue-800'
-                            }`}>
-                              {movement.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 text-sm font-medium">{movement.quantity}</td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-gray-100">
+                      {overview.inventory.recentMovements.map((movement: any) => {
+                        const prod = `${movement.products?.name || 'N/A'} (${movement.products?.code || 'N/A'})`;
+                        return (
+                          <tr key={movement.id} className="transition-colors hover:bg-blue-50/40">
+                            <td className="px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums truncate" title={formatDate(movement.created_at)}>{formatDate(movement.created_at)}</td>
+                            <td className="px-3 py-2 text-gray-800 truncate" title={prod}>{prod}</td>
+                            <td className="px-3 py-2">
+                              <span className={`inline-flex max-w-full px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
+                                movement.type === 'IN' ? 'bg-green-100 text-green-800' :
+                                movement.type === 'OUT' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                <span className="truncate">{movement.type}</span>
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums whitespace-nowrap">{movement.quantity}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -399,27 +399,15 @@ function MobileAppPageContent() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vendedor
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Autorizado
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Permissões
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Token
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Último Login
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Último Sync
-                  </th>
+            <table className="w-full min-w-[720px] text-[13px]">
+              <thead>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left">Vendedor</th>
+                  <th className="px-3 py-2 text-center w-[110px]">Autorizado</th>
+                  <th className="px-3 py-2 text-left">Permissões</th>
+                  <th className="px-3 py-2 text-left">Token</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-center">Último Login</th>
+                  <th className="hidden lg:table-cell px-3 py-2 text-center">Último Sync</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -428,19 +416,20 @@ function MobileAppPageContent() {
                   const tokenVisible = visibleTokens.has(seller.id);
 
                   return (
-                    <tr key={seller.id} className="hover:bg-gray-50">
+                    <tr key={seller.id} className="transition-colors hover:bg-blue-50/40">
                       {/* Vendedor */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {seller.name}
-                          </p>
-                          <p className="text-xs text-gray-500">{seller.email}</p>
+                      <td
+                        className="px-3 py-2 max-w-[260px]"
+                        title={`${seller.name} · ${seller.email}${seller.authorized ? ` · login: ${relativeTime(seller.lastLogin)} · sync: ${relativeTime(seller.lastSync)}` : ''}`}
+                      >
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          <span className="font-medium text-gray-900 truncate">{seller.name}</span>
+                          <span className="hidden 2xl:inline text-xs text-gray-400 truncate">{seller.email}</span>
                         </div>
                       </td>
 
                       {/* Autorizado toggle */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="px-3 py-2 whitespace-nowrap text-center">
                         {confirmDeauth === seller.id ? (
                           <div className="flex items-center justify-center gap-1">
                             <span className="text-xs text-red-600 whitespace-nowrap">
@@ -468,24 +457,24 @@ function MobileAppPageContent() {
                             title={seller.authorized ? 'Revogar acesso' : 'Autorizar acesso'}
                           >
                             {seller.authorized ? (
-                              <ToggleRight className="w-8 h-8 text-green-500" />
+                              <ToggleRight className="w-7 h-7 text-green-500" />
                             ) : (
-                              <ToggleLeft className="w-8 h-8 text-gray-400" />
+                              <ToggleLeft className="w-7 h-7 text-gray-400" />
                             )}
                           </button>
                         )}
                       </td>
 
                       {/* Permissões */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="px-3 py-2 whitespace-nowrap">
                         {seller.authorized ? (
-                          <div className="flex items-center justify-center gap-1 flex-wrap">
+                          <div className="flex items-center gap-1">
                             {PERMISSION_LABELS.map(({ key, label }) => (
                               <button
                                 key={key}
                                 onClick={() => handleTogglePermission(seller, key)}
                                 disabled={isUpdating}
-                                className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium transition-colors disabled:opacity-50 ${
+                                className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors disabled:opacity-50 ${
                                   seller.permissions[key]
                                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                     : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
@@ -505,10 +494,10 @@ function MobileAppPageContent() {
                       </td>
 
                       {/* Token */}
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 py-2 whitespace-nowrap">
                         {seller.authorized && seller.token ? (
                           <div className="flex items-center gap-1">
-                            <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono text-gray-600 max-w-[140px] truncate">
+                            <code className="text-xs bg-gray-100 px-2 py-0.5 rounded font-mono text-gray-600 max-w-[120px] truncate">
                               {tokenVisible
                                 ? seller.token
                                 : '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022'}
@@ -569,9 +558,9 @@ function MobileAppPageContent() {
                       </td>
 
                       {/* Último Login */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-center">
                         {seller.authorized ? (
-                          <span className="text-sm text-gray-600">
+                          <span className="text-gray-600">
                             {relativeTime(seller.lastLogin)}
                           </span>
                         ) : (
@@ -580,9 +569,9 @@ function MobileAppPageContent() {
                       </td>
 
                       {/* Último Sync */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="hidden lg:table-cell px-3 py-2 whitespace-nowrap text-center">
                         {seller.authorized ? (
-                          <span className="text-sm text-gray-600">
+                          <span className="text-gray-600">
                             {relativeTime(seller.lastSync)}
                           </span>
                         ) : (

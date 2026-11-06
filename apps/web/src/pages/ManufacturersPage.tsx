@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useManufacturersList,
@@ -83,7 +84,7 @@ export function ManufacturersPage() {
       ? { label: 'Ativa', className: 'bg-green-100 text-green-800' }
       : { label: 'Inativa', className: 'bg-gray-100 text-gray-800' };
     return (
-      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.className}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${config.className}`}>
         {config.label}
       </span>
     );
@@ -93,43 +94,43 @@ export function ManufacturersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <div className="max-w-7xl mx-auto py-4 sm:px-6 lg:px-8">
+        <div className="px-3 sm:px-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Indústrias</h1>
-              <p className="mt-1 text-sm text-gray-500">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Indústrias</h1>
+              <p className="hidden sm:block text-xs text-gray-500">
                 Cadastro central de indústrias usado por produtos e fornecedores
               </p>
             </div>
             <button
               onClick={openCreate}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Nova Indústria
             </button>
           </div>
 
           {/* Filters */}
-          <div className="bg-white shadow rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white shadow-sm border rounded-xl p-3 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
                 <input
                   type="text"
                   placeholder="Buscar por nome ou código..."
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => { setStatusFilter(e.target.value as any); setPage(1); }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="ACTIVE">Ativa</option>
@@ -147,33 +148,42 @@ export function ManufacturersPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="bg-white shadow-sm border overflow-hidden rounded-xl">
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Razão Social</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                  <table className="w-full min-w-[560px] table-fixed text-[13px]">
+                    <colgroup>
+                      <col className="w-[110px]" />
+                      <col />
+                      <col className="hidden lg:table-column w-[34%]" />
+                      <col className="w-[90px]" />
+                      <col className="w-[72px]" />
+                    </colgroup>
+                    <thead>
+                      <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                        <th className="px-3 py-2 text-left">Código</th>
+                        <th className="px-3 py-2 text-left">Nome</th>
+                        <th className="hidden lg:table-cell px-3 py-2 text-left">Razão Social</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                        <th className="px-3 py-2 text-right">Ações</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-100">
                       {data?.data && data.data.length > 0 ? (
                         data.data.map((m) => (
-                          <tr key={m.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{m.code || '-'}</td>
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{m.name}</td>
-                            <td className="px-6 py-4 text-sm text-gray-500">{m.legalName || '-'}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(m.status)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button onClick={() => openEdit(m)} className="text-blue-600 hover:text-blue-900 mr-4">
-                                Editar
-                              </button>
-                              <button onClick={() => handleDelete(m.id, m.name)} className="text-red-600 hover:text-red-900">
-                                Excluir
-                              </button>
+                          <tr key={m.id} className="hover:bg-indigo-50/40 transition-colors">
+                            <td className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 truncate tabular-nums" title={m.code || undefined}>{m.code || '-'}</td>
+                            <td className="px-3 py-2 font-medium text-gray-800 truncate" title={[m.name, m.legalName].filter(Boolean).join(' · ')}>{m.name}</td>
+                            <td className="hidden lg:table-cell px-3 py-2 text-gray-500 truncate" title={m.legalName || undefined}>{m.legalName || '-'}</td>
+                            <td className="px-3 py-2">{getStatusBadge(m.status)}</td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                                <button onClick={() => openEdit(m)} className="p-1 rounded-md transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="Editar">
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleDelete(m.id, m.name)} className="p-1 rounded-md transition-colors text-gray-400 hover:text-red-600 hover:bg-red-50" title="Excluir">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))
@@ -250,7 +260,7 @@ export function ManufacturersPage() {
               </div>
               <div className="px-6 py-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
                     Nome <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -259,38 +269,38 @@ export function ManufacturersPage() {
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
                     autoFocus
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Nome da indústria"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Razão Social</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Razão Social</label>
                   <input
                     type="text"
                     value={form.legalName}
                     onChange={(e) => setForm({ ...form, legalName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Razão social (opcional)"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm({ ...form, status: e.target.value as 'ACTIVE' | 'INACTIVE' })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="ACTIVE">Ativa</option>
                     <option value="INACTIVE">Inativa</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Observações</label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Observações (opcional)"
                   />
                 </div>

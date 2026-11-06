@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSuppliers, useDeleteSupplier, Supplier } from '../hooks/useSuppliers';
 import { toast } from 'sonner';
@@ -39,21 +40,21 @@ export function SuppliersPage() {
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.INACTIVE;
 
     return (
-      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.className}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${config.className}`}>
         {config.label}
       </span>
     );
   };
 
   const getRatingStars = (rating?: number) => {
-    if (!rating) return <span className="text-gray-400 text-sm">Sem avaliação</span>;
+    if (!rating) return <span className="text-gray-400 text-xs whitespace-nowrap">Sem avaliação</span>;
 
     return (
-      <div className="flex items-center">
+      <div className="flex items-center" title={`${rating} de 5`}>
         {[...Array(5)].map((_, i) => (
           <svg
             key={i}
-            className={`w-4 h-4 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`}
+            className={`w-3 h-3 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`}
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -66,29 +67,29 @@ export function SuppliersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+      <div className="max-w-7xl mx-auto py-4 sm:px-6 lg:px-8">
+        <div className="px-3 sm:px-0">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Fornecedores</h1>
-              <p className="mt-1 text-sm text-gray-500">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Fornecedores</h1>
+              <p className="hidden sm:block text-xs text-gray-500">
                 Gerencie seus fornecedores e suas informações
               </p>
             </div>
             <button
               onClick={() => navigate('/suppliers/new')}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               Novo Fornecedor
             </button>
           </div>
 
           {/* Filters */}
-          <div className="bg-white shadow rounded-lg p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white shadow-sm border rounded-xl p-3 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   Buscar
                 </label>
                 <input
@@ -99,12 +100,12 @@ export function SuppliersPage() {
                     setSearch(e.target.value);
                     setPage(1);
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   Status
                 </label>
                 <select
@@ -113,7 +114,7 @@ export function SuppliersPage() {
                     setStatusFilter(e.target.value as any);
                     setPage(1);
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="ACTIVE">Ativo</option>
@@ -132,88 +133,85 @@ export function SuppliersPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="bg-white shadow-sm border overflow-hidden rounded-xl">
                 <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Código
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nome
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Email
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Telefone
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Indústria
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Avaliação
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                <table className="w-full min-w-[680px] table-fixed text-[13px]">
+                  <colgroup>
+                    <col className="w-[96px]" />
+                    <col />
+                    <col className="hidden xl:table-column w-[200px]" />
+                    <col className="hidden lg:table-column w-[130px]" />
+                    <col className="hidden xl:table-column w-[140px]" />
+                    <col className="w-[96px]" />
+                    <col className="w-[90px]" />
+                    <col className="w-[72px]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Código</th>
+                      <th className="px-3 py-2 text-left">Nome</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Email</th>
+                      <th className="hidden lg:table-cell px-3 py-2 text-left">Telefone</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Indústria</th>
+                      <th className="px-3 py-2 text-left">Avaliação</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-right">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {data?.data && data.data.length > 0 ? (
                       data.data.map((supplier: Supplier) => (
-                        <tr key={supplier.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {supplier.code}
-                            </div>
+                        <tr key={supplier.id} className="hover:bg-indigo-50/40 transition-colors">
+                          <td className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 truncate tabular-nums" title={supplier.code}>
+                            {supplier.code}
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {supplier.name}
-                            </div>
+                          <td
+                            className="px-3 py-2 font-medium text-gray-800 truncate"
+                            title={[
+                              supplier.name,
+                              supplier.legalName && supplier.legalName !== supplier.name ? supplier.legalName : null,
+                              supplier.email,
+                              supplier.phone,
+                              supplier.manufacturer,
+                            ].filter(Boolean).join(' · ')}
+                          >
+                            {supplier.name}
                             {supplier.legalName && supplier.legalName !== supplier.name && (
-                              <div className="text-sm text-gray-500">{supplier.legalName}</div>
+                              <span className="ml-1.5 text-gray-400 font-normal">{supplier.legalName}</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">
-                              {supplier.email || '-'}
-                            </div>
+                          <td className="hidden xl:table-cell px-3 py-2 text-gray-500 truncate" title={supplier.email || undefined}>
+                            {supplier.email || '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">
-                              {supplier.phone || '-'}
-                            </div>
+                          <td className="hidden lg:table-cell px-3 py-2 text-gray-500 whitespace-nowrap truncate tabular-nums" title={supplier.phone || undefined}>
+                            {supplier.phone || '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {supplier.manufacturer || '-'}
-                            </div>
+                          <td className="hidden xl:table-cell px-3 py-2 text-gray-700 truncate" title={supplier.manufacturer || undefined}>
+                            {supplier.manufacturer || '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             {getRatingStars(supplier.rating)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             {getStatusBadge(supplier.status)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
-                              className="text-blue-600 hover:text-blue-900 mr-4"
-                            >
-                              Ver / Editar
-                            </button>
-                            <button
-                              onClick={() => handleDelete(supplier.id, supplier.name)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Excluir
-                            </button>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                              <button
+                                onClick={() => navigate(`/suppliers/${supplier.id}/edit`)}
+                                className="p-1 rounded-md transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                title="Ver / Editar"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(supplier.id, supplier.name)}
+                                className="p-1 rounded-md transition-colors text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                title="Excluir"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))

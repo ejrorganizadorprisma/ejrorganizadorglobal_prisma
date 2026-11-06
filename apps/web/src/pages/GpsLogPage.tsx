@@ -59,22 +59,22 @@ export function GpsLogPageContent({ embedded = false }: { embedded?: boolean } =
   const totalItems = data?.pagination?.total || 0;
 
   return (
-    <div className={embedded ? '' : 'container mx-auto px-4 py-8'}>
+    <div className={embedded ? '' : 'container mx-auto px-3 sm:px-4 py-4'}>
       {/* Header (only shown when not embedded) */}
       {!embedded && (
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-indigo-100 rounded-lg">
-            <MapPin className="w-6 h-6 text-indigo-600" />
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="p-1.5 bg-indigo-100 rounded-lg shrink-0">
+            <MapPin className="w-5 h-5 text-indigo-600" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Log GPS</h1>
-            <p className="text-sm text-gray-500">Registro de localizacao GPS de eventos</p>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Log GPS</h1>
+            <p className="hidden sm:block text-xs text-gray-500">Registro de localizacao GPS de eventos</p>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border p-4 mb-6 flex flex-wrap gap-3">
+      <div className="bg-white rounded-xl shadow-sm border p-2.5 mb-4 flex flex-wrap gap-2">
         <select
           value={userId}
           onChange={(e) => { setUserId(e.target.value); setPage(1); }}
@@ -124,60 +124,69 @@ export function GpsLogPageContent({ embedded = false }: { embedded?: boolean } =
           <p className="text-sm text-gray-400">Ajuste os filtros ou aguarde novos registros</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuario</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">ID Evento</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Latitude</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Longitude</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Data</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Mapa</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {events.map((event: GpsEvent) => {
-                  const typeCfg = eventTypeConfig[event.eventType] || { bg: 'bg-gray-100', text: 'text-gray-800' };
-                  return (
-                    <tr key={event.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{event.userName}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${typeCfg.bg} ${typeCfg.text}`}>
-                          {eventTypeLabels[event.eventType] || event.eventType}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">{event.eventId}</td>
-                      <td className="px-4 py-3 text-right text-gray-700 font-mono text-xs">{event.latitude.toFixed(6)}</td>
-                      <td className="px-4 py-3 text-right text-gray-700 font-mono text-xs">{event.longitude.toFixed(6)}</td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {new Date(event.createdAt).toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <a
-                          href={`https://www.google.com/maps?q=${event.latitude},${event.longitude}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Ver
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table className="w-full min-w-[600px] table-fixed text-[13px]">
+            <colgroup>
+              <col />
+              <col className="w-[110px]" />
+              <col className="hidden xl:table-column w-[190px]" />
+              <col className="hidden lg:table-column w-[100px]" />
+              <col className="hidden lg:table-column w-[100px]" />
+              <col className="w-[140px]" />
+              <col className="w-[70px]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Usuario</th>
+                <th className="px-3 py-2 text-left">Tipo</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-left">ID Evento</th>
+                <th className="hidden lg:table-cell px-3 py-2 text-right">Latitude</th>
+                <th className="hidden lg:table-cell px-3 py-2 text-right">Longitude</th>
+                <th className="px-3 py-2 text-left">Data</th>
+                <th className="px-3 py-2 text-center">Mapa</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {events.map((event: GpsEvent) => {
+                const typeCfg = eventTypeConfig[event.eventType] || { bg: 'bg-gray-100', text: 'text-gray-800' };
+                const coords = `${event.latitude.toFixed(6)}, ${event.longitude.toFixed(6)}`;
+                return (
+                  <tr key={event.id} className="transition-colors hover:bg-indigo-50/40">
+                    <td className="px-3 py-2 font-medium text-gray-900 truncate" title={`${event.userName} · ${event.eventId} · ${coords}`}>{event.userName}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex max-w-full px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${typeCfg.bg} ${typeCfg.text}`}>
+                        <span className="truncate">{eventTypeLabels[event.eventType] || event.eventType}</span>
+                      </span>
+                    </td>
+                    <td className="hidden xl:table-cell px-3 py-2 text-gray-500 font-mono text-xs truncate" title={event.eventId}>{event.eventId}</td>
+                    <td className="hidden lg:table-cell px-3 py-2 text-right text-gray-700 font-mono text-xs tabular-nums whitespace-nowrap">{event.latitude.toFixed(6)}</td>
+                    <td className="hidden lg:table-cell px-3 py-2 text-right text-gray-700 font-mono text-xs tabular-nums whitespace-nowrap">{event.longitude.toFixed(6)}</td>
+                    <td className="px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">
+                      {new Date(event.createdAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <a
+                        href={`https://www.google.com/maps?q=${event.latitude},${event.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={coords}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Ver
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Pagination */}
       {totalItems > limit && (
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between">
           <p className="text-sm text-gray-500">
             {(page - 1) * limit + 1}-{Math.min(page * limit, totalItems)} de {totalItems}
           </p>

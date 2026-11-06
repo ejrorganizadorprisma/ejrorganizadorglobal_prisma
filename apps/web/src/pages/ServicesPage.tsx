@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useServices, useDeleteService } from '../hooks/useServices';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -84,13 +85,13 @@ export function ServicesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl lg:text-3xl font-bold">Serviços</h1>
+    <div className="container mx-auto px-3 sm:px-4 py-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Serviços</h1>
         {canCreate && (
           <button
             onClick={() => navigate('/services/new')}
-            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
             Novo Serviço
           </button>
@@ -98,10 +99,10 @@ export function ServicesPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className="bg-white p-3 rounded-xl shadow-sm border mb-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Pesquisar
             </label>
             <input
@@ -109,12 +110,12 @@ export function ServicesPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Nome, código ou descrição..."
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Categoria
             </label>
             <input
@@ -122,18 +123,18 @@ export function ServicesPage() {
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               placeholder="Filtrar por categoria..."
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Status
             </label>
             <select
               value={isActive === undefined ? '' : isActive ? 'true' : 'false'}
               onChange={(e) => setIsActive(e.target.value === '' ? undefined : e.target.value === 'true')}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
               <option value="true">Ativos</option>
@@ -143,64 +144,56 @@ export function ServicesPage() {
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Tabela — compacta, 1 linha por serviço */}
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Código
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Nome
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Categoria
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Preço Padrão
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Unidade
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Duração
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              {showActions && (
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
-              )}
+        <table className="w-full min-w-[640px] table-fixed text-[13px]">
+          <colgroup>
+            <col className="w-[96px]" />
+            <col />
+            <col className="hidden lg:table-column w-[150px]" />
+            <col className="w-[120px]" />
+            <col className="hidden xl:table-column w-[90px]" />
+            <col className="hidden xl:table-column w-[90px]" />
+            <col className="w-[84px]" />
+            {showActions && <col className="w-[72px]" />}
+          </colgroup>
+          <thead>
+            <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left">Código</th>
+              <th className="px-3 py-2 text-left">Nome</th>
+              <th className="hidden lg:table-cell px-3 py-2 text-left">Categoria</th>
+              <th className="px-3 py-2 text-right">Preço Padrão</th>
+              <th className="hidden xl:table-cell px-3 py-2 text-left">Unidade</th>
+              <th className="hidden xl:table-cell px-3 py-2 text-left">Duração</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              {showActions && <th className="px-3 py-2 text-right">Ações</th>}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-100">
             {data?.data.map((service) => (
-              <tr key={service.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              <tr key={service.id} className="hover:bg-indigo-50/40 transition-colors">
+                <td className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 truncate tabular-nums" title={service.code}>
                   {service.code}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-3 py-2 text-gray-800 font-medium truncate" title={[service.name, service.category, getUnitLabel(service.unit), formatDuration(service.durationMinutes)].filter(Boolean).join(' · ')}>
                   {service.name}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="hidden lg:table-cell px-3 py-2 text-gray-500 truncate" title={service.category || undefined}>
                   {service.category || '-'}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-3 py-2 whitespace-nowrap text-right font-semibold text-gray-900 tabular-nums">
                   {formatPrice(service.defaultPrice)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 truncate">
                   {getUnitLabel(service.unit)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 truncate">
                   {formatDuration(service.durationMinutes)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-3 py-2">
                   <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                    className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                       service.isActive
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
@@ -210,23 +203,27 @@ export function ServicesPage() {
                   </span>
                 </td>
                 {showActions && (
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {canEdit && (
-                      <button
-                        onClick={() => navigate(`/services/${service.id}/edit`)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                      >
-                        Editar
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        onClick={() => handleDelete(service.id, service.name)}
-                        className="text-red-600 hover:text-red-900"
-                      >
-                        Excluir
-                      </button>
-                    )}
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                      {canEdit && (
+                        <button
+                          onClick={() => navigate(`/services/${service.id}/edit`)}
+                          className="p-1 rounded-md transition-colors text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                          title="Editar"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(service.id, service.name)}
+                          className="p-1 rounded-md transition-colors text-gray-400 hover:text-red-600 hover:bg-red-50"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>

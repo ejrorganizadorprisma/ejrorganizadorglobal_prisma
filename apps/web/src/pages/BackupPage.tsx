@@ -448,33 +448,42 @@ export function BackupPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tabelas</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registros</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tamanho</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
+            <table className="w-full min-w-[560px] table-fixed text-[13px]">
+              <colgroup>
+                <col className="w-[150px]" />
+                <col className="w-[110px]" />
+                <col className="w-[120px]" />
+                <col className="hidden xl:table-column w-[80px]" />
+                <col className="hidden lg:table-column w-[100px]" />
+                <col />
+                <col className="w-[80px]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left">Data</th>
+                  <th className="px-3 py-2 text-left">Tipo</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-right">Tabelas</th>
+                  <th className="hidden lg:table-cell px-3 py-2 text-right">Registros</th>
+                  <th className="px-3 py-2 text-right">Tamanho</th>
+                  <th className="px-3 py-2 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {history.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                  <tr key={entry.id} className="transition-colors hover:bg-blue-50/40">
+                    <td className="px-3 py-2 text-gray-900 whitespace-nowrap tabular-nums truncate" title={formatDate(entry.createdAt)}>
                       {formatDate(entry.createdAt)}
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
                         entry.backupType === 'scheduled' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                       }`}>
                         {entry.backupType === 'scheduled' ? 'Automático' : 'Manual'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    <td className="px-3 py-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${
                         entry.status === 'completed' ? 'bg-green-100 text-green-800' :
                         entry.status === 'failed' ? 'bg-red-100 text-red-800' :
                         'bg-yellow-100 text-yellow-800'
@@ -483,26 +492,31 @@ export function BackupPage() {
                          entry.status === 'failed' ? 'Falhou' : 'Em andamento'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{entry.tablesCount}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{entry.recordsCount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatFileSize(entry.fileSize)}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-1">
+                    <td className="hidden xl:table-cell px-3 py-2 text-right text-gray-600 tabular-nums">{entry.tablesCount}</td>
+                    <td className="hidden lg:table-cell px-3 py-2 text-right text-gray-600 tabular-nums">{entry.recordsCount.toLocaleString()}</td>
+                    <td
+                      className="px-3 py-2 text-right text-gray-600 tabular-nums whitespace-nowrap"
+                      title={`${entry.tablesCount} tabelas · ${entry.recordsCount.toLocaleString()} registros`}
+                    >
+                      {formatFileSize(entry.fileSize)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
                         {entry.status === 'completed' && (
                           <button
                             onClick={() => handleDownloadBackup(entry.filename)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                             title="Baixar"
                           >
-                            <Download className="w-4 h-4" />
+                            <Download className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
                           onClick={() => handleDeleteBackup(entry.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                           title="Excluir"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

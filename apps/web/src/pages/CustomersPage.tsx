@@ -9,6 +9,7 @@ import {
 import { useUsers } from '../hooks/useUsers';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'sonner';
+import { Users, Plus, Pencil, Trash2, Check, X, Search } from 'lucide-react';
 
 type ApprovalFilter = '' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -119,20 +120,20 @@ export function CustomersPage() {
     const s = status ?? 'APPROVED';
     if (s === 'PENDING') {
       return (
-        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-amber-100 text-amber-800">
+        <span className="px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full whitespace-nowrap bg-amber-100 text-amber-800">
           Pendente
         </span>
       );
     }
     if (s === 'REJECTED') {
       return (
-        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+        <span className="px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full whitespace-nowrap bg-red-100 text-red-800">
           Rejeitado
         </span>
       );
     }
     return (
-      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+      <span className="px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full whitespace-nowrap bg-green-100 text-green-800">
         Aprovado
       </span>
     );
@@ -157,70 +158,72 @@ export function CustomersPage() {
   const pendingCount = data?.data.filter((c: any) => c.approvalStatus === 'PENDING').length ?? 0;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold">Clientes</h1>
-          {isAdmin && pendingCount > 0 && (
-            <button
-              onClick={() => setApprovalStatus('PENDING')}
-              className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm hover:bg-amber-200"
-            >
-              <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-              {pendingCount} pendente(s) de aprovação
-            </button>
-          )}
+    <div className="container mx-auto px-3 sm:px-4 py-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Clientes</h1>
+            {isAdmin && pendingCount > 0 && (
+              <button
+                onClick={() => setApprovalStatus('PENDING')}
+                className="mt-0.5 inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[11px] font-medium hover:bg-amber-200"
+              >
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                {pendingCount} pendente(s) de aprovação
+              </button>
+            )}
+          </div>
         </div>
         <button
           onClick={() => navigate('/customers/new')}
-          className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-1.5 text-sm font-medium"
         >
-          Novo Cliente
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Novo Cliente</span>
+          <span className="sm:hidden">Novo</span>
         </button>
       </div>
 
       {/* Filtros */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Pesquisar
-            </label>
+      <div className="bg-white p-2.5 rounded-xl shadow-sm border mb-4">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
+              aria-label="Pesquisar"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Nome, e-mail ou documento..."
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo
-            </label>
+          <div className="sm:w-44">
             <select
+              aria-label="Tipo"
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">Todos</option>
+              <option value="">Todos os tipos</option>
               <option value="INDIVIDUAL">Pessoa Física</option>
               <option value="BUSINESS">Pessoa Jurídica</option>
             </select>
           </div>
 
           {isAdmin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Status de aprovação
-              </label>
+            <div className="sm:w-48">
               <select
+                aria-label="Status de aprovação"
                 value={approvalStatus}
                 onChange={(e) => setApprovalStatus(e.target.value as ApprovalFilter)}
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">Todos</option>
+                <option value="">Todos os status</option>
                 <option value="PENDING">Pendentes</option>
                 <option value="APPROVED">Aprovados</option>
                 <option value="REJECTED">Rejeitados</option>
@@ -230,44 +233,46 @@ export function CustomersPage() {
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nome
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Documento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Vendedor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ações
-                </th>
+      {/* Tabela — compacta, 1 linha por cliente */}
+      <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table className="w-full min-w-[720px] table-fixed text-[13px]">
+            <colgroup>
+              <col />
+              <col className="w-[56px]" />
+              <col className="w-[190px]" />
+              <col className="hidden xl:table-column w-[150px]" />
+              <col className="w-[104px]" />
+              <col className="w-[180px]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Nome</th>
+                <th className="px-3 py-2 text-left">Tipo</th>
+                <th className="px-3 py-2 text-left">Documento</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-left">Vendedor</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {data?.data.map((customer: any) => (
-                <tr key={customer.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+            <tbody className="divide-y divide-gray-100">
+              {data?.data.map((customer: any) => {
+                const docParts = [
+                  customer.document ? formatDocument(customer.document, customer.type) : null,
+                  customer.ci ? `CI: ${customer.ci}` : null,
+                  customer.ruc ? `RUC: ${customer.ruc}` : null,
+                ].filter(Boolean).join(' · ');
+                return (
+                <tr key={customer.id} className="hover:bg-blue-50/40 transition-colors">
+                  <td
+                    className="px-3 py-2 font-medium text-gray-900 truncate"
+                    title={[customer.name, customer.email, customer.responsibleUserName ? `Vendedor: ${customer.responsibleUserName}` : null].filter(Boolean).join(' · ')}
+                  >
                     {customer.name}
-                    {customer.email && (
-                      <div className="text-xs text-gray-500">{customer.email}</div>
-                    )}
+                    {customer.email && <span className="ml-1.5 text-[11px] font-normal text-gray-400">{customer.email}</span>}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-3 py-2">
                     <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      className={`px-1.5 py-0.5 inline-flex text-[11px] font-semibold rounded-full ${
                         customer.type === 'INDIVIDUAL'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-purple-100 text-purple-800'
@@ -276,77 +281,68 @@ export function CustomersPage() {
                       {customer.type === 'INDIVIDUAL' ? 'PF' : 'PJ'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {customer.document ? formatDocument(customer.document, customer.type) : null}
-                    {customer.ci && (
-                      <span className="text-xs text-gray-500">
-                        {customer.document ? ' · ' : ''}CI: {customer.ci}
-                      </span>
-                    )}
-                    {customer.ruc && (
-                      <span className="text-xs text-gray-500">
-                        {customer.document || customer.ci ? ' · ' : ''}RUC: {customer.ruc}
-                      </span>
-                    )}
-                    {!customer.document && !customer.ci && !customer.ruc && '-'}
+                  <td className="px-3 py-2 text-gray-700 truncate tabular-nums" title={docParts || undefined}>
+                    {docParts || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="hidden xl:table-cell px-3 py-2 text-gray-500 truncate" title={customer.responsibleUserName || undefined}>
                     {customer.responsibleUserName ?? (
                       <span className="text-gray-400 italic">—</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td
+                    className="px-3 py-2"
+                    title={customer.approvalStatus === 'REJECTED' && customer.rejectionReason ? `Motivo: ${customer.rejectionReason}` : undefined}
+                  >
                     {renderApprovalBadge(customer.approvalStatus)}
-                    {customer.approvalStatus === 'REJECTED' && customer.rejectionReason && (
-                      <div className="text-xs text-red-600 mt-1 max-w-xs truncate" title={customer.rejectionReason}>
-                        {customer.rejectionReason}
-                      </div>
-                    )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {isAdmin && customer.approvalStatus === 'PENDING' && (
-                      <>
-                        <button
-                          onClick={() => openApproveModal(customer)}
-                          className="text-green-600 hover:text-green-900 mr-3"
-                          title="Aprovar"
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          onClick={() => setRejectModal({ id: customer.id, name: customer.name })}
-                          className="text-red-600 hover:text-red-900 mr-3"
-                          title="Rejeitar"
-                        >
-                          Rejeitar
-                        </button>
-                      </>
-                    )}
-                    <button
-                      onClick={() => navigate(`/customers/${customer.id}/edit`)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      Editar
-                    </button>
-                    {isAdmin && (
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                      {isAdmin && customer.approvalStatus === 'PENDING' && (
+                        <>
+                          <button
+                            onClick={() => openApproveModal(customer)}
+                            className="mr-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold text-white bg-green-600 hover:bg-green-700"
+                            title="Aprovar"
+                          >
+                            <Check className="w-3 h-3" /> Aprovar
+                          </button>
+                          <button
+                            onClick={() => setRejectModal({ id: customer.id, name: customer.name })}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md"
+                            title="Rejeitar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                       <button
-                        onClick={() => handleDelete(customer.id, customer.name)}
-                        className="text-red-600 hover:text-red-900"
+                        onClick={() => navigate(`/customers/${customer.id}/edit`)}
+                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md"
+                        title="Editar"
                       >
-                        Excluir
+                        <Pencil className="w-3.5 h-3.5" />
                       </button>
-                    )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(customer.id, customer.name)}
+                          className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md"
+                          title="Excluir"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
-        </div>
       </div>
 
       {/* Paginação */}
       {data?.pagination && (
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-sm text-gray-700">
             Mostrando página {data.pagination.page} de {data.pagination.totalPages} (
             {data.pagination.total} clientes)
@@ -355,14 +351,14 @@ export function CustomersPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="px-4 py-2 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Anterior
             </button>
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={page >= data.pagination.totalPages}
-              className="px-4 py-2 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
             >
               Próxima
             </button>

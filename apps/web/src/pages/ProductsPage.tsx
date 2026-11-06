@@ -262,16 +262,12 @@ export function ProductsPage() {
     const otherPrices = activePrices.filter(p => p.currency !== mainPrice.currency);
 
     return (
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-semibold text-gray-900">
-          {mainPrice.formatted}
-        </span>
-        {otherPrices.map(price => (
-          <span key={price.currency} className="text-xs text-gray-500">
-            {price.formatted}
-          </span>
-        ))}
-      </div>
+      <span
+        className="font-semibold text-gray-900 tabular-nums whitespace-nowrap"
+        title={otherPrices.length ? [mainPrice, ...otherPrices].map((p) => p.formatted).join(' · ') : undefined}
+      >
+        {mainPrice.formatted}
+      </span>
     );
   };
 
@@ -292,13 +288,13 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl lg:text-3xl font-bold">Produtos</h1>
+    <div className="container mx-auto px-3 sm:px-4 py-4">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h1 className="text-lg sm:text-xl font-bold text-gray-900">Produtos</h1>
         {canCreate && (
           <button
             onClick={() => navigate('/products/new')}
-            className="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
             Novo Produto
           </button>
@@ -306,10 +302,10 @@ export function ProductsPage() {
       </div>
 
       {/* Filtros de Tipo */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         <button
           onClick={() => { setTypeFilter('ALL'); setPage(1); }}
-          className={`px-4 py-2 rounded-md ${
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
             typeFilter === 'ALL'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -319,7 +315,7 @@ export function ProductsPage() {
         </button>
         <button
           onClick={() => { setTypeFilter('FINAL'); setPage(1); }}
-          className={`px-4 py-2 rounded-md ${
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
             typeFilter === 'FINAL'
               ? 'bg-green-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -329,7 +325,7 @@ export function ProductsPage() {
         </button>
         <button
           onClick={() => { setTypeFilter('COMPONENT'); setPage(1); }}
-          className={`px-4 py-2 rounded-md ${
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
             typeFilter === 'COMPONENT'
               ? 'bg-purple-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -340,10 +336,10 @@ export function ProductsPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="bg-white p-3 rounded-xl shadow-sm border mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Pesquisar
             </label>
             <div className="relative">
@@ -352,7 +348,7 @@ export function ProductsPage() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Nome, código ou cód. fornecedor..."
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               {searchInput !== search && (
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -363,13 +359,13 @@ export function ProductsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Categoria
             </label>
             <select
               value={category}
               onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todas as categorias</option>
               {categories.map((cat) => (
@@ -381,7 +377,7 @@ export function ProductsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Indústria
             </label>
             <input
@@ -389,18 +385,18 @@ export function ProductsPage() {
               value={manufacturerInput}
               onChange={(e) => setManufacturerInput(e.target.value)}
               placeholder="Filtrar por indústria..."
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
               Status
             </label>
             <select
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
               <option value="DEVELOPMENT">Em Desenvolvimento</option>
@@ -413,92 +409,89 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {/* Tabela */}
-      <div className={`bg-white rounded-lg shadow relative ${isFetching ? 'opacity-60' : ''}`}>
+      {/* Tabela — compacta, 1 linha por produto */}
+      <div className={`bg-white rounded-xl shadow-sm border relative ${isFetching ? 'opacity-60' : ''}`}>
         {isFetching && (
           <div className="absolute top-2 right-2 z-10">
             <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200" style={{ minWidth: '1100px' }}>
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                Cód
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Código Fornecedor">
-                Cód. Forn.
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Imagem
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">
-                Nome
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Indústria
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
-                Atacado
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
-                Varejo
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                Estoque
-              </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" title="Localização">
-                <MapPin className="w-4 h-4 inline-block" />
+          <table className="w-full min-w-[720px] table-fixed text-[13px]">
+          <colgroup>
+            <col className="w-[64px]" />
+            <col className="hidden xl:table-column w-[110px]" />
+            <col className="w-[48px]" />
+            <col />
+            <col className="hidden xl:table-column w-[130px]" />
+            <col className="w-[112px]" />
+            <col className="w-[112px]" />
+            <col className="w-[84px]" />
+            <col className="hidden xl:table-column w-[40px]" />
+            {showActions && <col className="w-[96px]" />}
+          </colgroup>
+          <thead>
+            <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left">Cód</th>
+              <th className="hidden xl:table-cell px-3 py-2 text-left" title="Código Fornecedor">Cód. Forn.</th>
+              <th className="px-2 py-2 text-left">Img</th>
+              <th className="px-3 py-2 text-left">Nome</th>
+              <th className="hidden xl:table-cell px-3 py-2 text-left">Indústria</th>
+              <th className="px-3 py-2 text-right">Atacado</th>
+              <th className="px-3 py-2 text-right">Varejo</th>
+              <th className="px-3 py-2 text-right" title="Estoque atual / mínimo">Estoque</th>
+              <th className="hidden xl:table-cell px-2 py-2 text-center" title="Localização">
+                <MapPin className="w-3.5 h-3.5 inline-block" />
               </th>
               {showActions && (
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50">
-                  Ações
-                </th>
+                <th className="px-3 py-2 text-right sticky right-0 bg-gray-50">Ações</th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredProducts.map((product) => (
-              <tr key={product.id} className="hover:bg-gray-50">
-                <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          <tbody className="divide-y divide-gray-100">
+            {filteredProducts.map((product) => {
+              const location = getLocationDetails(product);
+              return (
+              <tr key={product.id} className="group hover:bg-indigo-50/40 transition-colors">
+                <td className="px-3 py-1.5 whitespace-nowrap font-semibold text-gray-900 tabular-nums" title={product.code}>
                   {product.code.replace('PROD-', '')}
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="hidden xl:table-cell px-3 py-1.5 text-gray-500 truncate" title={product.factoryCode || undefined}>
                   {product.factoryCode || '-'}
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap">
+                <td className="px-2 py-1.5">
                   {product.imageUrls && product.imageUrls.length > 0 && product.imageUrls[0] ? (
                     <img
                       src={product.imageUrls[0]}
                       alt={product.name}
-                      className="w-12 h-12 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                      loading="lazy"
+                      className="w-8 h-8 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
                       onClick={() => setImageModal({ isOpen: true, imageUrl: product.imageUrls[0], productName: product.name })}
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIGZpbGw9IiNFNUU3RUIiLz48cGF0aCBkPSJNMjQgMjZDMjYuMjA5MSAyNiAyOCAyNC4yMDkxIDI4IDIyQzI4IDE5Ljc5MDkgMjYuMjA5MSAxOCAyNCAxOEMyMS43OTA5IDE4IDIwIDE5Ljc5MDkgMjAgMjJDMjAgMjQuMjA5MSAyMS43OTA5IDI2IDI0IDI2WiIgZmlsbD0iIzlDQTNBRiIvPjxwYXRoIGQ9Ik0zMiAzMkwzNiAzNkgyMEwyNCAzMEwyOCAzNEwzMiAzMloiIGZpbGw9IiM5Q0EzQUYiLz48L3N2Zz4=';
                       }}
                     />
                   ) : (
-                    <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
-                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-8 h-8 bg-gray-100 rounded border border-gray-200 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-4 text-sm text-gray-900">
+                <td className="px-3 py-1.5 text-gray-900 font-medium truncate" title={[product.name, product.manufacturer, product.factoryCode && `Cód. forn. ${product.factoryCode}`].filter(Boolean).join(' · ')}>
                   {product.name}
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                <td className="hidden xl:table-cell px-3 py-1.5 text-gray-500 truncate" title={product.manufacturer || undefined}>
                   {product.manufacturer || '-'}
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap">
+                <td className="px-3 py-1.5 text-right">
                   {renderMultiCurrencyPrice(product.wholesalePrice || 0, product.wholesalePriceCurrency)}
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap">
+                <td className="px-3 py-1.5 text-right">
                   {renderMultiCurrencyPrice(product.salePrice, product.salePriceCurrency)}
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm">
+                <td className="px-3 py-1.5 whitespace-nowrap text-right tabular-nums" title={`Estoque ${product.currentStock} / mínimo ${product.minimumStock}${location ? ` · ${location.full}` : ''}`}>
                   <span
                     className={
                       product.currentStock <= product.minimumStock
@@ -511,52 +504,49 @@ export function ProductsPage() {
                   <span className="text-gray-400 mx-0.5">/</span>
                   <span className="text-gray-500">{product.minimumStock}</span>
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap text-center">
-                  {(() => {
-                    const location = getLocationDetails(product);
-                    if (!location) {
-                      return <span className="text-gray-400 text-xs">-</span>;
-                    }
-                    return (
-                      <div className="inline-block" title={location.full}>
-                        <MapPin className="w-4 h-4 text-blue-600 mx-auto cursor-help" />
-                      </div>
-                    );
-                  })()}
+                <td className="hidden xl:table-cell px-2 py-1.5 text-center">
+                  {!location ? (
+                    <span className="text-gray-400 text-xs">-</span>
+                  ) : (
+                    <div className="inline-block" title={location.full}>
+                      <MapPin className="w-3.5 h-3.5 text-blue-600 mx-auto cursor-help" />
+                    </div>
+                  )}
                 </td>
                 {showActions && (
-                  <td className="px-3 py-4 whitespace-nowrap text-sm font-medium sticky right-0 bg-white">
-                    <div className="flex items-center gap-2">
+                  <td className="px-3 py-1.5 sticky right-0 bg-white group-hover:bg-indigo-50/40">
+                    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
                       <button
                         onClick={() => setHistoryProduct({ id: product.id, name: product.name })}
-                        className="p-1.5 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded transition-colors"
+                        className="p-1 text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 rounded-md transition-colors"
                         title="Histórico de compra e venda"
                       >
-                        <History className="w-4 h-4" />
+                        <History className="w-3.5 h-3.5" />
                       </button>
                       {canEdit && (
                         <button
                           onClick={() => navigate(`/products/${product.id}/edit`)}
-                          className="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition-colors"
+                          className="p-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
                           title="Editar"
                         >
-                          <Pencil className="w-4 h-4" />
+                          <Pencil className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {canDelete && (
                         <button
                           onClick={() => handleDelete(product.id, product.name)}
-                          className="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition-colors"
+                          className="p-1 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md transition-colors"
                           title="Excluir"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                   </td>
                 )}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         </div>

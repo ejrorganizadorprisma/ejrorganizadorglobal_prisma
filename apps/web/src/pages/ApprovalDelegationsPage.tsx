@@ -67,25 +67,29 @@ export function ApprovalDelegationsPage() {
   const isActive = (d: any) => d.isActive && new Date(d.startDate) <= new Date() && new Date(d.endDate) >= new Date();
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-3xl">
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <button onClick={() => navigate('/purchase-budgets')} className="p-2 hover:bg-gray-100 rounded">
-          <ArrowLeft className="w-5 h-5" />
+    <div className="container mx-auto px-3 sm:px-4 py-4 max-w-3xl">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <button onClick={() => navigate('/purchase-budgets')} className="p-1.5 hover:bg-gray-100 rounded-lg shrink-0" title="Voltar">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="p-1.5 bg-indigo-100 rounded-lg shrink-0">
+            <Shield className="w-5 h-5 text-indigo-600" />
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight truncate">Delegações de Aprovação</h1>
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="shrink-0 flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Nova Delegação</span>
+          <span className="sm:hidden">Nova</span>
         </button>
-        <Shield className="w-7 h-7 text-indigo-600" />
-        <h1 className="text-xl lg:text-2xl font-bold">Delegações de Aprovação</h1>
       </div>
 
-      <button
-        onClick={() => setShowForm(!showForm)}
-        className="flex items-center gap-2 mb-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-      >
-        <Plus className="w-4 h-4" />
-        Nova Delegação
-      </button>
-
       {showForm && (
-        <div className="bg-indigo-50 p-4 rounded-lg mb-6">
+        <div className="bg-indigo-50 p-3 rounded-xl mb-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
@@ -123,36 +127,44 @@ export function ApprovalDelegationsPage() {
       ) : delegations.length === 0 ? (
         <p className="text-gray-500 text-center py-8">Nenhuma delegação cadastrada.</p>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-x-auto">
-          <table className="w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delegado</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Período</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ação</th>
+        <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+          <table className="w-full min-w-[520px] table-fixed text-[13px]">
+            <colgroup>
+              <col />
+              <col className="w-[190px]" />
+              <col className="w-[140px]" />
+              <col className="w-[60px]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Delegado</th>
+                <th className="px-3 py-2 text-left">Período</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-right">Ação</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {delegations.map((d: any) => (
-                <tr key={d.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium">{d.delegatedToUser?.name || d.delegatedTo}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
+                <tr key={d.id} className="transition-colors hover:bg-indigo-50/40">
+                  <td className="px-3 py-2 font-medium text-gray-900 truncate" title={d.delegatedToUser?.name || d.delegatedTo}>
+                    {d.delegatedToUser?.name || d.delegatedTo}
+                  </td>
+                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">
                     {new Date(d.startDate).toLocaleDateString('pt-BR')} - {new Date(d.endDate).toLocaleDateString('pt-BR')}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     {isActive(d) ? (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Ativa</span>
+                      <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap bg-green-100 text-green-800">Ativa</span>
                     ) : d.isActive ? (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Agendada/Expirada</span>
+                      <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap bg-yellow-100 text-yellow-800">Agendada/Expirada</span>
                     ) : (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">Revogada</span>
+                      <span className="inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap bg-gray-100 text-gray-500">Revogada</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 text-right">
                     {d.isActive && (
-                      <button onClick={() => handleRevoke(d.id)} className="p-1 text-red-600 hover:bg-red-50 rounded" title="Revogar">
-                        <XCircle className="w-4 h-4" />
+                      <button onClick={() => handleRevoke(d.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Revogar">
+                        <XCircle className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </td>

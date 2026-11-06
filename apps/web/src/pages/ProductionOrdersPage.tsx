@@ -149,7 +149,7 @@ export function ProductionOrdersPage() {
     const config = configs[status];
     return (
       <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${config.className}`}
+        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border whitespace-nowrap ${config.className}`}
       >
         {config.label}
       </span>
@@ -178,7 +178,7 @@ export function ProductionOrdersPage() {
 
     const config = configs[priority];
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.className}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${config.className}`}>
         {config.label}
       </span>
     );
@@ -199,71 +199,71 @@ export function ProductionOrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Ordens de Produção</h1>
+      <div className="container mx-auto px-3 sm:px-4 py-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Ordens de Produção</h1>
           <button
             onClick={() => navigate('/production-orders/new')}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+            className="shrink-0 flex items-center justify-center gap-1.5 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="w-4 h-4" />
             Nova OP
           </button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-xs font-medium text-gray-500">Total</p>
+                <p className="text-xl font-bold tabular-nums text-gray-900">
                   {data?.pagination?.total || 0}
                 </p>
               </div>
-              <Factory className="w-8 h-8 text-blue-600" />
+              <Factory className="w-6 h-6 text-blue-600" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Em Produção</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-xs font-medium text-gray-500">Em Produção</p>
+                <p className="text-xl font-bold tabular-nums text-purple-600">
                   {data?.data?.filter((o) => o.status === 'IN_PROGRESS').length || 0}
                 </p>
               </div>
-              <Play className="w-8 h-8 text-purple-600" />
+              <Play className="w-6 h-6 text-purple-600" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pausadas</p>
-                <p className="text-2xl font-bold text-yellow-600">
+                <p className="text-xs font-medium text-gray-500">Pausadas</p>
+                <p className="text-xl font-bold tabular-nums text-yellow-600">
                   {data?.data?.filter((o) => o.status === 'PAUSED').length || 0}
                 </p>
               </div>
-              <Pause className="w-8 h-8 text-yellow-600" />
+              <Pause className="w-6 h-6 text-yellow-600" />
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Concluídas</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-xs font-medium text-gray-500">Concluídas</p>
+                <p className="text-xl font-bold tabular-nums text-green-600">
                   {data?.data?.filter((o) => o.status === 'COMPLETED').length || 0}
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-green-600" />
+              <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="bg-white rounded-lg shadow p-3 mb-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -324,174 +324,153 @@ export function ProductionOrdersPage() {
           </div>
         ) : (
           <>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        N° OP
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Produto
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quantidade
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Progresso
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Prioridade
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Prazo
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {data.data.map((order) => {
-                      const progress = getProgressPercentage(
-                        order.quantityProduced,
-                        order.quantityPlanned
-                      );
-                      const isOverdue = order.dueDate && new Date(order.dueDate) < new Date() && order.status !== 'COMPLETED';
+            {/* Tabela compacta — 1 linha por OP */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
+              <table className="w-full min-w-[760px] table-fixed text-[13px]">
+                <colgroup>
+                  <col className="w-[130px]" />
+                  <col />
+                  <col className="w-[120px]" />
+                  <col className="w-[110px]" />
+                  <col className="w-[120px]" />
+                  <col className="hidden xl:table-column w-[90px]" />
+                  <col className="w-[92px]" />
+                  <col className="w-[132px]" />
+                </colgroup>
+                <thead>
+                  <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left">N° OP</th>
+                    <th className="px-3 py-2 text-left">Produto</th>
+                    <th className="px-3 py-2 text-right">Produzido / Plan.</th>
+                    <th className="px-3 py-2 text-left">Progresso</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="hidden xl:table-cell px-3 py-2 text-left">Prioridade</th>
+                    <th className="px-3 py-2 text-left">Prazo</th>
+                    <th className="px-3 py-2 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {data.data.map((order) => {
+                    const progress = getProgressPercentage(
+                      order.quantityProduced,
+                      order.quantityPlanned
+                    );
+                    const isOverdue = order.dueDate && new Date(order.dueDate) < new Date() && order.status !== 'COMPLETED';
+                    const qtyTitle =
+                      `Planejado: ${order.quantityPlanned} · Produzido: ${order.quantityProduced}` +
+                      (order.quantityScrapped > 0 ? ` · Refugo: ${order.quantityScrapped}` : '') +
+                      ` · Pendente: ${order.quantityPending}`;
 
-                      return (
-                        <tr key={order.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {order.orderNumber}
-                              </span>
-                              {isOverdue && (
-                                <AlertTriangle className="w-4 h-4 text-red-500" title="Atrasada" />
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900">{order.product?.name || '-'}</div>
-                            <div className="text-sm text-gray-500">{order.product?.code || '-'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              Planejado: {order.quantityPlanned}
-                            </div>
-                            <div className="text-sm text-green-600">
-                              Produzido: {order.quantityProduced}
-                            </div>
-                            {order.quantityScrapped > 0 && (
-                              <div className="text-sm text-red-600">
-                                Refugo: {order.quantityScrapped}
-                              </div>
+                    return (
+                      <tr key={order.id} className={`transition-colors hover:bg-blue-50/40 ${isOverdue ? 'bg-red-50/50' : ''}`}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-semibold text-gray-900 whitespace-nowrap tabular-nums">{order.orderNumber}</span>
+                            {isOverdue && (
+                              <span title="Atrasada" className="shrink-0"><AlertTriangle className="w-3.5 h-3.5 text-red-500" /></span>
                             )}
-                            <div className="text-sm text-gray-500">
-                              Pendente: {order.quantityPending}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 truncate" title={`${order.product?.name || '-'}${order.product?.code ? ` · ${order.product.code}` : ''}`}>
+                          <span className="font-medium text-gray-800">{order.product?.name || '-'}</span>
+                          {order.product?.code && <span className="ml-1.5 text-gray-400 text-[11px]">{order.product.code}</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums" title={qtyTitle}>
+                          <span className="font-semibold text-green-700">{order.quantityProduced}</span>
+                          <span className="text-gray-400"> / {order.quantityPlanned}</span>
+                          {order.quantityScrapped > 0 && <span className="ml-1 text-red-600 text-[11px]">−{order.quantityScrapped}</span>}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5" title={`${progress}%`}>
+                            <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                              <div className="bg-blue-600 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-                              <div
-                                className="bg-blue-600 h-2 rounded-full transition-all"
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                            <span className="text-xs text-gray-600">{progress}%</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {getStatusBadge(order.status)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {getPriorityBadge(order.priority)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-1 text-sm text-gray-900">
-                              {isOverdue && <Clock className="w-4 h-4 text-red-500" />}
-                              {formatDate(order.dueDate)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-gray-600 tabular-nums w-8 text-right">{progress}%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">{getStatusBadge(order.status)}</td>
+                        <td className="hidden xl:table-cell px-3 py-2">{getPriorityBadge(order.priority)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap tabular-nums">
+                          <div className={`flex items-center gap-1 ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                            {isOverdue && <Clock className="w-3.5 h-3.5" />}
+                            {formatDate(order.dueDate)}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                            <button
+                              onClick={() => navigate(`/production-orders/${order.id}`)}
+                              className="p-1 rounded-md text-blue-600 hover:bg-blue-50"
+                              title="Ver detalhes"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
+                            {order.status === 'PLANNED' && (
                               <button
-                                onClick={() => navigate(`/production-orders/${order.id}`)}
-                                className="text-blue-600 hover:text-blue-900"
-                                title="Ver detalhes"
+                                onClick={() => handleRelease(order.id)}
+                                className="p-1 rounded-md text-cyan-600 hover:bg-cyan-50"
+                                title="Liberar"
                               >
-                                <Eye className="w-4 h-4" />
+                                <FileText className="w-3.5 h-3.5" />
                               </button>
+                            )}
 
-                              {order.status === 'PLANNED' && (
+                            {order.status === 'RELEASED' && (
+                              <button
+                                onClick={() => handleStart(order.id)}
+                                className="p-1 rounded-md text-green-600 hover:bg-green-50"
+                                title="Iniciar"
+                              >
+                                <Play className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {order.status === 'IN_PROGRESS' && (
+                              <>
                                 <button
-                                  onClick={() => handleRelease(order.id)}
-                                  className="text-cyan-600 hover:text-cyan-900"
-                                  title="Liberar"
+                                  onClick={() => handlePause(order.id)}
+                                  className="p-1 rounded-md text-yellow-600 hover:bg-yellow-50"
+                                  title="Pausar"
                                 >
-                                  <FileText className="w-4 h-4" />
+                                  <Pause className="w-3.5 h-3.5" />
                                 </button>
-                              )}
-
-                              {order.status === 'RELEASED' && (
                                 <button
-                                  onClick={() => handleStart(order.id)}
-                                  className="text-green-600 hover:text-green-900"
-                                  title="Iniciar"
+                                  onClick={() => handleComplete(order.id)}
+                                  className="p-1 rounded-md text-green-600 hover:bg-green-50"
+                                  title="Concluir"
                                 >
-                                  <Play className="w-4 h-4" />
+                                  <CheckCircle className="w-3.5 h-3.5" />
                                 </button>
-                              )}
+                              </>
+                            )}
 
-                              {order.status === 'IN_PROGRESS' && (
-                                <>
-                                  <button
-                                    onClick={() => handlePause(order.id)}
-                                    className="text-yellow-600 hover:text-yellow-900"
-                                    title="Pausar"
-                                  >
-                                    <Pause className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleComplete(order.id)}
-                                    className="text-green-600 hover:text-green-900"
-                                    title="Concluir"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
+                            {order.status === 'PAUSED' && (
+                              <button
+                                onClick={() => handleResume(order.id)}
+                                className="p-1 rounded-md text-purple-600 hover:bg-purple-50"
+                                title="Retomar"
+                              >
+                                <Play className="w-3.5 h-3.5" />
+                              </button>
+                            )}
 
-                              {order.status === 'PAUSED' && (
-                                <button
-                                  onClick={() => handleResume(order.id)}
-                                  className="text-purple-600 hover:text-purple-900"
-                                  title="Retomar"
-                                >
-                                  <Play className="w-4 h-4" />
-                                </button>
-                              )}
-
-                              {(order.status === 'DRAFT' || order.status === 'PLANNED' || order.status === 'RELEASED') && (
-                                <button
-                                  onClick={() => handleCancel(order.id)}
-                                  className="text-red-600 hover:text-red-900"
-                                  title="Cancelar"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            {(order.status === 'DRAFT' || order.status === 'PLANNED' || order.status === 'RELEASED') && (
+                              <button
+                                onClick={() => handleCancel(order.id)}
+                                className="p-1 rounded-md text-red-600 hover:bg-red-50"
+                                title="Cancelar"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
             {/* Pagination */}

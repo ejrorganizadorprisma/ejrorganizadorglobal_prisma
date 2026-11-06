@@ -74,26 +74,26 @@ export function PurchaseRequestsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Requisições de Compra</h1>
+      <div className="max-w-7xl mx-auto py-4 sm:px-4">
+        <div className="px-3 sm:px-0">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight truncate">Requisições de Compra</h1>
             <button
               onClick={() => navigate('/purchase-requests/new')}
-              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="shrink-0 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
             >
               Nova Requisição
             </button>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-4 mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white shadow-sm border rounded-xl p-2.5 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="PENDING">Pendente</option>
@@ -105,11 +105,11 @@ export function PurchaseRequestsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Prioridade</label>
                 <select
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todas</option>
                   <option value="LOW">Baixa</option>
@@ -121,7 +121,7 @@ export function PurchaseRequestsPage() {
             </div>
 
             {(statusFilter || priorityFilter) && (
-              <div className="mt-4">
+              <div className="mt-2">
                 <button
                   onClick={clearFilters}
                   className="text-sm text-blue-600 hover:text-blue-800"
@@ -138,75 +138,67 @@ export function PurchaseRequestsPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="bg-white shadow-sm border rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Número
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Nome
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Solicitante
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Prioridade
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Ações
-                      </th>
+                <table className="w-full min-w-[640px] table-fixed text-[13px]">
+                  <colgroup>
+                    <col className="w-[120px]" />
+                    <col />
+                    <col className="hidden xl:table-column w-[150px]" />
+                    <col className="w-[84px]" />
+                    <col className="w-[96px]" />
+                    <col className="w-[110px]" />
+                    <col className="w-[140px]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Número</th>
+                      <th className="px-3 py-2 text-left">Nome</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Solicitante</th>
+                      <th className="px-3 py-2 text-left">Data</th>
+                      <th className="px-3 py-2 text-left">Prioridade</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-right">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {data?.data.map((request: any) => (
-                      <tr key={request.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {request.requestNumber}
-                          </div>
+                      <tr key={request.id} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="px-3 py-2 whitespace-nowrap font-semibold text-gray-900 tabular-nums truncate" title={request.requestNumber}>
+                          {request.requestNumber}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="text-sm text-gray-900">{request.title}</div>
+                        <td
+                          className="px-3 py-2 text-gray-900 truncate"
+                          title={`${request.title}${request.requestedByUser?.name ? ` · Solicitante: ${request.requestedByUser.name}` : ''}`}
+                        >
+                          {request.title}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {request.requestedByUser?.name || '-'}
-                          </div>
+                        <td className="hidden xl:table-cell px-3 py-2 text-gray-700 truncate" title={request.requestedByUser?.name || undefined}>
+                          {request.requestedByUser?.name || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {formatDate(request.requestedDate)}
-                          </div>
+                        <td className="px-3 py-2 whitespace-nowrap text-gray-500 tabular-nums">
+                          {formatDate(request.requestedDate)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`inline-flex px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                               PRIORITY_COLORS[request.priority as keyof typeof PRIORITY_COLORS]
                             }`}
                           >
                             {PRIORITY_LABELS[request.priority as keyof typeof PRIORITY_LABELS]}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-3 py-2">
                           <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            className={`inline-flex max-w-full px-2 py-0.5 text-[11px] font-medium rounded-full whitespace-nowrap ${
                               STATUS_COLORS[request.status as keyof typeof STATUS_COLORS]
                             }`}
                           >
-                            {STATUS_LABELS[request.status as keyof typeof STATUS_LABELS]}
+                            <span className="truncate">{STATUS_LABELS[request.status as keyof typeof STATUS_LABELS]}</span>
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end gap-2">
+                        <td className="px-3 py-2">
+                          <div className="flex justify-end gap-2 whitespace-nowrap text-[12px] font-medium">
                             <button
                               onClick={() => navigate(`/purchase-requests/${request.id}`)}
                               className="text-blue-600 hover:text-blue-900"

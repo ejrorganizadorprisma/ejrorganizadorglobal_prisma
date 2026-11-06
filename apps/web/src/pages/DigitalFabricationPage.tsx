@@ -256,158 +256,150 @@ export function DigitalFabricationPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lote
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Progresso
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Material
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Criado
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acoes
-                </th>
+          {/* Tabela compacta — 1 linha por lote */}
+          <table className="w-full min-w-[720px] table-fixed text-[13px]">
+            <colgroup>
+              <col />
+              <col className="hidden xl:table-column w-[120px]" />
+              <col className="w-[120px]" />
+              <col className="w-[150px]" />
+              <col className="hidden xl:table-column w-[130px]" />
+              <col className="w-[120px]" />
+              <col className="w-[150px]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Lote</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-left">Tipo</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Progresso</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-right">Material</th>
+                <th className="px-3 py-2 text-left">Criado</th>
+                <th className="px-3 py-2 text-right">Acoes</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {batches.map((batch) => (
-                <tr key={batch.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-3">
+            <tbody className="divide-y divide-gray-100">
+              {batches.map((batch) => {
+                const pct = batch.totalItemsPlanned > 0
+                  ? Math.round((batch.totalItemsProduced / batch.totalItemsPlanned) * 100)
+                  : 0;
+                const material = `${batch.totalMaterialUsed.toFixed(1)}/${batch.totalMaterialPlanned.toFixed(1)} ${MaterialUnitLabels[batch.materialUnit]}`;
+                return (
+                <tr key={batch.id} className="transition-colors hover:bg-blue-50/40">
+                  <td className="px-3 py-2">
+                    <div
+                      className="flex items-center gap-2 min-w-0"
+                      title={`${batch.batchNumber}${batch.machine ? ` · ${batch.machine.name}` : ''} · ${FabricationMachineTypeLabels[batch.machineType]} · Material ${material}`}
+                    >
                       {batch.machineType === 'PRINTER_3D' ? (
-                        <Printer className="w-5 h-5 text-purple-500" />
+                        <Printer className="w-3.5 h-3.5 shrink-0 text-purple-500" />
                       ) : (
-                        <Scissors className="w-5 h-5 text-orange-500" />
+                        <Scissors className="w-3.5 h-3.5 shrink-0 text-orange-500" />
                       )}
-                      <div>
-                        <div className="font-medium text-gray-900">{batch.batchNumber}</div>
-                        {batch.machine && (
-                          <div className="text-sm text-gray-500">{batch.machine.name}</div>
-                        )}
-                      </div>
+                      <span className="font-semibold text-gray-900 whitespace-nowrap tabular-nums">{batch.batchNumber}</span>
+                      {batch.machine && (
+                        <span className="text-[11px] text-gray-400 truncate">{batch.machine.name}</span>
+                      )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">
-                      {FabricationMachineTypeLabels[batch.machineType]}
-                    </span>
+                  <td className="hidden xl:table-cell px-3 py-2 truncate text-gray-600">
+                    {FabricationMachineTypeLabels[batch.machineType]}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusColors[batch.status]}`}>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full whitespace-nowrap ${statusColors[batch.status]}`}>
                       {FabricationJobStatusLabels[batch.status]}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{
-                            width: `${batch.totalItemsPlanned > 0
-                              ? Math.round((batch.totalItemsProduced / batch.totalItemsPlanned) * 100)
-                              : 0}%`
-                          }}
-                        />
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1.5" title={`${pct}%`}>
+                      <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-sm text-gray-600">
+                      <span className="text-[11px] text-gray-600 tabular-nums whitespace-nowrap">
                         {batch.totalItemsProduced}/{batch.totalItemsPlanned}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm">
-                      <span className="text-gray-600">
-                        {batch.totalMaterialUsed.toFixed(1)}/{batch.totalMaterialPlanned.toFixed(1)}
-                      </span>
-                      <span className="text-gray-400 ml-1">
-                        {MaterialUnitLabels[batch.materialUnit]}
-                      </span>
-                    </div>
+                  <td className="hidden xl:table-cell px-3 py-2 text-right whitespace-nowrap tabular-nums">
+                    <span className="text-gray-600">
+                      {batch.totalMaterialUsed.toFixed(1)}/{batch.totalMaterialPlanned.toFixed(1)}
+                    </span>
+                    <span className="text-gray-400 ml-1 text-[11px]">
+                      {MaterialUnitLabels[batch.materialUnit]}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(batch.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                  <td className="px-3 py-2 whitespace-nowrap tabular-nums text-gray-500">
+                    {format(new Date(batch.createdAt), 'dd/MM/yy HH:mm', { locale: ptBR })}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex justify-end gap-1">
+                  <td className="px-3 py-2">
+                    <div className="flex justify-end gap-0.5 whitespace-nowrap">
                       {/* Actions based on status */}
                       {(batch.status === 'DRAFT' || batch.status === 'QUEUED') && (
                         <button
                           onClick={() => handleStart(batch.id)}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          className="p-1 text-green-600 hover:bg-green-50 rounded-md"
                           title="Iniciar"
                         >
-                          <Play className="w-4 h-4" />
+                          <Play className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {batch.status === 'IN_PROGRESS' && (
                         <>
                           <button
                             onClick={() => handlePause(batch.id)}
-                            className="p-1 text-yellow-600 hover:bg-yellow-50 rounded"
+                            className="p-1 text-yellow-600 hover:bg-yellow-50 rounded-md"
                             title="Pausar"
                           >
-                            <Pause className="w-4 h-4" />
+                            <Pause className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleComplete(batch.id)}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded"
+                            className="p-1 text-green-600 hover:bg-green-50 rounded-md"
                             title="Concluir"
                           >
-                            <Check className="w-4 h-4" />
+                            <Check className="w-3.5 h-3.5" />
                           </button>
                         </>
                       )}
                       {batch.status === 'PAUSED' && (
                         <button
                           onClick={() => handleStart(batch.id)}
-                          className="p-1 text-green-600 hover:bg-green-50 rounded"
+                          className="p-1 text-green-600 hover:bg-green-50 rounded-md"
                           title="Retomar"
                         >
-                          <Play className="w-4 h-4" />
+                          <Play className="w-3.5 h-3.5" />
                         </button>
                       )}
                       {!['COMPLETED', 'CANCELLED', 'FAILED'].includes(batch.status) && (
                         <button
                           onClick={() => handleCancel(batch.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-red-600 hover:bg-red-50 rounded-md"
                           title="Cancelar"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       )}
                       <Link
                         to={`/digital-fabrication/${batch.id}`}
-                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded-md"
                         title="Ver detalhes"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </Link>
                       {batch.status === 'DRAFT' && (
                         <button
                           onClick={() => handleDelete(batch.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-red-600 hover:bg-red-50 rounded-md"
                           title="Excluir"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           </div>

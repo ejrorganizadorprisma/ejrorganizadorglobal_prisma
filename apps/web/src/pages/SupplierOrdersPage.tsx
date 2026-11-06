@@ -239,35 +239,35 @@ export function SupplierOrdersPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-gray-900">Pedidos por Fornecedor</h1>
-              <p className="text-sm text-gray-500 mt-1">Pedidos gerados a partir de ordens de compra</p>
+      <div className="max-w-7xl mx-auto py-4 sm:px-4">
+        <div className="px-3 sm:px-0">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Pedidos por Fornecedor</h1>
+              <p className="hidden sm:block text-xs text-gray-500">Pedidos gerados a partir de ordens de compra</p>
             </div>
           </div>
 
           {/* Filtros */}
-          <div className="bg-white shadow rounded-lg p-4 mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white shadow-sm border rounded-xl p-2.5 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Buscar</label>
                 <input
                   type="text"
                   placeholder="Número, grupo..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="PENDING">Pendente</option>
@@ -280,11 +280,11 @@ export function SupplierOrdersPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Fornecedor</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Fornecedor</label>
                 <select
                   value={supplierFilter}
                   onChange={(e) => setSupplierFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   {suppliersData?.data.map((supplier: any) => (
@@ -314,79 +314,58 @@ export function SupplierOrdersPage() {
             </div>
           ) : (
             <>
-              <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+              <div className="bg-white shadow-sm border rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Pedido
-                      </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Fornecedor
-                      </th>
-                      <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Data
-                      </th>
-                      <th className="hidden xl:table-cell px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider sticky right-0 bg-gray-50 shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
-                        Ações
-                      </th>
+                <table className="w-full min-w-[760px] table-fixed text-[13px]">
+                  <colgroup>
+                    <col />
+                    <col className="w-[136px]" />
+                    <col className="hidden xl:table-column w-[84px]" />
+                    <col className="w-[120px]" />
+                    <col className="w-[108px]" />
+                    <col className="w-[176px]" />
+                  </colgroup>
+                  <thead>
+                    <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-left">Pedido</th>
+                      <th className="px-3 py-2 text-left">Fornecedor</th>
+                      <th className="hidden xl:table-cell px-3 py-2 text-left">Data</th>
+                      <th className="px-3 py-2 text-right">Total</th>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-right sticky right-0 bg-gray-50 shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {data?.data.map((order: any) => (
-                      <tr key={order.id} className="hover:bg-gray-50">
-                        <td className="px-2 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium text-gray-900 truncate max-w-[180px]" title={order.budget?.title || order.orderNumber}>
-                              {order.budget?.title || order.orderNumber}
-                            </div>
-                            {/* Status junto do pedido: a coluna própria ficava escondida
-                                embaixo da coluna fixa de ações em telas menores. */}
-                            {statusChip(order)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {order.orderNumber}
-                            {order.budget?.budgetNumber && (
-                              <span className="ml-1 text-gray-400">· {order.budget.budgetNumber}</span>
-                            )}
-                          </div>
-                          {/* Sem espaço para a coluna Total: mostra o valor aqui
-                              (só a moeda do orçamento — as conversões ficam no title) */}
+                      <tr key={order.id} className="group hover:bg-blue-50/40 transition-colors">
+                        <td className="px-3 py-2">
                           <div
-                            className="xl:hidden text-xs font-semibold text-gray-800 mt-0.5"
-                            title={formatOrderSecondaries(order) || undefined}
+                            className="flex items-baseline gap-1.5 min-w-0"
+                            title={`${order.budget?.title || order.orderNumber} · ${order.orderNumber}${order.budget?.budgetNumber ? ` · ${order.budget.budgetNumber}` : ''} · ${formatDate(order.orderDate)}`}
                           >
-                            {formatOrderValue(order)}
+                            <span className="font-medium text-gray-900 truncate">{order.budget?.title || order.orderNumber}</span>
+                            <span className="shrink-0 text-[11px] text-gray-400 tabular-nums">{order.orderNumber}</span>
                           </div>
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {order.supplier?.name || '-'}
-                          </div>
+                        <td className="px-3 py-2 text-gray-700 truncate" title={order.supplier?.name || undefined}>
+                          {order.supplier?.name || '-'}
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap">
-                          <div className="text-sm text-gray-500">
-                            {formatDate(order.orderDate)}
-                          </div>
+                        <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-gray-500 tabular-nums">
+                          {formatDate(order.orderDate)}
                         </td>
-                        <td className="hidden xl:table-cell px-2 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {formatOrderValue(order)}
-                          </div>
-                          {formatOrderSecondaries(order) && (
-                            <div className="text-[10px] text-gray-400">{formatOrderSecondaries(order)}</div>
-                          )}
+                        <td
+                          className="px-3 py-2 text-right whitespace-nowrap font-semibold text-gray-900 tabular-nums truncate"
+                          title={formatOrderSecondaries(order) || undefined}
+                        >
+                          {formatOrderValue(order)}
                         </td>
-                        <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium sticky right-0 bg-white shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
-                          <div className="flex justify-end gap-1 items-center">
+                        <td className="px-3 py-2">{statusChip(order)}</td>
+                        <td className="px-3 py-2 sticky right-0 bg-white group-hover:bg-blue-50 shadow-[-6px_0_6px_-4px_rgba(0,0,0,0.08)]">
+                          <div className="flex justify-end gap-0.5 items-center whitespace-nowrap">
                             {['PENDING', 'SENT', 'CONFIRMED', 'PARTIAL'].includes(order.status) && (
                               <button
                                 onClick={() => setReceivingOrderId(order.id)}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs font-semibold shadow-sm"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-[11px] font-semibold shadow-sm"
                                 title="Receber pedido — conferência e entrada no estoque"
                               >
                                 <PackageCheck className="w-3.5 h-3.5" /> Receber
@@ -399,14 +378,14 @@ export function SupplierOrdersPage() {
                                   href={order.invoiceFileUrl}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-xs font-semibold"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 text-[11px] font-semibold"
                                   title="Ver Nota Fiscal anexada"
                                 >
                                   <Receipt className="w-3.5 h-3.5" /> NF ✓
                                 </a>
                               ) : (
                                 <label
-                                  className="inline-flex items-center gap-1 px-2 py-1 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-xs font-semibold cursor-pointer"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 border border-blue-600 text-blue-700 rounded-md hover:bg-blue-50 text-[11px] font-semibold cursor-pointer"
                                   title="Anexar Nota Fiscal (PDF ou foto)"
                                 >
                                   <Receipt className="w-3.5 h-3.5" /> {uploadingNf === order.id ? '…' : 'NF'}
@@ -422,10 +401,10 @@ export function SupplierOrdersPage() {
 
                             <button
                               onClick={() => navigate(`/supplier-orders/${order.id}`)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded-md"
                               title="Ver detalhes"
                             >
-                              <Eye className="w-4 h-4" />
+                              <Eye className="w-3.5 h-3.5" />
                             </button>
 
                             {/* Ações secundárias no menu "⋯" — sem ele a coluna
@@ -433,10 +412,10 @@ export function SupplierOrdersPage() {
                             <button
                               data-action-menu-trigger
                               onClick={(e) => toggleActionMenu(e, order)}
-                              className={`p-1.5 rounded ${actionMenu?.order.id === order.id ? 'bg-gray-200 text-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
+                              className={`p-1 rounded-md ${actionMenu?.order.id === order.id ? 'bg-gray-200 text-gray-700' : 'text-gray-500 hover:bg-gray-100'}`}
                               title="Mais ações"
                             >
-                              <MoreHorizontal className="w-4 h-4" />
+                              <MoreHorizontal className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </td>

@@ -20,7 +20,6 @@ import {
   ShoppingCart,
   ChevronLeft,
   ChevronRight,
-  Calendar,
   AlertCircle,
   X,
   ArrowRight,
@@ -355,12 +354,20 @@ function ConvertToSaleModal({
 }
 
 // ===== MAIN PAGE =====
+/** Posição do menu flutuante a partir do botão (abre para cima perto do fim da tela). */
+function menuPosFrom(el: HTMLElement, menuHeight = 110) {
+  const r = el.getBoundingClientRect();
+  const up = r.bottom + menuHeight + 8 > window.innerHeight;
+  return { top: up ? Math.max(8, r.top - menuHeight - 4) : r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) };
+}
+
 export function QuotesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<any>('');
   const [pdfMenuOpen, setPdfMenuOpen] = useState<string | null>(null);
+  const [pdfMenuPos, setPdfMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
   const [convertingQuote, setConvertingQuote] = useState<any>(null);
   const limit = 10;
@@ -472,7 +479,7 @@ export function QuotesPage() {
   const getStatusBadge = (quoteStatus: string) => {
     const config = STATUS_CONFIG[quoteStatus] || STATUS_CONFIG.DRAFT;
     return (
-      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${config.className}`}>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${config.className}`}>
         {config.label}
       </span>
     );
@@ -495,43 +502,38 @@ export function QuotesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8 max-w-7xl">
+    <div className="container mx-auto px-3 sm:px-4 py-4 max-w-7xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-50 rounded-lg">
-            <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-blue-600" />
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-1.5 bg-blue-50 rounded-lg shrink-0">
+            <FileText className="w-5 h-5 text-blue-600" />
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Orcamentos</h1>
-            <p className="text-sm text-gray-500 hidden sm:block">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Orcamentos</h1>
+            <p className="text-xs text-gray-500 hidden sm:block">
               Gerencie seus orcamentos e propostas
             </p>
           </div>
         </div>
         <button
           onClick={() => navigate('/quotes/new')}
-          className="w-full sm:w-auto min-h-[44px] bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700
+          className="shrink-0 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                     transition-colors flex items-center justify-center gap-2 font-medium shadow-sm"
+                     transition-colors flex items-center justify-center gap-1.5 font-medium text-sm"
         >
-          <Plus className="w-5 h-5" />
-          Novo Orcamento
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Novo Orcamento</span>
+          <span className="sm:hidden">Novo</span>
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-gray-400" />
-          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Filtros</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Buscar</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
+      <div className="bg-white p-2.5 rounded-xl shadow-sm border border-gray-200 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
                 type="text"
                 value={search}
                 onChange={(e) => {
@@ -539,21 +541,22 @@ export function QuotesPage() {
                   setPage(1);
                 }}
                 placeholder="Buscar por numero do orcamento..."
-                className="w-full pl-10 pr-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg
+                aria-label="Buscar"
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg
                            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                            text-sm transition-colors"
               />
-            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <div className="flex items-center gap-2">
+            <Filter className="hidden sm:block w-4 h-4 text-gray-400" />
             <select
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-4 py-2.5 min-h-[44px] border border-gray-300 rounded-lg
+              aria-label="Status"
+              className="w-full sm:w-48 px-3 py-2 border border-gray-200 rounded-lg
                          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                          text-sm bg-white transition-colors"
             >
@@ -569,33 +572,28 @@ export function QuotesPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Numero
-                </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Cliente
-                </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 sm:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Validade
-                </th>
-                <th className="px-4 sm:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Acoes
-                </th>
+      {/* Table — compacta, 1 linha por orçamento */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+          <table className="w-full min-w-[640px] table-fixed text-[13px]">
+            <colgroup>
+              <col className="w-[150px]" />
+              <col />
+              <col className="w-[120px]" />
+              <col className="w-[112px]" />
+              <col className="hidden xl:table-column w-[110px]" />
+              <col className="w-[176px]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-3 py-2 text-left">Numero</th>
+                <th className="px-3 py-2 text-left">Cliente</th>
+                <th className="px-3 py-2 text-right">Total</th>
+                <th className="px-3 py-2 text-left">Status</th>
+                <th className="hidden xl:table-cell px-3 py-2 text-left">Validade</th>
+                <th className="px-3 py-2 text-right">Acoes</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {quotes.length > 0 ? (
                 quotes.map((quote: any) => {
                   const expired = quote.status !== 'EXPIRED'
@@ -604,32 +602,34 @@ export function QuotesPage() {
                     && quote.status !== 'REJECTED'
                     && isExpired(quote.valid_until);
                   return (
-                    <tr key={quote.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-gray-400 hidden sm:block flex-shrink-0" />
-                          <span className="text-sm font-medium text-gray-900">
+                    <tr key={quote.id} className="hover:bg-blue-50/40 transition-colors">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span
+                            className="font-semibold text-gray-900 whitespace-nowrap tabular-nums"
+                            title={`Validade: ${formatDate(quote.valid_until)}${expired ? ' (vencido)' : ''}`}
+                          >
                             {quote.quote_number}
                           </span>
+                          {expired && (
+                            <span className="xl:hidden" title={`Validade vencida: ${formatDate(quote.valid_until)}`}>
+                              <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+                            </span>
+                          )}
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">
-                          {quote.customer?.name || '-'}
-                        </span>
+                      <td className="px-3 py-2 text-gray-800 font-medium truncate" title={quote.customer?.name}>
+                        {quote.customer?.name || '-'}
                       </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {formatPrice(quote.total)}
-                        </span>
+                      <td className="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">
+                        {formatPrice(quote.total)}
                       </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 py-2">
                         {getStatusBadge(quote.status)}
                       </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-gray-400 hidden sm:block flex-shrink-0" />
-                          <span className={`text-sm ${expired ? 'text-red-600 font-medium' : 'text-gray-600'}`}>
+                      <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap">
+                        <div className="flex items-center gap-1">
+                          <span className={`tabular-nums ${expired ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
                             {formatDate(quote.valid_until)}
                           </span>
                           {expired && (
@@ -637,39 +637,45 @@ export function QuotesPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+                          {quote.status === 'APPROVED' && (
+                            <button
+                              onClick={() => handleOpenConvertModal(quote)}
+                              className="mr-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md
+                                         text-green-700 bg-green-50 hover:bg-green-100 ring-1 ring-green-200
+                                         transition-colors text-[11px] font-semibold"
+                              title="Converter em Venda"
+                            >
+                              <ShoppingCart className="w-3 h-3" />
+                              Vender
+                            </button>
+                          )}
                           <button
                             onClick={() => navigate(`/quotes/${quote.id}/edit`)}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
-                                       text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg
-                                       transition-colors"
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
                             title="Editar"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => navigate(`/quotes/${quote.id}/catalog`)}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
-                                       text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg
-                                       transition-colors"
+                            className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-md transition-colors"
                             title="Catálogo (apresentação para o cliente)"
                           >
-                            <Sparkles className="w-4 h-4" />
+                            <Sparkles className="w-3.5 h-3.5" />
                           </button>
                           <div className="relative">
                             <button
-                              onClick={() => setPdfMenuOpen(pdfMenuOpen === quote.id ? null : quote.id)}
+                              onClick={(e) => { setPdfMenuPos(menuPosFrom(e.currentTarget)); setPdfMenuOpen(pdfMenuOpen === quote.id ? null : quote.id); }}
                               disabled={pdfLoadingId === quote.id}
-                              className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
-                                         text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg
-                                         transition-colors disabled:opacity-50"
+                              className="p-1 text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-md transition-colors disabled:opacity-50"
                               title="Gerar PDF"
                             >
                               {pdfLoadingId === quote.id ? (
-                                <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                                <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
                               ) : (
-                                <FileText className="w-4 h-4" />
+                                <FileText className="w-3.5 h-3.5" />
                               )}
                             </button>
                             {pdfMenuOpen === quote.id && (
@@ -678,7 +684,8 @@ export function QuotesPage() {
                                   className="fixed inset-0 z-10"
                                   onClick={() => setPdfMenuOpen(null)}
                                 />
-                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                                <div className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
+                                  style={pdfMenuPos ? { top: pdfMenuPos.top, right: pdfMenuPos.right } : undefined}>
                                   <button
                                     onClick={() => handleGeneratePdf(quote.id, 'elegant')}
                                     className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2"
@@ -697,26 +704,12 @@ export function QuotesPage() {
                               </>
                             )}
                           </div>
-                          {quote.status === 'APPROVED' && (
-                            <button
-                              onClick={() => handleOpenConvertModal(quote)}
-                              className="inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2
-                                         text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg
-                                         transition-colors text-sm font-medium"
-                              title="Converter em Venda"
-                            >
-                              <ShoppingCart className="w-4 h-4" />
-                              <span className="hidden lg:inline">Vender</span>
-                            </button>
-                          )}
                           <button
                             onClick={() => handleDelete(quote.id, quote.quote_number)}
-                            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] p-2
-                                       text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg
-                                       transition-colors"
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
                             title="Excluir"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -768,12 +761,11 @@ export function QuotesPage() {
               )}
             </tbody>
           </table>
-        </div>
       </div>
 
       {/* Pagination */}
       {totalItems > 0 && (
-        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-sm text-gray-600">
             Mostrando {Math.min((page - 1) * limit + 1, totalItems)} a{' '}
             {Math.min(page * limit, totalItems)} de {totalItems} orcamentos

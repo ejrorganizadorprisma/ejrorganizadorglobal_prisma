@@ -138,17 +138,22 @@ function SellersPageContent() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="px-3 sm:px-4 py-4 space-y-4 max-w-7xl mx-auto">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Vendedores</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Analise de desempenho e ranking dos vendedores
-        </p>
+      <div className="flex items-center gap-2.5">
+        <div className="p-1.5 bg-indigo-100 rounded-lg shrink-0">
+          <Users className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Vendedores</h1>
+          <p className="hidden sm:block text-xs text-gray-500">
+            Analise de desempenho e ranking dos vendedores
+          </p>
+        </div>
       </div>
 
       {/* Filters Row */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border flex flex-wrap items-end gap-4">
+      <div className="bg-white p-2.5 rounded-xl shadow-sm border flex flex-wrap items-end gap-2 sm:gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Data Inicio</label>
           <input
@@ -279,44 +284,39 @@ function SellersPageContent() {
         </div>
       )}
 
-      {/* Ranking Table */}
+      {/* Ranking Table — compacta, 1 linha por vendedor */}
       {rankedSellers.length > 0 ? (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border">
-          <div className="px-6 py-4 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900">Ranking de Vendedores</h2>
-            <p className="text-sm text-gray-500 mt-1">Clique em um vendedor para ver detalhes</p>
+          <div className="px-4 py-2.5 border-b border-gray-100 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold text-gray-900">Ranking de Vendedores</h2>
+            <p className="text-[11px] text-gray-400 truncate">Clique em um vendedor para ver detalhes</p>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
-                    #
+            <table className="w-full min-w-[620px] table-fixed text-[13px]">
+              <colgroup>
+                <col className="w-[48px]" />
+                <col />
+                <col className="w-[44px]" />
+                <col className="w-[72px]" />
+                <col className="w-[124px]" />
+                <col className="hidden xl:table-column w-[116px]" />
+                <col className="hidden xl:table-column w-[80px]" />
+                <col className="w-[88px]" />
+                <col className="hidden xl:table-column w-[140px]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left">#</th>
+                  <th className="px-3 py-2 text-left">Vendedor</th>
+                  <th className="px-2 py-2 text-center" title="App Celular">
+                    <Smartphone className="w-3.5 h-3.5 inline-block" />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vendedor
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12" title="App Celular">
-                    <Smartphone className="w-4 h-4 inline-block" />
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vendas
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Receita
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ticket Medio
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Clientes
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Conversao
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
-                    % Receita
-                  </th>
+                  <th className="px-3 py-2 text-right">Vendas</th>
+                  <th className="px-3 py-2 text-right">Receita</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-right">Ticket Medio</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-right">Clientes</th>
+                  <th className="px-3 py-2 text-right">Conversao</th>
+                  <th className="hidden xl:table-cell px-3 py-2 text-left">% Receita</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -334,68 +334,59 @@ function SellersPageContent() {
                       className={`cursor-pointer transition-colors ${
                         seller.id === selectedSellerId
                           ? 'bg-indigo-50'
-                          : 'hover:bg-gray-50'
+                          : 'hover:bg-indigo-50/40'
                       }`}
                     >
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`text-sm ${index < 3 ? 'text-lg' : 'text-gray-500 font-medium'}`}>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <span className={index < 3 ? 'text-base leading-none' : 'text-gray-500 font-medium tabular-nums'}>
                           {getMedalOrPosition(index)}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{seller.name}</p>
-                          <p className="text-xs text-gray-500">{seller.email}</p>
-                        </div>
+                      <td
+                        className="px-3 py-2 truncate"
+                        title={`${seller.name}${seller.email ? ` · ${seller.email}` : ''} · ticket ${formatPrice(seller.avg_ticket)} · ${seller.total_customers} clientes · ${revenuePercent.toFixed(0)}% da receita`}
+                      >
+                        <span className="font-medium text-gray-900">{seller.name}</span>
+                        {seller.email && <span className="ml-1.5 text-[11px] text-gray-400">{seller.email}</span>}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                      <td className="px-2 py-2 whitespace-nowrap text-center">
                         {seller.mobile_app_authorized ? (
                           seller.mobile_app_last_login &&
                           Date.now() - new Date(seller.mobile_app_last_login).getTime() < 24 * 60 * 60 * 1000 ? (
                             <span title="App ativo">
-                              <Smartphone className="w-4 h-4 text-green-500 inline-block" />
+                              <Smartphone className="w-3.5 h-3.5 text-green-500 inline-block" />
                             </span>
                           ) : (
                             <span title="App autorizado (inativo)">
-                              <Smartphone className="w-4 h-4 text-gray-400 inline-block" />
+                              <Smartphone className="w-3.5 h-3.5 text-gray-400 inline-block" />
                             </span>
                           )
                         ) : (
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm font-medium text-gray-900">
-                          {seller.total_sales.toLocaleString('pt-BR')}
-                        </span>
+                      <td className="px-3 py-2 whitespace-nowrap text-right font-medium text-gray-900 tabular-nums">
+                        {seller.total_sales.toLocaleString('pt-BR')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm font-semibold text-emerald-600">
-                          {formatPrice(seller.total_revenue)}
-                        </span>
+                      <td className="px-3 py-2 whitespace-nowrap text-right font-semibold text-emerald-600 tabular-nums">
+                        {formatPrice(seller.total_revenue)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-700">
-                          {formatPrice(seller.avg_ticket)}
-                        </span>
+                      <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-right text-gray-700 tabular-nums">
+                        {formatPrice(seller.avg_ticket)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-700">
-                          {seller.total_customers.toLocaleString('pt-BR')}
-                        </span>
+                      <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap text-right text-gray-700 tabular-nums">
+                        {seller.total_customers.toLocaleString('pt-BR')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-700">{conversionRate}%</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 py-2 whitespace-nowrap text-right text-gray-700 tabular-nums">{conversionRate}%</td>
+                      <td className="hidden xl:table-cell px-3 py-2 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                             <div
-                              className="bg-indigo-600 rounded-full h-2 transition-all"
+                              className="bg-indigo-600 rounded-full h-1.5 transition-all"
                               style={{ width: `${revenuePercent}%` }}
                             />
                           </div>
-                          <span className="text-xs text-gray-500 w-10 text-right">
+                          <span className="text-[11px] text-gray-500 w-9 text-right tabular-nums">
                             {revenuePercent.toFixed(0)}%
                           </span>
                         </div>

@@ -84,37 +84,35 @@ export function ReportsPage() {
                   {salesData.sales && salesData.sales.length > 0 && (
                     <div>
                       <h3 className="text-md font-medium text-gray-900 mb-3">Vendas Recentes</h3>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Número
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Cliente
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Data
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Total
-                              </th>
+                      <div className="overflow-x-auto rounded-xl border">
+                        <table className="w-full min-w-[480px] table-fixed text-[13px]">
+                          <colgroup>
+                            <col className="w-[140px]" />
+                            <col />
+                            <col className="w-[90px]" />
+                            <col className="w-[130px]" />
+                          </colgroup>
+                          <thead>
+                            <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                              <th className="px-3 py-2 text-left">Número</th>
+                              <th className="px-3 py-2 text-left">Cliente</th>
+                              <th className="px-3 py-2 text-left">Data</th>
+                              <th className="px-3 py-2 text-right">Total</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="divide-y divide-gray-100">
                             {salesData.sales.map((sale: any) => (
-                              <tr key={sale.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <tr key={sale.id} className="transition-colors hover:bg-blue-50/40">
+                                <td className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap tabular-nums truncate" title={sale.quoteNumber}>
                                   {sale.quoteNumber}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-3 py-2 text-gray-800 truncate" title={sale.customer?.name}>
                                   {sale.customer?.name}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  {new Date(sale.createdAt).toLocaleDateString('pt-BR')}
+                                <td className="px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">
+                                  {new Date(sale.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <td className="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">
                                   {formatPrice(sale.total)}
                                 </td>
                               </tr>
@@ -168,39 +166,35 @@ export function ReportsPage() {
                       <h3 className="text-md font-medium text-gray-900 mb-3">
                         Produtos com Estoque Baixo
                       </h3>
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Código
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Nome
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Estoque Atual
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Estoque Mínimo
-                              </th>
+                      <div className="overflow-x-auto rounded-xl border">
+                        <table className="w-full min-w-[480px] table-fixed text-[13px]">
+                          <colgroup>
+                            <col className="w-[120px]" />
+                            <col />
+                            <col className="w-[110px]" />
+                            <col className="w-[110px]" />
+                          </colgroup>
+                          <thead>
+                            <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                              <th className="px-3 py-2 text-left">Código</th>
+                              <th className="px-3 py-2 text-left">Nome</th>
+                              <th className="px-3 py-2 text-right">Estoque Atual</th>
+                              <th className="px-3 py-2 text-right">Estoque Mínimo</th>
                             </tr>
                           </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
+                          <tbody className="divide-y divide-gray-100">
                             {inventoryData.lowStockProducts.map((product: any) => (
-                              <tr key={product.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <tr key={product.id} className="transition-colors hover:bg-blue-50/40">
+                                <td className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap truncate" title={product.code}>
                                   {product.code}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-3 py-2 text-gray-800 truncate" title={product.name}>
                                   {product.name}
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                  <span className="text-red-600 font-medium">
-                                    {product.currentStock}
-                                  </span>
+                                <td className="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+                                  <span className="text-red-600 font-semibold">{product.currentStock}</span>
                                 </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                <td className="px-3 py-2 text-right text-gray-500 whitespace-nowrap tabular-nums">
                                   {product.minimumStock}
                                 </td>
                               </tr>

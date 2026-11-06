@@ -30,6 +30,8 @@ import {
   Loader2,
   FileText,
   Printer,
+  Check,
+  Undo2,
 } from 'lucide-react';
 
 const statusConfig: Record<
@@ -41,6 +43,13 @@ const statusConfig: Record<
   DEPOSITED: { label: 'Depositado', bg: 'bg-green-100', text: 'text-green-800' },
   REJECTED: { label: 'Rejeitado', bg: 'bg-red-100', text: 'text-red-800' },
 };
+
+/** Posição do menu flutuante a partir do botão (abre para cima perto do fim da tela). */
+function menuPosFrom(el: HTMLElement, menuHeight = 110) {
+  const r = el.getBoundingClientRect();
+  const up = r.bottom + menuHeight + 8 > window.innerHeight;
+  return { top: up ? Math.max(8, r.top - menuHeight - 4) : r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) };
+}
 
 export function CollectionsPage() {
   const permissionCheck = useRequirePermission({
@@ -178,63 +187,63 @@ function CollectionsPageContent() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-blue-100 rounded-lg">
-          <Receipt className="w-6 h-6 text-blue-600" />
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="p-1.5 bg-blue-100 rounded-lg shrink-0">
+          <Receipt className="w-5 h-5 text-blue-600" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cobrancas</h1>
-          <p className="text-sm text-gray-500">Gerencie cobrancas de vendedores em campo</p>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Cobrancas</h1>
+          <p className="hidden sm:block text-xs text-gray-500">Gerencie cobrancas de vendedores em campo</p>
         </div>
       </div>
 
       {/* KPI Cards */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-4">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <Receipt className="w-4 h-4 text-gray-400" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Total Cobrancas</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider truncate">Total Cobrancas</span>
             </div>
-            <p className="text-xl font-bold text-gray-900">{stats.totalCollections}</p>
-            <p className="text-sm text-gray-500">{formatPrice(stats.totalAmount)}</p>
+            <p className="text-lg font-bold tabular-nums text-gray-900">{stats.totalCollections}</p>
+            <p className="text-xs text-gray-500 tabular-nums truncate">{formatPrice(stats.totalAmount)}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <Clock className="w-4 h-4 text-amber-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Pendente Aprovacao</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider truncate">Pendente Aprovacao</span>
             </div>
-            <p className="text-xl font-bold text-amber-600">{stats.pendingApprovalCount}</p>
-            <p className="text-sm text-gray-500">{formatPrice(stats.pendingApprovalAmount)}</p>
+            <p className="text-lg font-bold tabular-nums text-amber-600">{stats.pendingApprovalCount}</p>
+            <p className="text-xs text-gray-500 tabular-nums truncate">{formatPrice(stats.pendingApprovalAmount)}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <CheckCircle className="w-4 h-4 text-blue-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Aprovado</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider truncate">Aprovado</span>
             </div>
-            <p className="text-xl font-bold text-blue-600">{stats.approvedCount}</p>
-            <p className="text-sm text-gray-500">{formatPrice(stats.approvedAmount)}</p>
+            <p className="text-lg font-bold tabular-nums text-blue-600">{stats.approvedCount}</p>
+            <p className="text-xs text-gray-500 tabular-nums truncate">{formatPrice(stats.approvedAmount)}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border p-4">
-            <div className="flex items-center gap-2 mb-1">
+          <div className="bg-white rounded-xl shadow-sm border px-3 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
               <Landmark className="w-4 h-4 text-green-500" />
-              <span className="text-xs font-medium text-gray-500 uppercase">Depositado</span>
+              <span className="text-[10.5px] font-medium text-gray-500 uppercase tracking-wider truncate">Depositado</span>
             </div>
-            <p className="text-xl font-bold text-green-600">{stats.depositedCount}</p>
-            <p className="text-sm text-gray-500">{formatPrice(stats.depositedAmount)}</p>
+            <p className="text-lg font-bold tabular-nums text-green-600">{stats.depositedCount}</p>
+            <p className="text-xs text-gray-500 tabular-nums truncate">{formatPrice(stats.depositedAmount)}</p>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border mb-6">
-        <div className="p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white rounded-xl shadow-sm border mb-4">
+        <div className="p-2.5 flex flex-col sm:flex-row gap-2">
           <select
             value={status}
             onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="">Todos status</option>
             <option value="PENDING_APPROVAL">Pendente Aprovacao</option>
@@ -245,7 +254,7 @@ function CollectionsPageContent() {
           <select
             value={sellerId}
             onChange={(e) => { setSellerId(e.target.value); setPage(1); }}
-            className="px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
           >
             <option value="">Todos vendedores</option>
             {sellers?.map((s) => (
@@ -254,7 +263,7 @@ function CollectionsPageContent() {
           </select>
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`px-3 py-2.5 border rounded-lg text-sm flex items-center gap-2 transition-colors ${
+            className={`px-3 py-2 border rounded-lg text-sm flex items-center gap-2 transition-colors ${
               showFilters || hasActiveFilters
                 ? 'border-blue-500 text-blue-600 bg-blue-50'
                 : 'border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -318,21 +327,32 @@ function CollectionsPageContent() {
         </div>
       ) : (
         <>
-          {/* Table */}
+          {/* Table — compacta, 1 linha por cobrança */}
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[680px] table-fixed text-[13px]">
+                <colgroup>
+                  <col className="w-[124px]" />
+                  <col className="hidden xl:table-column w-[124px]" />
+                  <col />
+                  <col className="hidden xl:table-column w-[130px]" />
+                  <col className="w-[118px]" />
+                  <col className="hidden xl:table-column w-[100px]" />
+                  <col className="w-[112px]" />
+                  <col className="hidden xl:table-column w-[84px]" />
+                  <col className="w-[196px]" />
+                </colgroup>
                 <thead>
-                  <tr className="border-b bg-gray-50/50">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Numero</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Venda</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden lg:table-cell">Vendedor</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Valor</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Metodo</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Data</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acoes</th>
+                  <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                    <th className="px-3 py-2 text-left">Numero</th>
+                    <th className="hidden xl:table-cell px-3 py-2 text-left">Venda</th>
+                    <th className="px-3 py-2 text-left">Cliente</th>
+                    <th className="hidden xl:table-cell px-3 py-2 text-left">Vendedor</th>
+                    <th className="px-3 py-2 text-right">Valor</th>
+                    <th className="hidden xl:table-cell px-3 py-2 text-left">Metodo</th>
+                    <th className="px-3 py-2 text-left">Status</th>
+                    <th className="hidden xl:table-cell px-3 py-2 text-left">Data</th>
+                    <th className="px-3 py-2 text-right">Acoes</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -365,7 +385,7 @@ function CollectionsPageContent() {
 
           {/* Pagination */}
           {totalItems > limit && (
-            <div className="mt-6 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <p className="text-sm text-gray-500">
                 {(page - 1) * limit + 1}-{Math.min(page * limit, totalItems)} de {totalItems}
               </p>
@@ -497,43 +517,96 @@ function CollectionRow({
   isDepositing,
 }: CollectionRowProps) {
   const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
+  const [pdfMenuPos, setPdfMenuPos] = useState<{ top: number; right: number } | null>(null);
   return (
     <>
-      <tr className="hover:bg-gray-50 cursor-pointer" onClick={onToggleExpand}>
-        <td className="px-4 py-3 font-semibold text-gray-900">{c.collectionNumber}</td>
-        <td className="px-4 py-3 text-gray-700">{c.sale?.saleNumber || '-'}</td>
-        <td className="px-4 py-3 text-gray-700">{c.customer?.name || c.sale?.customer?.name || '-'}</td>
-        <td className="px-4 py-3 text-gray-700 hidden lg:table-cell">{c.seller?.name || '-'}</td>
-        <td className="px-4 py-3 text-right font-semibold text-gray-900">{formatPrice(c.amount)}</td>
-        <td className="px-4 py-3 text-gray-600 hidden md:table-cell">{c.paymentMethod}</td>
-        <td className="px-4 py-3 text-center">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cfg.bg} ${cfg.text}`}>
+      <tr className={`cursor-pointer transition-colors ${isExpanded ? 'bg-blue-50/60' : 'hover:bg-blue-50/40'}`} onClick={onToggleExpand}>
+        <td className="px-3 py-2">
+          <span
+            className="font-semibold text-gray-900 whitespace-nowrap tabular-nums"
+            title={[
+              c.sale?.saleNumber ? `Venda ${c.sale.saleNumber}` : null,
+              c.seller?.name ? `Vendedor: ${c.seller.name}` : null,
+              c.paymentMethod ? `Método: ${c.paymentMethod}` : null,
+              new Date(c.collectedAt || c.createdAt).toLocaleDateString('pt-BR'),
+            ].filter(Boolean).join(' · ')}
+          >
+            {c.collectionNumber}
+          </span>
+        </td>
+        <td className="hidden xl:table-cell px-3 py-2 text-gray-600 whitespace-nowrap tabular-nums truncate">{c.sale?.saleNumber || '-'}</td>
+        <td className="px-3 py-2 text-gray-800 font-medium truncate" title={c.customer?.name || c.sale?.customer?.name || undefined}>
+          {c.customer?.name || c.sale?.customer?.name || '-'}
+        </td>
+        <td className="hidden xl:table-cell px-3 py-2 text-gray-500 truncate" title={c.seller?.name || undefined}>{c.seller?.name || '-'}</td>
+        <td className="px-3 py-2 text-right font-semibold text-gray-900 whitespace-nowrap tabular-nums">{formatPrice(c.amount)}</td>
+        <td className="hidden xl:table-cell px-3 py-2 text-gray-500 truncate" title={c.paymentMethod}>{c.paymentMethod}</td>
+        <td className="px-3 py-2">
+          <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${cfg.bg} ${cfg.text}`}>
             {cfg.label}
           </span>
         </td>
-        <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-          {new Date(c.collectedAt || c.createdAt).toLocaleDateString('pt-BR')}
+        <td className="hidden xl:table-cell px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">
+          {new Date(c.collectedAt || c.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
         </td>
-        <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-end gap-1">
+        <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+            {c.status === 'PENDING_APPROVAL' && (
+              <>
+                <button
+                  onClick={onApprove}
+                  disabled={isApproving}
+                  className="mr-0.5 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  title="Aprovar"
+                >
+                  <Check className="w-3 h-3" /> Aprovar
+                </button>
+                <button
+                  onClick={onReject}
+                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+                  title="Rejeitar"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
+            {c.status === 'APPROVED' && (
+              <button
+                onClick={onDeposit}
+                disabled={isDepositing}
+                className="mr-0.5 inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                title="Marcar como depositado"
+              >
+                <Landmark className="w-3 h-3" /> Depositado
+              </button>
+            )}
+            {(c.status === 'APPROVED' || c.status === 'DEPOSITED') && (
+              <button
+                onClick={onRevert}
+                title="Estornar: devolve as parcelas da venda que esta cobrança quitou"
+                className="p-1 text-orange-600 hover:text-orange-800 hover:bg-orange-50 rounded-md transition-colors"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               onClick={onToggleExpand}
-              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
               title="Ver detalhes"
             >
-              <Eye className="w-4 h-4" />
+              <Eye className="w-3.5 h-3.5" />
             </button>
             <div className="relative">
               <button
-                onClick={() => setPdfMenuOpen((v) => !v)}
+                onClick={(e) => { setPdfMenuPos(menuPosFrom(e.currentTarget)); setPdfMenuOpen((v) => !v); }}
                 disabled={isPdfLoading}
-                className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50"
+                className="p-1 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors disabled:opacity-50"
                 title="Gerar PDF"
               >
                 {isPdfLoading ? (
-                  <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3.5 h-3.5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  <FileText className="w-4 h-4" />
+                  <FileText className="w-3.5 h-3.5" />
                 )}
               </button>
               {pdfMenuOpen && (
@@ -542,7 +615,8 @@ function CollectionRow({
                     className="fixed inset-0 z-10"
                     onClick={() => setPdfMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 min-w-[180px]">
+                  <div className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-[180px]"
+                                  style={pdfMenuPos ? { top: pdfMenuPos.top, right: pdfMenuPos.right } : undefined}>
                     <button
                       onClick={() => {
                         setPdfMenuOpen(false);
@@ -567,41 +641,6 @@ function CollectionRow({
                 </>
               )}
             </div>
-            {c.status === 'PENDING_APPROVAL' && (
-              <>
-                <button
-                  onClick={onApprove}
-                  disabled={isApproving}
-                  className="px-2.5 py-1 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-                >
-                  Aprovar
-                </button>
-                <button
-                  onClick={onReject}
-                  className="px-2.5 py-1 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Rejeitar
-                </button>
-              </>
-            )}
-            {c.status === 'APPROVED' && (
-              <button
-                onClick={onDeposit}
-                disabled={isDepositing}
-                className="px-2.5 py-1 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                Depositado
-              </button>
-            )}
-            {(c.status === 'APPROVED' || c.status === 'DEPOSITED') && (
-              <button
-                onClick={onRevert}
-                title="Estornar: devolve as parcelas da venda que esta cobrança quitou"
-                className="px-2.5 py-1 text-xs font-medium text-orange-700 border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
-              >
-                Estornar
-              </button>
-            )}
           </div>
         </td>
       </tr>

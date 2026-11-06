@@ -53,28 +53,28 @@ function CommissionsPageContent() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-purple-100 rounded-lg">
-          <Percent className="w-6 h-6 text-purple-600" />
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="p-1.5 bg-purple-100 rounded-lg shrink-0">
+          <Percent className="w-5 h-5 text-purple-600" />
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Comissoes</h1>
-          <p className="text-sm text-gray-500">Configuracao e gestao de comissoes de vendedores</p>
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">Comissoes</h1>
+          <p className="hidden sm:block text-xs text-gray-500">Configuracao e gestao de comissoes de vendedores</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border mb-6">
-        <div className="flex border-b">
+      <div className="bg-white rounded-xl shadow-sm border mb-4 overflow-x-auto">
+        <div className="flex border-b min-w-max">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors border-b-2 ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
                   activeTab === tab.key
                     ? 'border-purple-600 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -158,31 +158,31 @@ function ConfigTab() {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-      <div className="px-6 py-4 border-b">
-        <h2 className="text-lg font-semibold text-gray-900">Configuracao de Comissoes por Vendedor</h2>
-        <p className="text-sm text-gray-500 mt-1">Defina os percentuais de comissao sobre vendas e cobrancas para cada vendedor</p>
+      <div className="px-4 py-2.5 border-b">
+        <h2 className="text-sm font-semibold text-gray-900">Configuracao de Comissoes por Vendedor</h2>
+        <p className="text-[11px] text-gray-500">Defina os percentuais de comissao sobre vendas e cobrancas para cada vendedor</p>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[640px] text-[13px]">
           <thead>
-            <tr className="border-b bg-gray-50/50">
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vendedor</th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase hidden sm:table-cell">Email</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">% Vendas</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">% Cobrancas</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Por Produto</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acoes</th>
+            <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left whitespace-nowrap">Vendedor</th>
+              <th className="px-3 py-2 text-left hidden xl:table-cell whitespace-nowrap">Email</th>
+              <th className="px-3 py-2 text-center whitespace-nowrap">% Vendas</th>
+              <th className="px-3 py-2 text-center whitespace-nowrap">% Cobrancas</th>
+              <th className="px-3 py-2 text-center whitespace-nowrap">Por Produto</th>
+              <th className="px-3 py-2 text-center whitespace-nowrap">Status</th>
+              <th className="px-3 py-2 text-right whitespace-nowrap">Acoes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {mergedSellers.map((s) => {
               const isEditing = editingId === s.sellerId;
               return (
-                <tr key={s.sellerId} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">{s.sellerName}</td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{s.sellerEmail}</td>
-                  <td className="px-4 py-3 text-center">
+                <tr key={s.sellerId} className="hover:bg-purple-50/40 transition-colors">
+                  <td className="px-3 py-2 font-medium text-gray-900 max-w-[240px] truncate" title={s.sellerName}>{s.sellerName}</td>
+                  <td className="px-3 py-2 text-gray-500 hidden xl:table-cell max-w-[220px] truncate" title={s.sellerEmail}>{s.sellerEmail}</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-center">
                     {isEditing ? (
                       <input
                         type="number"
@@ -191,13 +191,13 @@ function ConfigTab() {
                         max="100"
                         value={editSales}
                         onChange={(e) => setEditSales(parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                        className="w-16 px-1.5 py-0.5 border border-gray-300 rounded text-[13px] text-center tabular-nums focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                     ) : (
                       <span className={s.hasConfig ? 'text-gray-900' : 'text-gray-400'}>{s.commissionOnSales}%</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2 whitespace-nowrap text-center">
                     {isEditing ? (
                       <input
                         type="number"
@@ -206,13 +206,13 @@ function ConfigTab() {
                         max="100"
                         value={editCollections}
                         onChange={(e) => setEditCollections(parseFloat(e.target.value) || 0)}
-                        className="w-20 px-2 py-1 border border-gray-300 rounded text-sm text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                        className="w-16 px-1.5 py-0.5 border border-gray-300 rounded text-[13px] text-center tabular-nums focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                     ) : (
                       <span className={s.hasConfig ? 'text-gray-900' : 'text-gray-400'}>{s.commissionOnCollections}%</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2 whitespace-nowrap text-center">
                     {isEditing ? (
                       <label className="inline-flex items-center gap-1.5 cursor-pointer">
                         <input
@@ -229,31 +229,31 @@ function ConfigTab() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-2 whitespace-nowrap text-center">
                     {s.hasConfig ? (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap bg-green-100 text-green-800">
                         Configurado
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap bg-gray-100 text-gray-500">
                         Sem comissao
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-3 py-2 whitespace-nowrap text-right">
                     {isEditing ? (
                       <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleSave(s.sellerId)}
                           disabled={updateConfig.isPending}
-                          className="px-3 py-1.5 text-xs font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
+                          className="px-2 py-0.5 text-[11px] font-semibold text-white bg-purple-600 rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-1"
                         >
                           <Save className="w-3 h-3" />
                           Salvar
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                          className="px-2 py-0.5 text-[11px] font-medium text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
                         >
                           Cancelar
                         </button>
@@ -261,7 +261,7 @@ function ConfigTab() {
                     ) : (
                       <button
                         onClick={() => startEdit(s)}
-                        className="px-3 py-1.5 text-xs font-medium text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-50 transition-colors"
+                        className="px-2 py-0.5 text-[11px] font-semibold text-purple-600 border border-purple-300 rounded-md hover:bg-purple-50 transition-colors"
                       >
                         {s.hasConfig ? 'Editar' : 'Definir %'}
                       </button>
@@ -408,34 +408,34 @@ function EntriesTab() {
       ) : (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead>
-                <tr className="border-b bg-gray-50/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vendedor</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tipo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Base</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Taxa</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Comissao</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Vendedor</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Tipo</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">Base</th>
+                  <th className="px-3 py-2 text-center whitespace-nowrap">Taxa</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">Comissao</th>
+                  <th className="px-3 py-2 text-center whitespace-nowrap">Status</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Data</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {entries.map((entry: CommissionEntry) => {
                   const sCfg = entryStatusConfig[entry.status] || entryStatusConfig.PENDING;
                   return (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{entry.sellerName}</td>
-                      <td className="px-4 py-3 text-gray-700">{sourceTypeLabels[entry.sourceType] || entry.sourceType}</td>
-                      <td className="px-4 py-3 text-right text-gray-900">{formatPrice(entry.baseAmount)}</td>
-                      <td className="px-4 py-3 text-center text-gray-600">{entry.commissionRate}%</td>
-                      <td className="px-4 py-3 text-right font-semibold text-purple-700">{formatPrice(entry.commissionAmount)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sCfg.bg} ${sCfg.text}`}>
+                    <tr key={entry.id} className="hover:bg-purple-50/40 transition-colors">
+                      <td className="px-3 py-2 font-medium text-gray-900 max-w-[240px] truncate" title={entry.sellerName}>{entry.sellerName}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-700">{sourceTypeLabels[entry.sourceType] || entry.sourceType}</td>
+                      <td className="px-3 py-2 text-right text-gray-900 whitespace-nowrap tabular-nums">{formatPrice(entry.baseAmount)}</td>
+                      <td className="px-3 py-2 text-center text-gray-600 tabular-nums">{entry.commissionRate}%</td>
+                      <td className="px-3 py-2 text-right font-semibold text-purple-700 whitespace-nowrap tabular-nums">{formatPrice(entry.commissionAmount)}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${sCfg.bg} ${sCfg.text}`}>
                           {sCfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{new Date(entry.createdAt).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">{new Date(entry.createdAt).toLocaleDateString('pt-BR')}</td>
                     </tr>
                   );
                 })}
@@ -590,41 +590,41 @@ function SettlementsTab() {
       ) : (
         <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[640px] text-[13px]">
               <thead>
-                <tr className="border-b bg-gray-50/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Numero</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Vendedor</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Total</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Periodo</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Data</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Acoes</th>
+                <tr className="border-b bg-gray-50/70 text-[10.5px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Numero</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Vendedor</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">Total</th>
+                  <th className="px-3 py-2 text-left hidden xl:table-cell whitespace-nowrap">Periodo</th>
+                  <th className="px-3 py-2 text-center whitespace-nowrap">Status</th>
+                  <th className="px-3 py-2 text-left whitespace-nowrap">Data</th>
+                  <th className="px-3 py-2 text-right whitespace-nowrap">Acoes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {settlements.map((s: CommissionSettlement) => {
                   const sCfg = settlementStatusConfig[s.status] || settlementStatusConfig.PENDING;
                   return (
-                    <tr key={s.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-semibold text-gray-900">{s.settlementNumber}</td>
-                      <td className="px-4 py-3 text-gray-700">{s.sellerName}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-purple-700">{formatPrice(s.totalAmount)}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
+                    <tr key={s.id} className="hover:bg-purple-50/40 transition-colors">
+                      <td className="px-3 py-2 font-semibold text-gray-900 whitespace-nowrap tabular-nums">{s.settlementNumber}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[240px] truncate" title={s.sellerName}>{s.sellerName}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-purple-700 whitespace-nowrap tabular-nums">{formatPrice(s.totalAmount)}</td>
+                      <td className="px-3 py-2 text-gray-500 text-xs hidden xl:table-cell whitespace-nowrap tabular-nums">
                         {new Date(s.periodStart).toLocaleDateString('pt-BR')} - {new Date(s.periodEnd).toLocaleDateString('pt-BR')}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sCfg.bg} ${sCfg.text}`}>
+                      <td className="px-3 py-2 whitespace-nowrap text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap ${sCfg.bg} ${sCfg.text}`}>
                           {sCfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{new Date(s.createdAt).toLocaleDateString('pt-BR')}</td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap tabular-nums">{new Date(s.createdAt).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-right">
                         {s.status === 'PENDING' && (
                           <button
                             onClick={() => handlePay(s.id)}
                             disabled={paySettlement.isPending}
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                            className="px-2 py-0.5 text-[11px] font-semibold text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50"
                           >
                             Marcar Pago
                           </button>
