@@ -13,6 +13,7 @@ import { useFormatPrice } from '../hooks/useFormatPrice';
 import { useNextNfNumber } from '../hooks/useSales';
 import { PAYMENT_METHOD_LABELS } from '../lib/payment-methods';
 import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
+import { UnknownBarcodeModal } from '../components/pos/UnknownBarcodeModal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -220,6 +221,7 @@ export function PosPage() {
   const [searching, setSearching] = useState(false);
   const [modal, setModal] = useState<null | 'pay' | 'customer' | 'discount' | 'qty' | 'supply' | 'withdraw' | 'close' | 'sales' | 'help'>(null);
   const [lastSale, setLastSale] = useState<ReceiptData | null>(null);
+  const [unknownCode, setUnknownCode] = useState<string | null>(null);
   const [printData, setPrintData] = useState<ReceiptData | null>(null);
   const [autoPrint, setAutoPrint] = useState(() => localStorage.getItem('pos-auto-print') === '1');
   const [now, setNow] = useState(new Date());
@@ -234,7 +236,7 @@ export function PosPage() {
   useEffect(() => { localStorage.setItem('pos-auto-print', autoPrint ? '1' : '0'); }, [autoPrint]);
 
   const focusScan = useCallback(() => setTimeout(() => scanRef.current?.focus(), 30), []);
-  useEffect(() => { if (!modal && !lastSale) focusScan(); }, [modal, lastSale, focusScan]);
+  useEffect(() => { if (!modal && !lastSale && !unknownCode) focusScan(); }, [modal, lastSale, unknownCode, focusScan]);
 
   // Totais do carrinho
   const subtotal = cart.reduce((a, i) => a + Math.max(0, i.unitPrice * i.quantity - i.discount), 0);
@@ -311,7 +313,11 @@ export function PosPage() {
       const r = await searchProducts(term);
       const exact = r.find((p) => [p.barcode, p.code].some((c: any) => c && String(c).toLowerCase() === term.toLowerCase()));
       if (exact || r.length === 1) { addProduct(exact || r[0], qty); setQuery(''); setSuggestions([]); }
-      else if (r.length === 0) { toast.error(`Produto não encontrado: ${term}`); scanRef.current?.select(); }
+      else if (r.length === 0) {
+        // Código de barras desconhecido → oferece vincular / cadastrar
+        if (/^[0-9A-Za-z\-.]{6,}$/.test(term) && /\d{6,}/.test(term)) { setUnknownCode(term); setQuery(''); }
+        else { toast.error(`Produto não encontrado: ${term}`); scanRef.current?.select(); }
+      }
       else { setSuggestions(r); setSugIndex(0); }
     } catch (e: any) {
       toast.error(errMsg(e, 'Erro ao buscar produto'));
@@ -337,7 +343,7 @@ export function PosPage() {
         if (e.key.toLowerCase() === 'p') { e.preventDefault(); doPrint(lastSale); }
         return;
       }
-      if (modal) return;
+      if (modal || unknownCode) return;
       const map: Record<string, () => void> = {
         F1: () => setModal('help'),
         F2: () => { scanRef.current?.focus(); scanRef.current?.select(); },
@@ -627,6 +633,16 @@ export function PosPage() {
           onReprint={async (id) => { const { data } = await api.get(`/pos/sales/${id}/receipt`); doPrint(data.data); }} />
       )}
       {modal === 'help' && <HelpModal onClose={() => setModal(null)} />}
+      {unknownCode && (
+        <UnknownBarcodeModal
+          code={unknownCode}
+          isManager={['OWNER', 'DIRECTOR', 'MANAGER'].includes(user?.role || '')}
+          fmt={fmt}
+          decimals={decimals}
+          onClose={() => { setUnknownCode(null); focusScan(); }}
+          onAdded={(p) => { addProduct(p, 1); setUnknownCode(null); focusScan(); }}
+        />
+      )}
 
       {/* Venda concluída */}
       {lastSale && (

@@ -5,13 +5,14 @@ import { toast } from 'sonner';
 import {
   ScanBarcode, Search, Trash2, Minus, Plus, User, Percent, Wallet, Check, Printer, Lock, LogOut,
   ArrowDownCircle, ArrowUpCircle, History, Store, Loader2, ShoppingCart, Monitor, MoreVertical, X,
-  Share2, Link2, Camera, Keyboard as KeyboardIcon,
+  Share2, Link2, Camera,
 } from 'lucide-react';
 import { api } from '../lib/api';
 import { useAuth } from '../hooks/useAuth';
 import { useFormatPrice } from '../hooks/useFormatPrice';
 import { resolveCustomerPrice, priceTierLabel } from '@ejr/shared-types';
 import { CameraScanner } from '../components/pos/CameraScanner';
+import { UnknownBarcodeModal } from '../components/pos/UnknownBarcodeModal';
 import {
   type CartItem, type PosCustomer, type Session, type ReceiptData,
   CONSUMER, POS_PRINT_CSS, label, errMsg,
@@ -20,24 +21,54 @@ import {
 
 const MANAGER_ROLES = ['OWNER', 'DIRECTOR', 'MANAGER'];
 
-/** Bipe curto + vibração ao ler um código (feedback de supermercado). */
+/**
+ * Bipe curto + vibração ao ler um código (feedback de supermercado).
+ * Celular (principalmente iPhone) só libera som depois de um toque na tela:
+ * o primeiro toque em qualquer lugar "destrava" o áudio.
+ */
 function useBeep() {
   const ctxRef = useRef<AudioContext | null>(null);
+  const getCtx = () => {
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return null;
+    if (!ctxRef.current) ctxRef.current = new Ctx();
+    return ctxRef.current;
+  };
+  useEffect(() => {
+    const unlock = () => {
+      const ctx = getCtx();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+      // toca um "silêncio" para liberar no iOS
+      try { const b = ctx.createBuffer(1, 1, 22050); const s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0); } catch { /* */ }
+    };
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('touchend', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('touchend', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
   return useCallback((ok = true) => {
     try {
-      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
-      if (!Ctx) return;
-      const ctx = ctxRef.current || (ctxRef.current = new Ctx());
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'square';
-      o.frequency.value = ok ? 1650 : 320;
-      g.gain.value = 0.06;
-      o.connect(g); g.connect(ctx.destination);
-      o.start();
-      o.stop(ctx.currentTime + (ok ? 0.08 : 0.25));
+      const ctx = getCtx();
+      if (ctx) {
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = ok ? 1800 : 300;
+        g.gain.setValueAtTime(0.12, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (ok ? 0.12 : 0.35));
+        o.connect(g); g.connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + (ok ? 0.12 : 0.35));
+      }
     } catch { /* sem áudio */ }
-    try { navigator.vibrate?.(ok ? 40 : [80, 60, 80]); } catch { /* */ }
+    try { navigator.vibrate?.(ok ? 50 : [90, 60, 90]); } catch { /* */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
 
@@ -141,19 +172,19 @@ export function PosMobilePage() {
     if (p.currentStock != null && finalQty > p.currentStock) toast.warning(`Estoque de ${p.name}: ${p.currentStock}`);
   }, []);
 
-  // Leitura da câmera → busca exata
+  // Leitura da câmera: BIPE na hora da leitura → depois verifica o cadastro
   const onScan = useCallback(async (code: string) => {
     if (lookupBusy.current) return;
     lookupBusy.current = true;
+    beep(true);
     try {
       const { data } = await api.get('/pos/products/lookup', { params: { code } });
       const p = data?.data;
       if (p) {
         if (p.status && p.status !== 'ACTIVE') { beep(false); toast.error(`${p.name} está inativo`); return; }
-        beep(true);
         addProduct(p, 1);
       } else {
-        beep(false);
+        setTimeout(() => beep(false), 180);
         setNotFound(code);
       }
     } catch (e: any) {
@@ -368,26 +399,16 @@ export function PosMobilePage() {
         </div>
       )}
 
-      {/* Código não encontrado */}
+      {/* Código não cadastrado: vincular a produto existente / cadastrar novo / só vender */}
       {notFound && (
-        <Modal title="Código não cadastrado" icon={ScanBarcode} onClose={() => setNotFound(null)}>
-          <div className="text-center">
-            <div className="text-2xl font-bold tabular-nums tracking-wide">{notFound}</div>
-            <p className="text-sm text-slate-500 mt-1">Nenhum produto tem este código de barras.</p>
-          </div>
-          <div className="mt-4 space-y-2">
-            {isManager && (
-              <button onClick={() => { setLinkCode(notFound); setNotFound(null); setQuery(''); setSearchOpen(true); }}
-                className="w-full py-3 rounded-xl bg-violet-600 text-white font-bold flex items-center justify-center gap-2">
-                <Link2 className="w-4 h-4" /> Vincular a um produto
-              </button>
-            )}
-            <button onClick={() => { setNotFound(null); setQuery(''); setSearchOpen(true); }} className="w-full py-3 rounded-xl border border-slate-200 font-semibold flex items-center justify-center gap-2">
-              <KeyboardIcon className="w-4 h-4" /> Buscar pelo nome
-            </button>
-            {!isManager && <p className="text-[11px] text-slate-400 text-center">Peça ao gerente para cadastrar este código no produto.</p>}
-          </div>
-        </Modal>
+        <UnknownBarcodeModal
+          code={notFound}
+          isManager={isManager}
+          fmt={fmt}
+          decimals={decimals}
+          onClose={() => setNotFound(null)}
+          onAdded={(p) => { addProduct(p, 1); beep(true); setNotFound(null); }}
+        />
       )}
 
       {/* Menu */}

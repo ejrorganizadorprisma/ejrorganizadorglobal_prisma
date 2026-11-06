@@ -2,6 +2,7 @@ import { db } from '../config/database';
 import { SalesRepository } from '../repositories/sales.repository';
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../utils/errors';
 import { resolveCustomerPrice } from '@ejr/shared-types';
+import { ProductsService } from './products.service';
 
 /**
  * PDV / Caixa (venda de balcão).
@@ -237,6 +238,41 @@ export class PosService {
     const r = await db.query(`UPDATE products SET barcode = $1, updated_at = NOW() WHERE id = $2 RETURNING id`, [code, productId]);
     if (!r.rows[0]) throw new NotFoundError('Produto não encontrado');
     return this.lookupProduct(code);
+  }
+
+  /**
+   * Cadastro rápido de produto a partir de um código de barras lido no PDV
+   * (gerentes): nome, categoria, preço de venda, atacado opcional e estoque
+   * inicial. Usa as mesmas regras do cadastro de produtos.
+   */
+  async quickCreateProduct(user: User, input: {
+    name?: string; category?: string; salePrice?: number; wholesalePrice?: number; barcode?: string; initialStock?: number;
+  }) {
+    if (!MANAGER_ROLES.includes(user.role)) {
+      throw new ForbiddenError('Somente gerente/administrador pode cadastrar produto');
+    }
+    const name = String(input.name || '').trim();
+    if (name.length < 2) throw new BadRequestError('Informe o nome do produto');
+    const category = String(input.category || '').trim();
+    if (!category) throw new BadRequestError('Escolha a categoria');
+    const salePrice = int(input.salePrice);
+    if (salePrice <= 0) throw new BadRequestError('Informe o preço de venda');
+    const wholesalePrice = Math.max(0, int(input.wholesalePrice));
+    const barcode = String(input.barcode || '').trim() || null;
+    const initialStock = Math.max(0, int(input.initialStock));
+    const cur = (await db.query(`SELECT default_currency FROM system_settings LIMIT 1`)).rows[0]?.default_currency || 'PYG';
+
+    const products = new ProductsService();
+    const created: any = await products.create({
+      name, category, salePrice, wholesalePrice, costPrice: 0,
+      salePriceCurrency: cur, wholesalePriceCurrency: cur, costPriceCurrency: cur,
+      barcode, status: 'ACTIVE', minimumStock: 0, unit: 'UNIT',
+      observations: 'Cadastrado no PDV (leitura de código de barras)',
+    } as any);
+    if (initialStock > 0) {
+      await products.updateStock(created.id, initialStock, 'add', user.id, 'Estoque inicial (cadastro no PDV)');
+    }
+    return barcode ? this.lookupProduct(barcode) : this.lookupProduct(created.code);
   }
 
   /** Histórico de turnos (gerentes veem todos; operador vê os seus). */

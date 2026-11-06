@@ -55,6 +55,9 @@ router.get('/products/lookup', handle((req) => service.lookupProduct(String(req.
 // Vincular código de barras a um produto { barcode } (gerentes)
 router.post('/products/:id/barcode', handle((req) => service.setBarcode(user(req), req.params.id, req.body?.barcode)));
 
+// Cadastro rápido de produto com o código lido (gerentes)
+router.post('/products/quick', handle((req) => service.quickCreateProduct(user(req), req.body || {}), 201));
+
 // Finalizar venda
 router.post('/sales', handle((req) => service.createSale(user(req), req.body || {}), 201));
 
