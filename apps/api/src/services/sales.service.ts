@@ -119,6 +119,24 @@ export class SalesService {
       }
     }
 
+    // Crédito (crediário): o ÚLTIMO vencimento não pode passar do prazo máximo
+    // do cliente (customers.credit_max_days), contado a partir da data da venda.
+    // As parcelas vencem mensalmente a partir do 1º vencimento (ver
+    // sales.repository.ts:create), então a última = dueDate + (parcelas-1) meses.
+    const creditMaxDays = customer?.creditMaxDays != null ? Number(customer.creditMaxDays) : 0;
+    if (data.paymentMethod === 'CREDIT' && creditMaxDays > 0) {
+      const saleDate = new Date(data.saleDate || Date.now());
+      const lastDue = new Date(data.dueDate || saleDate);
+      lastDue.setUTCMonth(lastDue.getUTCMonth() + Math.max(1, data.installments || 1) - 1);
+      const toDay = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      const termDays = Math.round((toDay(lastDue) - toDay(saleDate)) / 86400000);
+      if (termDays > creditMaxDays) {
+        throw new BadRequestError(
+          `Vencimento acima do prazo de crédito do cliente: a última parcela vence em ${termDays} dias e o máximo permitido é ${creditMaxDays} dias`
+        );
+      }
+    }
+
     // OBS: Validação de estoque foi movida para DENTRO da transação
     // (sales.repository.ts:create) com SELECT FOR UPDATE — assim corridas
     // entre dois admins faturando ao mesmo tempo não estouram o estoque.

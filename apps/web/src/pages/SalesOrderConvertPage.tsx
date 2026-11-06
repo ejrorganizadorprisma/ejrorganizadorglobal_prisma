@@ -176,6 +176,19 @@ export function SalesOrderConvertPage() {
 
   const hasAnySelected = selectedRows.length > 0;
 
+  // Prazo de crédito: a ÚLTIMA parcela (mensais a partir do vencimento) não pode
+  // passar de hoje + prazo máximo do cliente. A API valida a mesma regra.
+  const lastInstallmentDate = (() => {
+    if (!dueDate) return '';
+    const [y, m, d] = dueDate.split('-').map(Number);
+    const dt = new Date(y, m - 1 + Math.max(1, installments) - 1, d);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  })();
+  const exceedsCreditTerm =
+    paymentMethod === 'CREDIT' && creditMaxDays > 0 && !!lastInstallmentDate &&
+    lastInstallmentDate > dateInDays(creditMaxDays);
+
   // Validação por item (qty>0 e <= original)
   const invalidQty = items.some((item, idx) => {
     const st = getState(item, idx);
@@ -213,6 +226,10 @@ export function SalesOrderConvertPage() {
     if (!paymentMethod) { toast.error('Selecione o metodo de pagamento'); return; }
     if (!hasAnySelected) { toast.error('Selecione ao menos um item para faturar'); return; }
     if (invalidQty) { toast.error('Quantidade inválida em algum item'); return; }
+    if (exceedsCreditTerm) {
+      toast.error(`Vencimento acima do prazo de crédito do cliente (máximo ${creditMaxDays} dias)`);
+      return;
+    }
     setNfOpen(true);
   };
 
@@ -588,8 +605,11 @@ export function SalesOrderConvertPage() {
                 {paymentMethod === 'CREDIT' && creditMaxDays > 0 && (
                   <p className="mt-1 text-xs text-gray-500">
                     Prazo máximo do cliente: {creditMaxDays} {creditMaxDays === 1 ? 'dia' : 'dias'}
-                    {dueDate && dueDate > dateInDays(creditMaxDays) && (
-                      <span className="text-amber-600"> — vencimento acima do prazo</span>
+                    {exceedsCreditTerm && (
+                      <span className="block text-red-600 font-medium">
+                        {installments > 1 ? 'A última parcela vence' : 'O vencimento está'} acima do prazo
+                        — faturamento bloqueado. Data máxima: {dateInDays(creditMaxDays).split('-').reverse().join('/')}
+                      </span>
                     )}
                   </p>
                 )}
@@ -621,7 +641,7 @@ export function SalesOrderConvertPage() {
           {/* Convert button */}
           <button
             onClick={openNf}
-            disabled={convertMutation.isPending || invoiceMutation.isPending || !hasAnySelected || invalidQty}
+            disabled={convertMutation.isPending || invoiceMutation.isPending || !hasAnySelected || invalidQty || exceedsCreditTerm}
             className="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2 font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {(convertMutation.isPending || invoiceMutation.isPending) ? (
