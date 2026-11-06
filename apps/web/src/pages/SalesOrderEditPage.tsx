@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSalesOrder, useUpdateSalesOrder, useReleaseSeparation, useReceiveSalesOrder } from '../hooks/useSalesOrders';
 import { useCustomers } from '../hooks/useCustomers';
+import { PaymentMethodPicker } from '../components/PaymentMethodPicker';
 import { useProducts } from '../hooks/useProducts';
 import { useServices } from '../hooks/useServices';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -122,6 +123,7 @@ export function SalesOrderEditPage() {
     customerId: '',
     orderDate: '',
     separationForecastDate: '',
+    paymentMethod: '',
     discount: 0,
     notes: '',
     internalNotes: '',
@@ -137,6 +139,7 @@ export function SalesOrderEditPage() {
         separationForecastDate: order.separationForecastDate
           ? new Date(order.separationForecastDate).toISOString().split('T')[0]
           : '',
+        paymentMethod: order.paymentMethod || '',
         discount: order.discount,
         notes: order.notes || '',
         internalNotes: order.internalNotes || '',
@@ -379,6 +382,7 @@ export function SalesOrderEditPage() {
         customerId: formData.customerId,
         orderDate: new Date(formData.orderDate).toISOString(),
         separationForecastDate: formData.separationForecastDate || null,
+        paymentMethod: formData.paymentMethod || null,
         discount: formData.discount,
         notes: formData.notes || null,
         internalNotes: formData.internalNotes || null,
@@ -406,7 +410,16 @@ export function SalesOrderEditPage() {
 
   const handleReceive = async () => {
     if (!id) return;
+    if (!formData.paymentMethod) {
+      toast.error('Defina a forma de pagamento antes de confirmar o recebimento');
+      return;
+    }
     try {
+      // Forma de pagamento ajustada pelo administrativo e ainda não salva:
+      // grava antes de receber, para não perder a alteração.
+      if (formData.paymentMethod !== (order.paymentMethod || '')) {
+        await updateOrder.mutateAsync({ id, data: { paymentMethod: formData.paymentMethod } });
+      }
       await receiveOrder.mutateAsync({ id, body: {} });
       // Permanece na página: a query é invalidada, o status vira RECEIVED e o
       // botão "Liberar Separação" passa a aparecer automaticamente.
@@ -566,6 +579,31 @@ export function SalesOrderEditPage() {
                 Data estimada para encaminhar à separação. Quando a data chega, o pedido é priorizado na lista.
               </p>
             </div>
+
+            {(() => {
+              const cust: any = customersData?.data.find((c: any) => c.id === formData.customerId);
+              const changed = formData.paymentMethod !== (order.paymentMethod || '');
+              return (
+                <div className={`md:col-span-3 rounded-xl border p-3 sm:p-4 ${canReceive ? 'border-sky-200 bg-sky-50/50' : 'border-gray-100'}`}>
+                  <PaymentMethodPicker
+                    required
+                    disabled={isReadOnly}
+                    value={formData.paymentMethod}
+                    onChange={(m) => setFormData((f) => ({ ...f, paymentMethod: m }))}
+                    allowedMethods={cust?.allowedPaymentMethods}
+                    creditMaxDays={cust?.creditMaxDays}
+                    label={canReceive ? 'Forma de pagamento (confira antes de receber)' : 'Forma de pagamento'}
+                    hint={
+                      !order.paymentMethod
+                        ? 'O vendedor não informou a forma de pagamento — defina aqui.'
+                        : changed
+                          ? 'Alterada pelo administrativo — será salva ao confirmar o recebimento ou ao salvar.'
+                          : 'Escolhida pelo vendedor. Pode ser ajustada pelo administrativo.'
+                    }
+                  />
+                </div>
+              );
+            })()}
 
             <div className="md:col-span-3">
               <button

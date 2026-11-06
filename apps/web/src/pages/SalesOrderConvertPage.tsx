@@ -88,7 +88,11 @@ export function SalesOrderConvertPage() {
   useEffect(() => {
     if (!order) return;
     if (!paymentMethod || !paymentOptions.some((o) => o.value === paymentMethod)) {
-      setPaymentMethod(paymentOptions[0]?.value || '');
+      // Prioridade: forma do pedido (vendedor/administrativo) → 1ª aceita pelo cliente.
+      const fromOrder = order.paymentMethod;
+      setPaymentMethod(
+        fromOrder && paymentOptions.some((o) => o.value === fromOrder) ? fromOrder : paymentOptions[0]?.value || ''
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order?.id, customerMethods.join(',')]);

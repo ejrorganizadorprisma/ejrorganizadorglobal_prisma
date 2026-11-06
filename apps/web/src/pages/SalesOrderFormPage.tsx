@@ -10,7 +10,7 @@ import { useRequirePermission } from '../hooks/useRequirePermission';
 import { useSystemSettings } from '../hooks/useSystemSettings';
 import { useFormatPrice, formatPriceValue } from '../hooks/useFormatPrice';
 import { convertPrice, getOtherCurrencies } from '../lib/currency';
-import { paymentMethodLabel } from '../lib/payment-methods';
+import { PaymentMethodPicker } from '../components/PaymentMethodPicker';
 import { AppPage } from '@ejr/shared-types';
 import { toast } from 'sonner';
 import { CurrencyInput } from '../components/CurrencyInput';
@@ -96,6 +96,7 @@ export function SalesOrderFormPage() {
     sellerId: '',
     orderDate: new Date().toISOString().split('T')[0],
     separationForecastDate: '',
+    paymentMethod: '',
     discount: 0,
     notes: '',
     internalNotes: '',
@@ -317,6 +318,10 @@ export function SalesOrderFormPage() {
       toast.error('Defina a data do pedido');
       return;
     }
+    if (!formData.paymentMethod) {
+      toast.error('Selecione a forma de pagamento');
+      return;
+    }
 
     try {
       const payload = {
@@ -324,6 +329,7 @@ export function SalesOrderFormPage() {
         sellerId: formData.sellerId || undefined,
         orderDate: new Date(formData.orderDate).toISOString(),
         separationForecastDate: formData.separationForecastDate || null,
+        paymentMethod: formData.paymentMethod || null,
         discount: formData.discount,
         notes: formData.notes || undefined,
         internalNotes: formData.internalNotes || undefined,
@@ -381,7 +387,12 @@ export function SalesOrderFormPage() {
                     respId && sellers.some((s: any) => s.id === respId)
                       ? respId
                       : '';
-                  setFormData({ ...formData, customerId, sellerId });
+                  // Forma de pagamento: 1ª aceita no cadastro do cliente (editável).
+                  const methods: string[] = customer?.allowedPaymentMethods || [];
+                  const paymentMethod = methods.includes(formData.paymentMethod)
+                    ? formData.paymentMethod
+                    : methods[0] || '';
+                  setFormData({ ...formData, customerId, sellerId, paymentMethod });
                 }}
                 required
                 className="w-full px-3 py-2 border rounded"
@@ -430,14 +441,6 @@ export function SalesOrderFormPage() {
                         </div>
                       </div>
                     )}
-                    {methods.length > 0 && (
-                      <div className="text-gray-500">
-                        <span>Pagamentos: </span>
-                        <span className="text-gray-700">
-                          {methods.map(paymentMethodLabel).join(', ')}
-                        </span>
-                      </div>
-                    )}
                     {hasCredit && c.creditMaxDays != null && c.creditMaxDays > 0 && (
                       <div className="text-gray-500">
                         <span>Crédito: </span>
@@ -450,6 +453,19 @@ export function SalesOrderFormPage() {
                 );
               })()}
             </div>
+
+            {selectedCustomer && (
+              <div className="md:col-span-3 md:order-last -mt-2 pt-4 border-t border-gray-100">
+                <PaymentMethodPicker
+                  required
+                  value={formData.paymentMethod}
+                  onChange={(m) => setFormData((f) => ({ ...f, paymentMethod: m }))}
+                  allowedMethods={selectedCustomer.allowedPaymentMethods}
+                  creditMaxDays={selectedCustomer.creditMaxDays}
+                  hint="O administrativo pode ajustar ao confirmar o recebimento."
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium mb-1">Data do Pedido *</label>

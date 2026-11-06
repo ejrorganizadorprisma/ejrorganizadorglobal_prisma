@@ -49,6 +49,7 @@ export interface SalesOrder {
   status: SalesOrderStatus;
   orderDate: string;
   separationForecastDate?: string; // Previsão de Separação: data estimada p/ ir à separação
+  paymentMethod?: string; // forma de pagamento escolhida no pedido (PaymentMethod); ajustável no recebimento
   subtotal: number;  // centavos
   discount: number;  // centavos
   total: number;     // centavos
@@ -154,6 +155,7 @@ export const CreateSalesOrderSchema = z.object({
   sellerId: z.string().optional(), // Se omitido, usa req.user.id
   orderDate: z.string().min(1, 'Data é obrigatória'),
   separationForecastDate: z.string().optional().nullable(),
+  paymentMethod: z.string().optional().nullable(),
   items: z.array(SalesOrderItemInputSchema).min(1, 'Adicione ao menos um item'),
   discount: z.number().int().min(0).default(0),
   notes: z.string().optional(),
@@ -166,6 +168,7 @@ export const UpdateSalesOrderSchema = z.object({
   customerId: z.string().min(1).optional(),
   orderDate: z.string().optional(),
   separationForecastDate: z.string().optional().nullable(),
+  paymentMethod: z.string().optional().nullable(),
   items: z.array(SalesOrderItemInputSchema).min(1).optional(),
   discount: z.number().int().min(0).optional(),
   status: z.nativeEnum(SalesOrderStatus).optional(),

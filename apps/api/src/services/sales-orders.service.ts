@@ -70,6 +70,19 @@ interface ConvertToSaleDTO {
   shippingNotes?: string;
 }
 
+/**
+ * A forma de pagamento do pedido tem que estar entre as aceitas no cadastro do
+ * cliente (allowed_payment_methods). Cliente sem lista = aceita qualquer uma
+ * (mesma regra do sales.service ao faturar).
+ */
+function assertPaymentMethodAllowed(paymentMethod: string | null | undefined, customer: any) {
+  if (!paymentMethod) return;
+  const allowed: string[] = customer?.allowedPaymentMethods || [];
+  if (allowed.length > 0 && !allowed.includes(paymentMethod)) {
+    throw new BadRequestError(`Forma de pagamento "${paymentMethod}" não é aceita para este cliente`);
+  }
+}
+
 export class SalesOrdersService {
   private repository = new SalesOrdersRepository();
   private quotesRepository = new QuotesRepository();
@@ -125,6 +138,7 @@ export class SalesOrdersService {
     if (!customer) {
       throw new BadRequestError('Cliente não encontrado');
     }
+    assertPaymentMethodAllowed(data.paymentMethod, customer);
     const isMobileSeller = userRole === 'SALESPERSON';
     if (isMobileSeller && customer.approvalStatus !== 'APPROVED') {
       throw new BadRequestError(
@@ -223,6 +237,13 @@ export class SalesOrdersService {
       if (!customer) {
         throw new BadRequestError('Cliente não encontrado');
       }
+    }
+
+    // Forma de pagamento (ajuste do administrativo no recebimento): tem que ser
+    // aceita pelo cliente do pedido. Só valida quando muda.
+    if (data.paymentMethod && data.paymentMethod !== existing.paymentMethod) {
+      const customer = await this.customersRepository.findById(data.customerId || existing.customerId);
+      assertPaymentMethodAllowed(data.paymentMethod, customer);
     }
 
     // Se items vieram mas discount não, manter o discount existente

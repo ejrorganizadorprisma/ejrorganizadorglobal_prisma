@@ -269,8 +269,8 @@ export class SalesOrdersRepository {
           id, order_number, customer_id, quote_id, seller_id, status,
           order_date, subtotal, discount, total, notes, internal_notes,
           latitude, longitude, created_by, approved_at, approved_by,
-          separation_forecast_date
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,${approvedAtSql},$16,$17)`,
+          separation_forecast_date, payment_method
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,${approvedAtSql},$16,$17,$18)`,
         [
           id,
           orderNumber,
@@ -289,6 +289,7 @@ export class SalesOrdersRepository {
           createdBy,
           approvedBy,
           dto.separationForecastDate || null,
+          dto.paymentMethod || null,
         ]
       );
 
@@ -368,8 +369,8 @@ export class SalesOrdersRepository {
         `INSERT INTO sales_orders (
           id, order_number, customer_id, seller_id, status, order_date,
           subtotal, discount, total, internal_notes, created_by,
-          pending_origin_order_id
-        ) VALUES ($1,$2,$3,$4,'PENDING',NOW(),$5,0,$6,$7,$8,$9)`,
+          pending_origin_order_id, payment_method
+        ) VALUES ($1,$2,$3,$4,'PENDING',NOW(),$5,0,$6,$7,$8,$9,$10)`,
         [
           id,
           orderNumber,
@@ -380,6 +381,7 @@ export class SalesOrdersRepository {
           `Pendência do pedido ${origin.orderNumber} (itens faltantes na separação).`,
           userId,
           origin.id,
+          origin.paymentMethod || null,
         ]
       );
 
@@ -426,6 +428,10 @@ export class SalesOrdersRepository {
       if (dto.orderDate !== undefined) {
         updates.push(`order_date = $${paramIndex++}`);
         values.push(dto.orderDate);
+      }
+      if (dto.paymentMethod !== undefined) {
+        updates.push(`payment_method = $${paramIndex++}`);
+        values.push(dto.paymentMethod || null);
       }
       if (dto.separationForecastDate !== undefined) {
         updates.push(`separation_forecast_date = $${paramIndex++}`);
@@ -1089,6 +1095,7 @@ export class SalesOrdersRepository {
       status: row.status as SalesOrderStatus,
       orderDate: row.order_date,
       separationForecastDate: row.separation_forecast_date || undefined,
+      paymentMethod: row.payment_method || undefined,
       subtotal: row.subtotal,
       discount: row.discount,
       total: row.total,
