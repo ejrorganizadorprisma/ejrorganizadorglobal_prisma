@@ -78,6 +78,14 @@ export interface ApproveReceiptItemDTO {
   rejectionReason?: string;
 }
 
+/** Busca registros por uma lista de ids numa consulta só e devolve um Map id → linha. */
+async function fetchByIds(sql: string, ids: any[]): Promise<Map<any, any>> {
+  const uniq = Array.from(new Set(ids.filter((x) => x != null && x !== '')));
+  if (uniq.length === 0) return new Map();
+  const r = await db.query(sql, [uniq]);
+  return new Map(r.rows.map((row: any) => [row.id, row]));
+}
+
 export class GoodsReceiptsRepository {
   // Gera número único para recebimento
   private async generateReceiptNumber(): Promise<string> {
@@ -163,37 +171,26 @@ export class GoodsReceiptsRepository {
     );
 
     // Buscar suppliers, supplier_orders e purchase_orders separadamente
+    // Relações da página inteira em 1 consulta cada (antes: até 3 por recebimento,
+    // em fila no pool max:1 do pgbouncer → ~2,7s para 20).
+    const suppliersById = await fetchByIds(
+      'SELECT id, name, document FROM suppliers WHERE id = ANY($1)',
+      result.rows.map((r: any) => r.supplier_id)
+    );
+    const supplierOrdersById = await fetchByIds(
+      'SELECT id, order_number FROM supplier_orders WHERE id = ANY($1)',
+      result.rows.map((r: any) => r.supplier_order_id)
+    );
+    const purchaseOrdersById = await fetchByIds(
+      'SELECT id, order_number FROM purchase_orders WHERE id = ANY($1)',
+      result.rows.map((r: any) => r.purchase_order_id)
+    );
+
     const receiptsWithRelations = await Promise.all(
       result.rows.map(async (receipt) => {
-        // Buscar supplier se existir
-        let supplier = null;
-        if (receipt.supplier_id) {
-          const supplierResult = await db.query(
-            'SELECT id, name, document FROM suppliers WHERE id = $1',
-            [receipt.supplier_id]
-          );
-          supplier = supplierResult.rows[0] || null;
-        }
-
-        // Buscar supplier order se existir
-        let supplier_order = null;
-        if (receipt.supplier_order_id) {
-          const soResult = await db.query(
-            'SELECT id, order_number FROM supplier_orders WHERE id = $1',
-            [receipt.supplier_order_id]
-          );
-          supplier_order = soResult.rows[0] || null;
-        }
-
-        // Buscar purchase order se existir (compatibilidade)
-        let purchase_order = null;
-        if (receipt.purchase_order_id) {
-          const poResult = await db.query(
-            'SELECT id, order_number FROM purchase_orders WHERE id = $1',
-            [receipt.purchase_order_id]
-          );
-          purchase_order = poResult.rows[0] || null;
-        }
+        const supplier = receipt.supplier_id ? suppliersById.get(receipt.supplier_id) || null : null;
+        const supplier_order = receipt.supplier_order_id ? supplierOrdersById.get(receipt.supplier_order_id) || null : null;
+        const purchase_order = receipt.purchase_order_id ? purchaseOrdersById.get(receipt.purchase_order_id) || null : null;
 
         return { ...receipt, supplier, supplier_order, purchase_order };
       })

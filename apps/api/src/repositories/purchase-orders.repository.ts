@@ -101,6 +101,14 @@ export interface UpdatePurchaseOrderDTO {
   items?: CreatePurchaseOrderItemDTO[];
 }
 
+/** Busca registros por uma lista de ids numa consulta só e devolve um Map id → linha. */
+async function fetchByIds(sql: string, ids: any[]): Promise<Map<any, any>> {
+  const uniq = Array.from(new Set(ids.filter((x) => x != null && x !== '')));
+  if (uniq.length === 0) return new Map();
+  const r = await db.query(sql, [uniq]);
+  return new Map(r.rows.map((row: any) => [row.id, row]));
+}
+
 export class PurchaseOrdersRepository {
   // Gera número único para ordem de compra
   private async generateOrderNumber(): Promise<string> {
@@ -215,27 +223,21 @@ export class PurchaseOrdersRepository {
       queryParams
     );
 
-    // Fetch suppliers and purchase requests separately to avoid LEFT JOIN issues with NULL values
+    // Fornecedores e solicitações da página inteira em 1 consulta cada
+    // (antes: 1–2 consultas por pedido, em fila no pool max:1).
+    const suppliersById = await fetchByIds(
+      'SELECT id, name, document FROM suppliers WHERE id = ANY($1)',
+      result.rows.map((o: any) => o.supplier_id)
+    );
+    const requestsById = await fetchByIds(
+      'SELECT id, request_number, title FROM purchase_requests WHERE id = ANY($1)',
+      result.rows.map((o: any) => o.purchase_request_id)
+    );
+
     const ordersWithRelations = await Promise.all(
       result.rows.map(async (order) => {
-        let supplier = null;
-        let purchaseRequest = null;
-
-        if (order.supplier_id) {
-          const supplierResult = await db.query(
-            'SELECT id, name, document FROM suppliers WHERE id = $1',
-            [order.supplier_id]
-          );
-          supplier = supplierResult.rows[0] || null;
-        }
-
-        if (order.purchase_request_id) {
-          const requestResult = await db.query(
-            'SELECT id, request_number, title FROM purchase_requests WHERE id = $1',
-            [order.purchase_request_id]
-          );
-          purchaseRequest = requestResult.rows[0] || null;
-        }
+        const supplier = order.supplier_id ? suppliersById.get(order.supplier_id) || null : null;
+        const purchaseRequest = order.purchase_request_id ? requestsById.get(order.purchase_request_id) || null : null;
 
         return {
           ...order,

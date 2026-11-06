@@ -293,22 +293,31 @@ export class SupplierOrdersRepository {
     const countResult = await db.query(countQuery, values.slice(0, -2));
     const total = countResult.rows[0]?.count || 0;
 
-    // Buscar primeiro item de cada pedido
-    const ordersWithFirstItem = await Promise.all(
-      result.rows.map(async (order) => {
-        const itemQuery = `
-          SELECT
+    // Primeiro item de cada pedido — UMA consulta para a página inteira
+    // (DISTINCT ON), em vez de 1 por pedido (fila no pool max:1 do pgbouncer).
+    const orderIds = result.rows.map((o: any) => o.id);
+    const firstItems = orderIds.length
+      ? (await db.query(
+          `
+          SELECT DISTINCT ON (soi.supplier_order_id)
             soi.*,
             p.id as product_id, p.code as product_code, p.name as product_name, p.factory_code as product_factory_code,
             p.sale_price as product_sale_price, p.sale_price_currency as product_sale_price_currency,
             p.wholesale_price as product_wholesale_price, p.wholesale_price_currency as product_wholesale_price_currency
           FROM supplier_order_items soi
           LEFT JOIN products p ON p.id = soi.product_id
-          WHERE soi.supplier_order_id = $1
-          ORDER BY soi.created_at ASC
-          LIMIT 1
-        `;
-        const itemResult = await db.query(itemQuery, [order.id]);
+          WHERE soi.supplier_order_id = ANY($1)
+          ORDER BY soi.supplier_order_id, soi.created_at ASC, soi.id ASC -- desempate estável
+        `,
+          [orderIds]
+        )).rows
+      : [];
+    const firstItemByOrder = new Map(firstItems.map((it: any) => [it.supplier_order_id, it]));
+
+    const ordersWithFirstItem = await Promise.all(
+      result.rows.map(async (order) => {
+        const first = firstItemByOrder.get(order.id);
+        const itemResult = { rows: first ? [first] : [] };
 
         const items = itemResult.rows.map(item => this.mapItemToDTO(item));
 
