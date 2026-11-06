@@ -903,7 +903,7 @@ export class SalesRepository {
     return r.rows[0]?.nf_number ?? null;
   }
 
-  private async generateSaleNumber(client?: any): Promise<string> {
+  async generateSaleNumber(client?: any): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `VND-${year}-`;
 

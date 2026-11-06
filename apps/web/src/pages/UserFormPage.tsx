@@ -588,6 +588,7 @@ export function UserFormPage() {
                 <option value="SALESPERSON">Vendedor</option>
                 <option value="STOCK">Estoque</option>
                 <option value="EXPEDITION">Expedidor</option>
+                <option value="CASHIER">Operador de Caixa</option>
                 <option value="PRODUCTION">Produção</option>
                 <option value="TECHNICIAN">Técnico</option>
                 <option value="MONITOR">Monitor</option>

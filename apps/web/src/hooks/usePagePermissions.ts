@@ -51,6 +51,7 @@ const routeToPageMap: Record<string, AppPage> = {
   '/estoque/separacao': 'separation' as AppPage,
   '/expedicao': 'expedition' as AppPage,
   '/cadastros/transportadoras': 'carriers' as AppPage,
+  '/pdv': 'pos' as AppPage,
 };
 
 export function usePagePermissions() {

@@ -13,6 +13,8 @@ const roleLabels: Record<string, string> = {
   COORDINATOR: 'Coordenador(a)',
   SALESPERSON: 'Vendedor',
   STOCK: 'Estoque',
+  EXPEDITION: 'Expedidor',
+  CASHIER: 'Operador de Caixa',
   PRODUCTION: 'Produção',
   TECHNICIAN: 'Técnico',
   MONITOR: 'Monitor',
@@ -25,6 +27,8 @@ const roleColors: Record<string, string> = {
   COORDINATOR: 'bg-teal-100 text-teal-800',
   SALESPERSON: 'bg-yellow-100 text-yellow-800',
   STOCK: 'bg-orange-100 text-orange-800',
+  EXPEDITION: 'bg-sky-100 text-sky-800',
+  CASHIER: 'bg-emerald-100 text-emerald-800',
   PRODUCTION: 'bg-indigo-100 text-indigo-800',
   TECHNICIAN: 'bg-gray-100 text-gray-800',
   MONITOR: 'bg-cyan-100 text-cyan-800',
@@ -180,6 +184,8 @@ export function UsersPage() {
               <option value="COORDINATOR">Coordenador(a)</option>
               <option value="SALESPERSON">Vendedor</option>
               <option value="STOCK">Estoque</option>
+              <option value="EXPEDITION">Expedidor</option>
+              <option value="CASHIER">Operador de Caixa</option>
               <option value="PRODUCTION">Produção</option>
               <option value="TECHNICIAN">Técnico</option>
               <option value="MONITOR">Monitor</option>

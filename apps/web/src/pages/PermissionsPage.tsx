@@ -13,6 +13,7 @@ const roleLabels: Record<UserRole, string> = {
   SALESPERSON: 'Vendedor',
   STOCK: 'Estoque',
   EXPEDITION: 'Expedidor',
+  CASHIER: 'Operador de Caixa',
   PRODUCTION: 'Produção',
   TECHNICIAN: 'Técnico',
   MONITOR: 'Monitor',
@@ -51,6 +52,8 @@ const pageLabels: Record<AppPage, string> = {
   separation: 'Separação (Estoque)',
   expedition: 'Expedição',
   carriers: 'Transportadoras',
+  financial: 'Financeiro',
+  pos: 'PDV / Caixa',
 };
 
 const actionLabels: Record<PageAction, string> = {

@@ -14,7 +14,9 @@ export function LoginPage() {
     e.preventDefault();
     try {
       await login({ email, password });
-      navigate('/dashboard');
+      // Operador de Caixa entra direto no PDV.
+      const role = useAuth.getState().user?.role;
+      navigate(role === 'CASHIER' ? '/pdv' : '/dashboard');
     } catch (error) {
       // Erro já tratado no hook
     }

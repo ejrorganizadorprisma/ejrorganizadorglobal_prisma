@@ -36,6 +36,7 @@ export enum AppPage {
   EXPEDITION = 'expedition',   // Expedição / coleta pela transportadora
   CARRIERS = 'carriers',       // Cadastro de transportadoras
   FINANCIAL = 'financial',     // Caixa, contas a pagar/receber, despesas, devedores
+  POS = 'pos',                 // PDV / Caixa (venda de balcão)
 }
 
 // Available actions for each page

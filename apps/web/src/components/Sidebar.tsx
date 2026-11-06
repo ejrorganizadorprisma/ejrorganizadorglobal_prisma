@@ -37,6 +37,7 @@ import {
   CalendarDays,
   type LucideIcon,
   LifeBuoy,
+  ScanBarcode,
 } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { usePagePermissions } from '../hooks/usePagePermissions';
@@ -165,6 +166,7 @@ const menuSections: MenuSection[] = [
         submenu: [
           { name: 'Lista de Vendas', path: '/sales', icon: DollarSign, page: 'sales' as AppPage },
           { name: 'Nova Venda', path: '/sales/new', icon: Plus, page: 'sales' as AppPage },
+          { name: 'PDV / Caixa', path: '/pdv', icon: ScanBarcode, page: 'pos' as AppPage },
         ],
       },
       {

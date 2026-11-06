@@ -109,6 +109,7 @@ import { FinancialPayablesPage } from './pages/FinancialPayablesPage';
 import { ExpensesPage } from './pages/ExpensesPage';
 import { FinancialDebtorsPage } from './pages/FinancialDebtorsPage';
 import { CashBoxPage } from './pages/CashBoxPage';
+import { PosPage } from './pages/PosPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -162,6 +163,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       { path: '/collections', page: 'collections' as AppPage },
       { path: '/commissions', page: 'commissions' as AppPage },
       { path: '/gps-log', page: 'gps_log' as AppPage },
+      { path: '/estoque/separacao', page: 'separation' as AppPage },
+      { path: '/expedicao', page: 'expedition' as AppPage },
+      { path: '/pdv', page: 'pos' as AppPage },
     ];
 
     const firstAccessiblePage = accessiblePages.find(p => hasPermission(p.page));
@@ -379,6 +383,15 @@ function AppRoutes() {
         }
       />
       {/* Catálogo imersivo do orçamento (fullscreen, sem MainLayout) */}
+      {/* PDV / Caixa — tela cheia, sem MainLayout */}
+      <Route
+        path="/pdv"
+        element={
+          <ProtectedRoute>
+            <PosPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/quotes/:id/catalog"
         element={

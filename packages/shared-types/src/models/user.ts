@@ -9,6 +9,7 @@ export enum UserRole {
   SALESPERSON = 'SALESPERSON',
   STOCK = 'STOCK',
   EXPEDITION = 'EXPEDITION', // Expedidor — confere expedição e fecha coleta pela transportadora
+  CASHIER = 'CASHIER', // Operador de Caixa — só acessa o PDV
   PRODUCTION = 'PRODUCTION',
   TECHNICIAN = 'TECHNICIAN',
   MONITOR = 'MONITOR',
